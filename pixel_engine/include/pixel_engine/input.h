@@ -1,3 +1,6 @@
+#ifndef PIXEL_ENGINE_INPUT_H_
+#define PIXEL_ENGINE_INPUT_H_
+
 #include <GLFW/glfw3.h>
 
 #include <map>
@@ -219,3 +222,5 @@ namespace pixel_engine {
         };
     }  // namespace input
 }  // namespace pixel_engine
+
+#endif  // PIXEL_ENGINE_INPUT_H_

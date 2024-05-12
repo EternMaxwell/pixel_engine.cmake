@@ -1,3 +1,6 @@
+#ifndef PIXEL_ENGINE_CORE_H_
+#define PIXEL_ENGINE_CORE_H_
+
 namespace pixel_engine {
     class Application {
        public:
@@ -26,3 +29,5 @@ namespace pixel_engine {
         ~Application() {}
     };
 }  // namespace pixel_engine
+
+#endif  // PIXEL_ENGINE_CORE_H_

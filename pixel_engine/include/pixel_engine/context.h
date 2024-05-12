@@ -1,3 +1,6 @@
+#ifndef PIXEL_ENGINE_CONTEXT_H_
+#define PIXEL_ENGINE_CONTEXT_H_
+
 #include <GLFW/glfw3.h>
 
 #include <iostream>
@@ -21,3 +24,5 @@ namespace pixel_engine {
 
     }  // namespace context
 }  // namespace pixel_engine
+
+#endif  // PIXEL_ENGINE_CONTEXT_H_

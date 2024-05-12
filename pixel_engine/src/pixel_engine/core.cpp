@@ -1,5 +1,4 @@
 #include "pixel_engine/core.h"
-
-namespace pixel_engine {
-    class Application;
-}  // namespace pixel_engine
+#include "pixel_engine/render.h"
+#include "pixel_engine/input.h"
+#include "pixel_engine/context.h"

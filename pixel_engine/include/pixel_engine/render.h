@@ -1,3 +1,6 @@
+#ifndef PIXEL_ENGINE_RENDER_H_
+#define PIXEL_ENGINE_RENDER_H_
+
 #include <GLFW/glfw3.h>
 
 #include <iostream>
@@ -124,3 +127,5 @@ namespace pixel_engine {
         };
     }  // namespace render
 }  // namespace pixel_engine
+
+#endif  // PIXEL_ENGINE_RENDER_H_

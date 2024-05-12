@@ -1,3 +1,6 @@
+#ifndef PIXEL_ENGINE_RENDER_RENDERER_GL_H_
+#define PIXEL_ENGINE_RENDER_RENDERER_GL_H_
+
 #include <GLFW/glfw3.h>
 #include <gl/GL.h>
 
@@ -5,12 +8,13 @@
 
 namespace pixel_engine {
     namespace render {
-        class OpenGLRenderer : Renderer {
+        class OpenGLRenderer : pixel_engine::render::Renderer {
            private:
-            Window* window;
+            pixel_engine::render::Window* window;
 
            public:
-            OpenGLRenderer(Window* window) : window(window) {}
+            OpenGLRenderer(pixel_engine::render::Window* window)
+                : window(window) {}
 
             void init() {}
 
@@ -27,3 +31,5 @@ namespace pixel_engine {
         };
     }  // namespace render
 }  // namespace pixel_engine
+
+#endif  // PIXEL_ENGINE_RENDER_RENDERER_GL_H_

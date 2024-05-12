@@ -1,4 +1,5 @@
-﻿#include <pixel_engine/context.h>?
+﻿#include <pixel_engine/context.h>
+#include <pixel_engine/input.h>
 #include <pixel_engine/render/renderer_gl.h>
 
 using namespace pixel_engine;
@@ -17,10 +18,14 @@ int main() {
     render::OpenGLRenderer* renderer = new render::OpenGLRenderer(window);
     renderer->init();
 
+    input::InputTool inputTool(window);
+
     window->show();
 
     while (!window->windowShouldClose()) {
         context->pollEvents();
+        inputTool.input();
+
         renderer->beginFrame();
         renderer->endFrame();
     }
