@@ -87,10 +87,15 @@ namespace pixel_engine {
                         mouseButtonState.second = STATE_JUST_RELEASED;
                     }
                 }
+                int windowWidth, windowHeight;
+                window->getSize(&windowWidth, &windowHeight);
                 mousePosPrev[0] = mousePos[0];
                 mousePosPrev[1] = mousePos[1];
                 glfwGetCursorPos(window->getGLFWWindow(), &mousePos[0],
                                  &mousePos[1]);
+                mousePos[0] =
+                    ((mousePos[0] / windowWidth) * 2 - 1) * window->getRatio();
+                mousePos[1] = 1 - (mousePos[1] / windowHeight) * 2;
             }
 
             /*! @brief Get if key is currently pressed

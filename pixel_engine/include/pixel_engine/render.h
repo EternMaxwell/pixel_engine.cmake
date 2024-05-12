@@ -10,6 +10,8 @@ namespace pixel_engine {
         class Window {
            private:
             GLFWwindow* window;
+            int preservedWidth, preservedHeight;
+            int preservedPosX, preservedPosY;
 
            public:
             Window(int width, int height, const std::string& title) {
@@ -57,13 +59,46 @@ namespace pixel_engine {
                 return this;
             }
 
+            bool isFocused() {
+                return glfwGetWindowAttrib(window, GLFW_FOCUSED);
+            }
+
             void getSize(int* width, int* height) {
                 glfwGetWindowSize(window, width, height);
+            }
+
+            void getPos(int* x, int* y) { glfwGetWindowPos(window, x, y); }
+
+            double getRatio() {
+                int width, height;
+                getSize(&width, &height);
+                return (double)width / (double)height;
             }
 
             void setShouldClose(bool value) {
                 glfwSetWindowShouldClose(window, value);
             }
+
+            void setFullscreen(bool value) {
+                GLFWmonitor* monitor = glfwGetWindowMonitor(window);
+                if (value && monitor == NULL) {
+                    // preserve pos and size
+                    glfwGetWindowSize(window, &preservedWidth,
+                                      &preservedHeight);
+                    glfwGetWindowPos(window, &preservedPosX, &preservedPosY);
+
+                    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+                    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+                    glfwSetWindowMonitor(window, monitor, 0, 0, mode->width,
+                                         mode->height, mode->refreshRate);
+                } else if (monitor != NULL) {
+                    glfwSetWindowMonitor(window, nullptr, preservedPosX,
+                                         preservedPosY, preservedWidth,
+                                         preservedHeight, 0);
+                }
+            }
+
+            bool isWindowed() { return glfwGetWindowMonitor(window) == NULL; }
 
             void setTitle(const std::string& title) {
                 glfwSetWindowTitle(window, title.c_str());
@@ -81,6 +116,10 @@ namespace pixel_engine {
                                int maxHeight) {
                 glfwSetWindowSizeLimits(window, minWidth, minHeight, maxWidth,
                                         maxHeight);
+            }
+
+            void setFrameRate(int fps) {
+                glfwSetWindowAttrib(window, GLFW_REFRESH_RATE, fps);
             }
 
             void setIcon(const GLFWimage* images) {

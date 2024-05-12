@@ -13,7 +13,7 @@ int main() {
             ->setWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5)
             ->setWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE)
             ->setWindowHint(GLFW_VISIBLE, GLFW_FALSE)
-            ->createWindow(800, 600, "Pixel Engine");
+            ->createWindow(480 * 3, 270 * 3, "Pixel Engine");
     window->makeContextCurrent();
     render::OpenGLRenderer* renderer = new render::OpenGLRenderer(window);
     renderer->init();
@@ -25,6 +25,14 @@ int main() {
     while (!window->windowShouldClose()) {
         context->pollEvents();
         inputTool.input();
+
+        std::cout << "Scroll offset: " << input::scrollOffset[0] << ", "
+                  << input::scrollOffset[1] << std::endl;
+        double posx, posy;
+        inputTool.getMousePos(&posx, &posy);
+        std::cout << "Mouse pos: " << posx << ", " << posy << std::endl;
+        std::cout << "Window focused: "
+                  << (window->isFocused() ? "true" : "false") << std::endl;
 
         renderer->beginFrame();
         renderer->endFrame();
