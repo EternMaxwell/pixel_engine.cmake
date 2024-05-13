@@ -15,8 +15,13 @@ namespace pixel_engine {
         static const int STATE_JUST_PRESSED = 2;
         static const int STATE_JUST_RELEASED = 3;
 
-        static double scrollOffset[2];
-        static bool scrollOffsetChanged;
+        static struct ScrollData {
+            double xoffset;
+            double yoffset;
+            bool changed;
+        };
+
+        static std::map<GLFWwindow*, ScrollData> scrollDatas;
 
         class InputTool {
            public:
@@ -29,27 +34,27 @@ namespace pixel_engine {
                 mousePos[1] = 0;
                 mousePosPrev[0] = 0;
                 mousePosPrev[1] = 0;
-                scrollOffset[0] = 0;
-                scrollOffset[1] = 0;
-                scrollOffsetChanged = false;
+                scrollDatas[window->getGLFWWindow()] = {0, 0, 0};
 
                 glfwSetScrollCallback(
                     window->getGLFWWindow(),
                     [](GLFWwindow* window, double xoffset, double yoffset) {
-                        scrollOffset[0] = xoffset;
-                        scrollOffset[1] = yoffset;
-                        scrollOffsetChanged = true;
+                        ScrollData& scrollData = scrollDatas[window];
+                        scrollData.xoffset = xoffset;
+                        scrollData.yoffset = yoffset;
+                        scrollData.changed = true;
                     });
             }
 
             /*! @brief Updates the input state.
              */
             void input() {
-                if (scrollOffsetChanged) {
-                    scrollOffsetChanged = false;
+                ScrollData& scrollData = scrollDatas[window->getGLFWWindow()];
+                if (!scrollData.changed) {
+                    scrollData.xoffset = 0;
+                    scrollData.yoffset = 0;
                 } else {
-                    scrollOffset[0] = 0;
-                    scrollOffset[1] = 0;
+                    scrollData.changed = false;
                 }
                 keysJustPressed.clear();
                 mouseButtonsJustReleased.clear();
@@ -93,8 +98,7 @@ namespace pixel_engine {
                 mousePosPrev[1] = mousePos[1];
                 glfwGetCursorPos(window->getGLFWWindow(), &mousePos[0],
                                  &mousePos[1]);
-                mousePos[0] =
-                    ((mousePos[0] / windowWidth) * 2 - 1) * window->getRatio();
+                mousePos[0] = (mousePos[0] / windowWidth) * 2 - 1;
                 mousePos[1] = 1 - (mousePos[1] / windowHeight) * 2;
             }
 
@@ -192,6 +196,10 @@ namespace pixel_engine {
 
             /*! @brief Get the current mouse position
              * @return The current mouse position
+             * @param x The x position of the mouse from -1 to 1 with -1 being
+             * the left of the window
+             * @param y The y position of the mouse from -1 to 1 with -1 being
+             * the bottom of the window
              */
             void getMousePos(double* x, double* y) {
                 *x = mousePos[0];
@@ -200,6 +208,10 @@ namespace pixel_engine {
 
             /*! @brief Get the previous mouse position
              * @return The previous mouse position
+             * @param x The x position of the mouse from -1 to 1 with -1 being
+             * the left of the window
+             * @param y The y position of the mouse from -1 to 1 with -1 being
+             * the bottom of the window
              */
             void getMousePosPrev(double* x, double* y) {
                 *x = mousePosPrev[0];
@@ -210,8 +222,9 @@ namespace pixel_engine {
              * @return The scroll offset
              */
             void getScrollOffset(double* x, double* y) {
-                *x = scrollOffset[0];
-                *y = scrollOffset[1];
+                ScrollData& scrollData = scrollDatas[window->getGLFWWindow()];
+                *x = scrollData.xoffset;
+                *y = scrollData.yoffset;
             }
 
             ~InputTool() {}

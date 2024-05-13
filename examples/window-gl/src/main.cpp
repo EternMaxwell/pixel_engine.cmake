@@ -26,8 +26,11 @@ int main() {
         context->pollEvents();
         inputTool.input();
 
-        std::cout << "Scroll offset: " << input::scrollOffset[0] << ", "
-                  << input::scrollOffset[1] << std::endl;
+        double scrollx, scrolly;
+        inputTool.getScrollOffset(&scrollx, &scrolly);
+        std::cout << "Scroll offset: " << scrollx << ", " << scrolly
+                  << std::endl;
+
         double posx, posy;
         inputTool.getMousePos(&posx, &posy);
         std::cout << "Mouse pos: " << posx << ", " << posy << std::endl;
