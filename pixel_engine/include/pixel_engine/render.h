@@ -164,6 +164,8 @@ namespace pixel_engine {
             virtual void beginFrame() = 0;
             virtual void endFrame() = 0;
         };
+
+        class Pipeline {};
     }  // namespace render
 }  // namespace pixel_engine
 
