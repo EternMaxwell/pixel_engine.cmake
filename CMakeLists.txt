@@ -11,6 +11,8 @@ endif()
 
 project ("pixel_engine.cmake")
 
+set(CMAKE_CXX_STANDARD 20)
+
 #prepare third-party
 set(VULKAN_SDK_DIR "C:/VulkanSDK/1.3.280.0")
 set(VULKAN_LIB ${VULKAN_SDK_DIR}/Lib/vulkan-1.lib)
@@ -21,5 +23,6 @@ file(GLOB_RECURSE VULKAN_LIBS ${VULKAN_LIB_DIR} vulkan-1.lib glslang.lib)
 find_package(OpenGL REQUIRED)
 
 #sub directories
+add_subdirectory (lib/entt)
 add_subdirectory (pixel_engine)
 add_subdirectory (examples)
