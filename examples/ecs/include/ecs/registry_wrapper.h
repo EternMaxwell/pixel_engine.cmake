@@ -1,6 +1,7 @@
 #pragma once
 
 #include <entt/entity/registry.hpp>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <set>
@@ -42,6 +43,26 @@ namespace ecs_trial {
             return entity;
         }
 
+        template <typename... Args>
+        auto with_child(const entt::entity& entity, Args... args) {
+            auto child = spawn(args...);
+            m_parent_tree[entity].insert(child);
+            return child;
+        }
+
+        void despawn(const entt::entity& entity) { m_registry.destroy(entity); }
+
+        void despawn_recurse(const entt::entity& entity) {
+            std::cout << "despawning " << static_cast<int>(entity) << std::endl;
+            m_registry.destroy(entity);
+
+            for (auto child : m_parent_tree[entity]) {
+                std::cout << "despawning child " << static_cast<int>(child)
+                          << std::endl;
+                m_registry.destroy(child);
+            }
+        }
+
         void end() {}
     };
 
@@ -62,8 +83,8 @@ namespace ecs_trial {
 
         auto single() {
             return *(registry.view<Qus...>(entt::exclude_t<Exs...>{})
-                        .each()
-                        .begin());
+                         .each()
+                         .begin());
         }
     };
 
@@ -91,8 +112,9 @@ namespace ecs_trial {
          */
         template <typename T, typename... Args>
         std::tuple<T, Args...> get_values() {
-            static_assert(std::same_as<T, Command> || is_template_of<Query, T>::value,
-                          "an illegal argument type is used in systems.");
+            static_assert(
+                std::same_as<T, Command> || is_template_of<Query, T>::value,
+                "an illegal argument type is used in systems.");
             if constexpr (std::same_as<T, Command>) {
                 if constexpr (sizeof...(Args) > 0) {
                     return std::tuple_cat(std::make_tuple(command()),
