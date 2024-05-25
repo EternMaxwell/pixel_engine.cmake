@@ -124,19 +124,15 @@ namespace ecs_trial {
     template <typename ResT>
     class Resource {
        private:
-        std::optional<ResT> m_res;
+        std::any* m_res;
 
        public:
-        Resource(const std::unordered_map<size_t, std::any>& resources) {
-            auto find_res = resources.find(typeid(ResT).hash_code());
-            if (find_res != resources.end()) {
-                m_res = std::optional(std::any_cast<ResT>(find_res->second));
-            } else {
-                m_res = std::optional<ResT>{};
-            }
-        }
+        Resource(std::any* resource) : m_res(resource) {}
+        Resource() : m_res(nullptr) {}
 
-        std::optional<ResT>& get() { return m_res; }
+        bool has_value() { return m_res->has_value(); }
+        std::any& get() { return *m_res; }
+        ResT& value() { return std::any_cast<ResT&>(*m_res); }
     };
 
     class App {
@@ -157,6 +153,31 @@ namespace ecs_trial {
             process(func, tuple,
                     std::make_index_sequence<std::tuple_size<Tuple>::value>());
         }
+
+        template <typename T>
+        struct get_resource {};
+
+        template <template <typename...> typename Template, typename Arg>
+        struct get_resource<Template<Arg>> {
+            friend class App;
+            friend class Resource<Arg>;
+
+           private:
+            App& m_app;
+
+           public:
+            get_resource(App& app) : m_app(app) {}
+
+            Resource<Arg> value() {
+                if (m_app.m_resources.find(typeid(Arg).hash_code()) !=
+                    m_app.m_resources.end()) {
+                    return Resource<Arg>(
+                        &m_app.m_resources[typeid(Arg).hash_code()]);
+                } else {
+                    return Resource<Arg>();
+                }
+            }
+        };
 
         /*!
          * @brief This is where the systems get their parameters by type.
@@ -184,7 +205,7 @@ namespace ecs_trial {
                     return std::make_tuple(query);
                 }
             } else if constexpr (is_template_of<Resource, T>::value) {
-                T res(m_resources);
+                T res = get_resource<T>(*this).value();
                 if constexpr (sizeof...(Args) > 0) {
                     return std::tuple_cat(std::make_tuple(res),
                                           get_values<Args...>());

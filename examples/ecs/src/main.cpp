@@ -53,9 +53,9 @@ void despawn(ecs_trial::Command command,
 }
 
 void add_res(ecs_trial::Command command) {
-	std::cout << "add_res" << std::endl;
+    std::cout << "add_res" << std::endl;
     command.insert_resource(Health{.life = 100.0f});
-	std::cout << std::endl;
+    std::cout << std::endl;
 }
 
 void print(
@@ -64,7 +64,7 @@ void print(
     std::cout << "print" << std::endl;
     auto [entity, health, pos] = query.single().value();
     std::cout << "single entity: " << static_cast<int>(entity) << ": "
-			  << health.life << std::endl;
+              << health.life << std::endl;
 
     for (auto [entity, health, pos] : query.iter()) {
         std::cout << static_cast<int>(entity) << ": " << health.life
@@ -73,12 +73,19 @@ void print(
     std::cout << std::endl;
 }
 
-void print_res(ecs_trial::Resource<Health> res) {
-	std::cout << "print_res" << std::endl;
-    auto get_res = res.get();
-    if (get_res.has_value()) {
-		std::cout << "resource: " << get_res.value().life << std::endl;
-	}
+void print_res(ecs_trial::Resource<const Health> res) {
+    std::cout << "print_res" << std::endl;
+    if (res.has_value()) {
+        std::cout << "resource: " << res.value().life << std::endl;
+    }
+    std::cout << std::endl;
+}
+
+void change_res(ecs_trial::Resource<Health> res) {
+    std::cout << "change_res" << std::endl;
+    if (res.has_value()) {
+        res.value().life = 50.0f;
+    }
     std::cout << std::endl;
 }
 
@@ -88,6 +95,7 @@ int main() {
     app.run_system(create_child).run_system(print);
     app.run_system(despawn).run_system(print);
     app.run_system(add_res).run_system(print_res);
+    app.run_system(change_res).run_system(print_res);
 
     return 0;
 }
