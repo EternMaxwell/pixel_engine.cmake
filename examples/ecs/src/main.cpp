@@ -81,6 +81,16 @@ void print_res(ecs_trial::Resource<const Health> res) {
     std::cout << std::endl;
 }
 
+void access_not_exist_res(ecs_trial::Resource<Position> res) {
+    std::cout << "access_not_exist_res" << std::endl;
+    if (res.has_value()) {
+        std::cout << "resource: " << res.value().x << std::endl;
+    } else {
+        std::cout << "resource not exist" << std::endl;
+    }
+    std::cout << std::endl;
+}
+
 void change_res(ecs_trial::Resource<Health> res) {
     std::cout << "change_res" << std::endl;
     if (res.has_value()) {
@@ -96,6 +106,7 @@ int main() {
     app.run_system(despawn).run_system(print);
     app.run_system(add_res).run_system(print_res);
     app.run_system(change_res).run_system(print_res);
+    app.run_system(access_not_exist_res);
 
     return 0;
 }

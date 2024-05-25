@@ -124,14 +124,13 @@ namespace ecs_trial {
     template <typename ResT>
     class Resource {
        private:
-        std::any* m_res;
+        std::any* const m_res;
 
        public:
         Resource(std::any* resource) : m_res(resource) {}
         Resource() : m_res(nullptr) {}
 
-        bool has_value() { return m_res->has_value(); }
-        std::any& get() { return *m_res; }
+        bool has_value() { return m_res != nullptr && m_res->has_value(); }
         ResT& value() { return std::any_cast<ResT&>(*m_res); }
     };
 
