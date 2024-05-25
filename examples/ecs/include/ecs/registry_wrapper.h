@@ -1,11 +1,15 @@
 #pragma once
 
+#include <any>
 #include <entt/entity/registry.hpp>
 #include <iostream>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <tuple>
+#include <type_traits>
+#include <unordered_map>
 
 namespace ecs_trial {
     template <template <typename...> typename Template, typename T>
@@ -22,6 +26,7 @@ namespace ecs_trial {
        private:
         entt::registry& m_registry;
         std::unordered_map<entt::entity, std::set<entt::entity>>& m_parent_tree;
+        std::unordered_map<size_t, std::any>& m_resources;
 
         template <typename T, typename... Args>
         void emplace_internal(entt::entity entity, T arg, Args... args) {
@@ -34,8 +39,11 @@ namespace ecs_trial {
        public:
         Command(entt::registry& registry,
                 std::unordered_map<entt::entity, std::set<entt::entity>>&
-                    relation_tree)
-            : m_registry(registry), m_parent_tree(relation_tree) {}
+                    relation_tree,
+                std::unordered_map<size_t, std::any>& resources)
+            : m_registry(registry),
+              m_parent_tree(relation_tree),
+              m_resources(resources) {}
         template <typename... Args>
         auto spawn(Args... args) {
             auto entity = m_registry.create();
@@ -53,13 +61,30 @@ namespace ecs_trial {
         void despawn(const entt::entity& entity) { m_registry.destroy(entity); }
 
         void despawn_recurse(const entt::entity& entity) {
-            std::cout << "despawning " << static_cast<int>(entity) << std::endl;
             m_registry.destroy(entity);
-
             for (auto child : m_parent_tree[entity]) {
-                std::cout << "despawning child " << static_cast<int>(child)
-                          << std::endl;
                 m_registry.destroy(child);
+            }
+            m_parent_tree.erase(entity);
+        }
+
+        template <typename T>
+        void insert_resource(T res) {
+            if (m_resources.find(typeid(T).hash_code()) == m_resources.end()) {
+                m_resources.insert({typeid(T).hash_code(), res});
+            }
+        }
+
+        template <typename T>
+        void remove_resource() {
+            m_resources.erase(typeid(T).hash_code());
+        }
+
+        template <typename T>
+        void init_resource() {
+            if (m_resources.find(typeid(T).hash_code()) == m_resources.end()) {
+                auto res = std::make_any<T>();
+                m_resources.insert({typeid(T).hash_code(), res});
             }
         }
 
@@ -82,10 +107,36 @@ namespace ecs_trial {
         }
 
         auto single() {
-            return *(registry.view<Qus...>(entt::exclude_t<Exs...>{})
-                         .each()
-                         .begin());
+            auto start = *(registry.view<Qus...>(entt::exclude_t<Exs...>{})
+                               .each()
+                               .begin());
+            if (registry.view<Qus...>(entt::exclude_t<Exs...>{})
+                    .each()
+                    .begin() !=
+                registry.view<Qus...>(entt::exclude_t<Exs...>{}).each().end()) {
+                return std::optional(start);
+            } else {
+                return std::optional<decltype(start)>{};
+            }
         }
+    };
+
+    template <typename ResT>
+    class Resource {
+       private:
+        std::optional<ResT> m_res;
+
+       public:
+        Resource(const std::unordered_map<size_t, std::any>& resources) {
+            auto find_res = resources.find(typeid(ResT).hash_code());
+            if (find_res != resources.end()) {
+                m_res = std::optional(std::any_cast<ResT>(find_res->second));
+            } else {
+                m_res = std::optional<ResT>{};
+            }
+        }
+
+        std::optional<ResT>& get() { return m_res; }
     };
 
     class App {
@@ -93,6 +144,7 @@ namespace ecs_trial {
         entt::registry m_registry;
         std::unordered_map<entt::entity, std::set<entt::entity>>
             m_entity_relation_tree;
+        std::unordered_map<size_t, std::any> m_resources;
 
         template <typename... Args, typename Tuple, std::size_t... I>
         void process(void (*func)(Args...), Tuple const& tuple,
@@ -112,9 +164,10 @@ namespace ecs_trial {
          */
         template <typename T, typename... Args>
         std::tuple<T, Args...> get_values() {
-            static_assert(
-                std::same_as<T, Command> || is_template_of<Query, T>::value,
-                "an illegal argument type is used in systems.");
+            static_assert(std::same_as<T, Command> ||
+                              is_template_of<Query, T>::value ||
+                              is_template_of<Resource, T>::value,
+                          "an illegal argument type is used in systems.");
             if constexpr (std::same_as<T, Command>) {
                 if constexpr (sizeof...(Args) > 0) {
                     return std::tuple_cat(std::make_tuple(command()),
@@ -130,13 +183,21 @@ namespace ecs_trial {
                 } else {
                     return std::make_tuple(query);
                 }
+            } else if constexpr (is_template_of<Resource, T>::value) {
+                T res(m_resources);
+                if constexpr (sizeof...(Args) > 0) {
+                    return std::tuple_cat(std::make_tuple(res),
+                                          get_values<Args...>());
+                } else {
+                    return std::make_tuple(res);
+                }
             }
         }
 
        public:
         const auto& registry() { return m_registry; }
         auto command() {
-            Command command(m_registry, m_entity_relation_tree);
+            Command command(m_registry, m_entity_relation_tree, m_resources);
             return command;
         }
 
@@ -151,14 +212,6 @@ namespace ecs_trial {
             auto args = get_values<Args...>();
             process(func, args);
             return *this;
-        }
-
-        template <template <typename...> typename Q, typename... Qus,
-                  typename... Exs>
-        Query<std::tuple<Qus...>, std::tuple<Exs...>> get_query(
-            std::tuple<Qus...> q, std::tuple<Exs...>) {
-            Query<std::tuple<Qus...>, std::tuple<Exs...>> query(m_registry);
-            return query;
         }
 
         void run() {}

@@ -14,6 +14,7 @@ struct Position {
 struct WithChild {};
 
 void start(ecs_trial::Command command) {
+    std::cout << "start" << std::endl;
     for (int i = 0; i < 50; i++) {
         using namespace std;
         int min = 0, max = 100;
@@ -27,32 +28,58 @@ void start(ecs_trial::Command command) {
             command.spawn(Health{.life = 100.0f}, WithChild{});
         }
     }
+    std::cout << std::endl;
 }
 
 void create_child(ecs_trial::Command command,
                   ecs_trial::Query<std::tuple<WithChild>, std::tuple<>> query) {
+    std::cout << "create_child" << std::endl;
     for (auto [entity] : query.iter()) {
         std::cout << "entity with child: " << static_cast<int>(entity)
                   << std::endl;
         command.with_child(entity, Health{.life = 50},
                            Position{.x = 0, .y = 0});
     }
+    std::cout << std::endl;
 }
 
 void despawn(ecs_trial::Command command,
              ecs_trial::Query<std::tuple<WithChild>, std::tuple<>> query) {
+    std::cout << "despawn" << std::endl;
     for (auto [entity] : query.iter()) {
         command.despawn_recurse(entity);
     }
+    std::cout << std::endl;
+}
+
+void add_res(ecs_trial::Command command) {
+	std::cout << "add_res" << std::endl;
+    command.insert_resource(Health{.life = 100.0f});
+	std::cout << std::endl;
 }
 
 void print(
     ecs_trial::Query<std::tuple<const Health, const Position>, std::tuple<>>
         query) {
+    std::cout << "print" << std::endl;
+    auto [entity, health, pos] = query.single().value();
+    std::cout << "single entity: " << static_cast<int>(entity) << ": "
+			  << health.life << std::endl;
+
     for (auto [entity, health, pos] : query.iter()) {
         std::cout << static_cast<int>(entity) << ": " << health.life
                   << std::endl;
     }
+    std::cout << std::endl;
+}
+
+void print_res(ecs_trial::Resource<Health> res) {
+	std::cout << "print_res" << std::endl;
+    auto get_res = res.get();
+    if (get_res.has_value()) {
+		std::cout << "resource: " << get_res.value().life << std::endl;
+	}
+    std::cout << std::endl;
 }
 
 int main() {
@@ -60,6 +87,7 @@ int main() {
     app.run_system(start).run_system(print);
     app.run_system(create_child).run_system(print);
     app.run_system(despawn).run_system(print);
+    app.run_system(add_res).run_system(print_res);
 
     return 0;
 }
