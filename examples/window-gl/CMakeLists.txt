@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.21)
+﻿cmake_minimum_required (VERSION 3.21)
 
 get_filename_component(PROJNAME ${CMAKE_CURRENT_LIST_DIR} NAME)
 set(PROJNAME "example_${PROJNAME}")

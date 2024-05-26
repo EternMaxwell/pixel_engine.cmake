@@ -1,4 +1,4 @@
-#ifndef PIXEL_ENGINE_RENDER_H_
+﻿#ifndef PIXEL_ENGINE_RENDER_H_
 #define PIXEL_ENGINE_RENDER_H_
 
 #include <GLFW/glfw3.h>

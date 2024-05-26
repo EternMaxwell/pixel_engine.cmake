@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <any>
 #include <entt/entity/registry.hpp>

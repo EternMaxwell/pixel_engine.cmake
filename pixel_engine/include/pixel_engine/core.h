@@ -1,4 +1,4 @@
-#ifndef PIXEL_ENGINE_CORE_H_
+﻿#ifndef PIXEL_ENGINE_CORE_H_
 #define PIXEL_ENGINE_CORE_H_
 
 namespace pixel_engine {
