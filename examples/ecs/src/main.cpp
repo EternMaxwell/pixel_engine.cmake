@@ -79,6 +79,13 @@ void access_no_entity_health(
     for (auto [health] : query.iter()) {
         std::cout << health.life << std::endl;
     }
+    auto single = query.single();
+    std::cout << "single: ";
+    if (single.has_value()) {
+        auto [health] = single.value();
+        std::cout << health.life << std::endl;
+    }
+    std::cout << std::endl;
 }
 
 void print_res(ecs_trial::Resource<const Health> res) {

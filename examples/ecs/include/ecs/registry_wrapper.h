@@ -239,13 +239,8 @@ namespace ecs_trial {
          * components.
          */
         auto single() {
-            auto start = *(registry.view<Qus...>(entt::exclude_t<Exs...>{})
-                               .each()
-                               .begin());
-            if (registry.view<Qus...>(entt::exclude_t<Exs...>{})
-                    .each()
-                    .begin() !=
-                registry.view<Qus...>(entt::exclude_t<Exs...>{}).each().end()) {
+            auto start = *(iter().begin());
+            if (iter().begin() != iter().end()) {
                 return std::optional(start);
             } else {
                 return std::optional<decltype(start)>{};
