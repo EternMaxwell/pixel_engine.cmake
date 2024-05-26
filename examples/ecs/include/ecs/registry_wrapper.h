@@ -224,7 +224,7 @@ namespace ecs_trial {
         /*! @brief Write an event.
          * @param evt The event to be written.
          */
-        void write(Evt evt) { m_events->push_front(evt); }
+        void write(Evt evt) { m_events->push_back(evt); }
     };
 
     template <typename Evt>
