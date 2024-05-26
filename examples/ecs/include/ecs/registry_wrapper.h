@@ -45,6 +45,13 @@ namespace ecs_trial {
             : m_registry(registry),
               m_entity(entity),
               m_parent_tree(relation_tree) {}
+
+        /*! @brief Spawn a child entity.
+         * @tparam Args The types of the components to be added to the child
+         * entity.
+         * @param args The components to be added to the child entity.
+         * @return The child entity id.
+         */
         template <typename... Args>
         auto spawn(Args... args) {
             auto child = m_registry->create();
@@ -53,8 +60,12 @@ namespace ecs_trial {
             return child;
         }
 
+        /*! @brief Despawn the entity.
+         */
         void despawn() { m_registry->destroy(m_entity); }
 
+        /*! @brief Despawn the entity and all its children.
+         */
         void despawn_recurse() {
             m_registry->destroy(m_entity);
             for (auto child : (*m_parent_tree)[m_entity]) {
@@ -88,6 +99,11 @@ namespace ecs_trial {
               m_parent_tree(relation_tree),
               m_resources(resources) {}
 
+        /*! @brief Spawn an entity.
+         * @tparam Args The types of the components to be added to the entity.
+         * @param args The components to be added to the entity.
+         * @return The entity id.
+         */
         template <typename... Args>
         auto spawn(Args... args) {
             auto entity = m_registry->create();
@@ -95,10 +111,18 @@ namespace ecs_trial {
             return entity;
         }
 
+        /*! @brief Get the EntityCommand object for the entity.
+         * @param entity The entity id.
+         * @return The EntityCommand object for the entity.
+         */
         auto entity(const entt::entity& entity) {
             return EntityCommand(m_registry, entity, m_parent_tree);
         }
 
+        /*! @brief Insert a resource.
+         * @tparam T The type of the resource.
+         * @param res The resource to be inserted.
+         */
         template <typename T>
         void insert_resource(T res) {
             if (m_resources->find(typeid(T).hash_code()) ==
@@ -107,11 +131,17 @@ namespace ecs_trial {
             }
         }
 
+        /*! @brief Remove a resource.
+         * @tparam T The type of the resource.
+         */
         template <typename T>
         void remove_resource() {
             m_resources->erase(typeid(T).hash_code());
         }
 
+        /*! @brief Insert Resource using default values.
+         * @tparam T The type of the resource.
+         */
         template <typename T>
         void init_resource() {
             if (m_resources->find(typeid(T).hash_code()) ==
@@ -121,6 +151,8 @@ namespace ecs_trial {
             }
         }
 
+        /*! @brief Not figured out what this do and how to use it.
+         */
         void end() {}
     };
 
@@ -135,10 +167,17 @@ namespace ecs_trial {
        public:
         Query(entt::registry& registry) : registry(registry) {}
 
+        /*! @brief Get the iterator for the query.
+         * @return The iterator for the query.
+         */
         auto iter() {
             return registry.view<Qus...>(entt::exclude_t<Exs...>{}).each();
         }
 
+        /*! @brief Get the single entity and requaired components.
+         * @return An optional of a single tuple of entity and requaired
+         * components.
+         */
         auto single() {
             auto start = *(registry.view<Qus...>(entt::exclude_t<Exs...>{})
                                .each()
@@ -163,7 +202,14 @@ namespace ecs_trial {
         Resource(std::any* resource) : m_res(resource) {}
         Resource() : m_res(nullptr) {}
 
+        /*! @brief Check if the resource has a value.
+         * @return True if the resource has a value, false otherwise.
+         */
         bool has_value() { return m_res != nullptr && m_res->has_value(); }
+
+        /*! @brief Get the value of the resource.
+         * @return The value of the resource.
+         */
         ResT& value() { return std::any_cast<ResT&>(*m_res); }
     };
 
@@ -175,6 +221,9 @@ namespace ecs_trial {
        public:
         EventWriter(std::deque<std::any>* events) : m_events(events) {}
 
+        /*! @brief Write an event.
+         * @param evt The event to be written.
+         */
         void write(Evt evt) { m_events->push_front(evt); }
     };
 
@@ -217,10 +266,18 @@ namespace ecs_trial {
             auto end() { return event_iter(m_events, m_events->end()); }
         };
 
+        /*! @brief Read an event.
+         * @return The iterator for the events.
+         */
         auto read() { return event_iter(m_events, m_events->begin()); }
 
+        /*! @brief Check if the event queue is empty.
+         * @return True if the event queue is empty, false otherwise.
+         */
         bool empty() { return m_events->empty(); }
 
+        /*! @brief Clear the event queue.
+         */
         void clear() { m_events->clear(); }
     };
 
@@ -364,17 +421,24 @@ namespace ecs_trial {
         }
 
        public:
+        /*! @brief Get the registry.
+         * @return The registry.
+         */
         const auto& registry() { return m_registry; }
+
+        /*! @brief Get a command object on this app.
+         * @return The command object.
+         */
         auto command() {
             Command command(&m_registry, &m_entity_relation_tree, &m_resources);
             return command;
         }
 
-        App& run_system_command(void (*func)(Command)) {
-            func(command());
-            return *this;
-        }
-
+        /*! @brief Run a system.
+         * @tparam Args The types of the arguments for the system.
+         * @param func The system to be run.
+         * @return The App object itself.
+         */
         template <typename... Args>
         App& run_system(void (*func)(Args...)) {
             using argument_type = std::tuple<Args...>;
@@ -383,6 +447,9 @@ namespace ecs_trial {
             return *this;
         }
 
+        /*! @brief Run the app.
+         * Still need to figure out how to use this.
+         */
         void run() {}
     };
 }  // namespace ecs_trial
