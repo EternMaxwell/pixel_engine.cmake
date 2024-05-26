@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <any>
+#include <deque>
 #include <entt/entity/registry.hpp>
 #include <iostream>
 #include <map>
@@ -22,69 +23,101 @@ namespace ecs_trial {
         static const bool value = true;
     };
 
-    class Command {
+    class EntityCommand {
        private:
-        entt::registry& m_registry;
-        std::unordered_map<entt::entity, std::set<entt::entity>>& m_parent_tree;
-        std::unordered_map<size_t, std::any>& m_resources;
+        entt::registry* const m_registry;
+        const entt::entity& m_entity;
+        std::unordered_map<entt::entity, std::set<entt::entity>>* const
+            m_parent_tree;
 
         template <typename T, typename... Args>
         void emplace_internal(entt::entity entity, T arg, Args... args) {
-            m_registry.emplace<T>(entity, arg);
+            m_registry->emplace<T>(entity, arg);
             if constexpr (sizeof...(Args) > 0) {
                 emplace_internal(entity, args...);
             }
         }
 
        public:
-        Command(entt::registry& registry,
-                std::unordered_map<entt::entity, std::set<entt::entity>>&
+        EntityCommand(entt::registry* registry, const entt::entity& entity,
+                      std::unordered_map<entt::entity, std::set<entt::entity>>*
+                          relation_tree)
+            : m_registry(registry),
+              m_entity(entity),
+              m_parent_tree(relation_tree) {}
+        template <typename... Args>
+        auto spawn(Args... args) {
+            auto child = m_registry->create();
+            emplace_internal(child, args...);
+            (*m_parent_tree)[m_entity].insert(child);
+            return child;
+        }
+
+        void despawn() { m_registry->destroy(m_entity); }
+
+        void despawn_recurse() {
+            m_registry->destroy(m_entity);
+            for (auto child : (*m_parent_tree)[m_entity]) {
+                m_registry->destroy(child);
+            }
+            m_parent_tree->erase(m_entity);
+        }
+    };
+
+    class Command {
+       private:
+        entt::registry* const m_registry;
+        std::unordered_map<entt::entity, std::set<entt::entity>>* const
+            m_parent_tree;
+        std::unordered_map<size_t, std::any>* const m_resources;
+
+        template <typename T, typename... Args>
+        void emplace_internal(entt::entity entity, T arg, Args... args) {
+            m_registry->emplace<T>(entity, arg);
+            if constexpr (sizeof...(Args) > 0) {
+                emplace_internal(entity, args...);
+            }
+        }
+
+       public:
+        Command(entt::registry* registry,
+                std::unordered_map<entt::entity, std::set<entt::entity>>*
                     relation_tree,
-                std::unordered_map<size_t, std::any>& resources)
+                std::unordered_map<size_t, std::any>* resources)
             : m_registry(registry),
               m_parent_tree(relation_tree),
               m_resources(resources) {}
+
         template <typename... Args>
         auto spawn(Args... args) {
-            auto entity = m_registry.create();
+            auto entity = m_registry->create();
             emplace_internal(entity, args...);
             return entity;
         }
 
-        template <typename... Args>
-        auto with_child(const entt::entity& entity, Args... args) {
-            auto child = spawn(args...);
-            m_parent_tree[entity].insert(child);
-            return child;
-        }
-
-        void despawn(const entt::entity& entity) { m_registry.destroy(entity); }
-
-        void despawn_recurse(const entt::entity& entity) {
-            m_registry.destroy(entity);
-            for (auto child : m_parent_tree[entity]) {
-                m_registry.destroy(child);
-            }
-            m_parent_tree.erase(entity);
+        auto entity(const entt::entity& entity) {
+            return EntityCommand(m_registry, entity, m_parent_tree);
         }
 
         template <typename T>
         void insert_resource(T res) {
-            if (m_resources.find(typeid(T).hash_code()) == m_resources.end()) {
-                m_resources.insert({typeid(T).hash_code(), res});
+            if (m_resources->find(typeid(T).hash_code()) ==
+                m_resources->end()) {
+                m_resources->insert({typeid(T).hash_code(), res});
             }
         }
 
         template <typename T>
         void remove_resource() {
-            m_resources.erase(typeid(T).hash_code());
+            m_resources->erase(typeid(T).hash_code());
         }
 
         template <typename T>
         void init_resource() {
-            if (m_resources.find(typeid(T).hash_code()) == m_resources.end()) {
+            if (m_resources->find(typeid(T).hash_code()) ==
+                m_resources->end()) {
                 auto res = std::make_any<T>();
-                m_resources.insert({typeid(T).hash_code(), res});
+                m_resources->insert({typeid(T).hash_code(), res});
             }
         }
 
@@ -134,12 +167,70 @@ namespace ecs_trial {
         ResT& value() { return std::any_cast<ResT&>(*m_res); }
     };
 
+    template <typename Evt>
+    class EventWriter {
+       private:
+        std::deque<std::any>* const m_events;
+
+       public:
+        EventWriter(std::deque<std::any>* events) : m_events(events) {}
+
+        void write(Evt evt) { m_events->push_front(evt); }
+    };
+
+    template <typename Evt>
+    class EventReader {
+       private:
+        std::deque<std::any>* const m_events;
+
+       public:
+        EventReader(std::deque<std::any>* events) : m_events(events) {}
+
+        class event_iter : public std::iterator<std::input_iterator_tag, Evt> {
+           private:
+            std::deque<std::any>* m_events;
+            std::deque<std::any>::iterator m_iter;
+
+           public:
+            event_iter(std::deque<std::any>* events,
+                       std::deque<std::any>::iterator iter)
+                : m_events(events), m_iter(iter) {}
+            event_iter& operator++() {
+                m_iter++;
+                return *this;
+            }
+            event_iter operator++(int) {
+                event_iter tmp = *this;
+                ++(*this);
+                return tmp;
+            }
+            bool operator==(const event_iter& rhs) const {
+                return m_iter == rhs.m_iter;
+            }
+            bool operator!=(const event_iter& rhs) const {
+                return m_iter != rhs.m_iter;
+            }
+            Evt& operator*() { return std::any_cast<Evt&>(*m_iter); }
+
+            auto begin() { return event_iter(m_events, m_events->begin()); }
+
+            auto end() { return event_iter(m_events, m_events->end()); }
+        };
+
+        auto read() { return event_iter(m_events, m_events->begin()); }
+
+        bool empty() { return m_events->empty(); }
+
+        void clear() { m_events->clear(); }
+    };
+
     class App {
        private:
         entt::registry m_registry;
         std::unordered_map<entt::entity, std::set<entt::entity>>
             m_entity_relation_tree;
         std::unordered_map<size_t, std::any> m_resources;
+        std::unordered_map<size_t, std::deque<std::any>> m_events;
 
         template <typename... Args, typename Tuple, std::size_t... I>
         void process(void (*func)(Args...), Tuple const& tuple,
@@ -178,6 +269,46 @@ namespace ecs_trial {
             }
         };
 
+        template <typename T>
+        struct get_event_writer {};
+
+        template <template <typename...> typename Template, typename Arg>
+        struct get_event_writer<Template<Arg>> {
+            friend class App;
+            friend class EventWriter<Arg>;
+
+           private:
+            App& m_app;
+
+           public:
+            get_event_writer(App& app) : m_app(app) {}
+
+            EventWriter<Arg> value() {
+                return EventWriter<Arg>(
+                    &m_app.m_events[typeid(Arg).hash_code()]);
+            }
+        };
+
+        template <typename T>
+        struct get_event_reader {};
+
+        template <template <typename...> typename Template, typename Arg>
+        struct get_event_reader<Template<Arg>> {
+            friend class App;
+            friend class EventReader<Arg>;
+
+           private:
+            App& m_app;
+
+           public:
+            get_event_reader(App& app) : m_app(app) {}
+
+            EventReader<Arg> value() {
+                return EventReader<Arg>(
+                    &m_app.m_events[typeid(Arg).hash_code()]);
+            }
+        };
+
         /*!
          * @brief This is where the systems get their parameters by type.
          * All possible type should be handled here.
@@ -186,7 +317,9 @@ namespace ecs_trial {
         std::tuple<T, Args...> get_values() {
             static_assert(std::same_as<T, Command> ||
                               is_template_of<Query, T>::value ||
-                              is_template_of<Resource, T>::value,
+                              is_template_of<Resource, T>::value ||
+                              is_template_of<EventReader, T>::value ||
+                              is_template_of<EventWriter, T>::value,
                           "an illegal argument type is used in systems.");
             if constexpr (std::same_as<T, Command>) {
                 if constexpr (sizeof...(Args) > 0) {
@@ -211,13 +344,29 @@ namespace ecs_trial {
                 } else {
                     return std::make_tuple(res);
                 }
+            } else if constexpr (is_template_of<EventReader, T>::value) {
+                T reader = get_event_reader<T>(*this).value();
+                if constexpr (sizeof...(Args) > 0) {
+                    return std::tuple_cat(std::make_tuple(reader),
+                                          get_values<Args...>());
+                } else {
+                    return std::make_tuple(reader);
+                }
+            } else if constexpr (is_template_of<EventWriter, T>::value) {
+                T writer = get_event_writer<T>(*this).value();
+                if constexpr (sizeof...(Args) > 0) {
+                    return std::tuple_cat(std::make_tuple(writer),
+                                          get_values<Args...>());
+                } else {
+                    return std::make_tuple(writer);
+                }
             }
         }
 
        public:
         const auto& registry() { return m_registry; }
         auto command() {
-            Command command(m_registry, m_entity_relation_tree, m_resources);
+            Command command(&m_registry, &m_entity_relation_tree, &m_resources);
             return command;
         }
 
