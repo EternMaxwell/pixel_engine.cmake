@@ -286,10 +286,11 @@ namespace ecs_trial {
         }
     };
 
-    template <typename... Qus1, typename... Qus2, typename... Exs1,
-              typename... Exs2>
-    struct queries_contrary<Query<std::tuple<Qus1...>, std::tuple<Exs1...>>,
-                            Query<std::tuple<Qus2...>, std::tuple<Exs2...>>> {
+    template <typename Qu1, typename Qu2, typename... Qus1, typename... Qus2,
+              typename... Exs1, typename... Exs2>
+    struct queries_contrary<
+        Query<std::tuple<Qu1, Qus1...>, std::tuple<Exs1...>>,
+        Query<std::tuple<Qu2, Qus2...>, std::tuple<Exs2...>>> {
         template <typename T, typename... Args>
         bool args_all_const() {
             if constexpr (std::is_const_v<T>) {
@@ -348,24 +349,60 @@ namespace ecs_trial {
             }
         };
 
+        template <typename First, typename Second>
+        struct tuples_has_no_same_non_const_type {
+            static const bool value = false;
+        };
+
+        template <typename... Args1, typename Args2First, typename... Args2>
+        struct tuples_has_no_same_non_const_type<
+            std::tuple<Args1...>, std::tuple<Args2First, Args2...>> {
+            bool value() {
+                if constexpr (sizeof...(Args1) == 0) {
+                    return true;
+                } else if ((!std::is_const_v<Args2First>)&&type_in_group<
+                               Args2First, Args1...>()) {
+                    return false;
+                } else {
+                    if constexpr (sizeof...(Args2) > 0) {
+                        return tuples_has_no_same_non_const_type<
+                                   std::tuple<Args1...>, std::tuple<Args2...>>{}
+                            .value();
+                    } else {
+                        return true;
+                    }
+                }
+            }
+        };
+
         bool value() {
-            // if Qus1 and Qus2 are all const return false
-            if (args_all_const<Qus1..., Qus2...>()) {
-                return false;
-            }
+            if constexpr ((!std::is_same_v<Qu1, entt::entity>)&&(
+                              !std::is_same_v<Qu2, entt::entity>)) {
+                // if Qus1 and Qus2 are all const return false
+                if (args_all_const<Qu1, Qus1..., Qu2, Qus2...>()) {
+                    return false;
+                }
 
-            // if Exs1 contains all non-const Type in Qus2 return false
-            if (first_tuple_contains_all_non_const_type_in_second_tuple<
-                    std::tuple<Exs2...>, std::tuple<Qus1...>>{}
-                    .value()) {
-                return false;
-            }
+                // if Exs1 contains all non-const Type in Qus2 return false
+                if (first_tuple_contains_all_non_const_type_in_second_tuple<
+                        std::tuple<Exs2...>, std::tuple<Qu1, Qus1...>>{}
+                        .value()) {
+                    return false;
+                }
 
-            // if Exs2 contains all non-const Type in Qus1 return false
-            if (first_tuple_contains_all_non_const_type_in_second_tuple<
-                    std::tuple<Exs1...>, std::tuple<Qus2...>>{}
-                    .value()) {
-                return false;
+                // if Exs2 contains all non-const Type in Qus1 return false
+                if (first_tuple_contains_all_non_const_type_in_second_tuple<
+                        std::tuple<Exs1...>, std::tuple<Qu2, Qus2...>>{}
+                        .value()) {
+                    return false;
+                }
+
+                // if Qus1 and Qus2 has no same non-const type return false
+                if (tuples_has_no_same_non_const_type<
+                        std::tuple<Qu1, Qus1...>, std::tuple<Qu2, Qus2...>>{}
+                        .value()) {
+                    return false;
+                }
             }
 
             return true;
@@ -380,6 +417,13 @@ namespace ecs_trial {
        public:
         Resource(std::any* resource) : m_res(resource) {}
         Resource() : m_res(nullptr) {}
+
+        /*! @brief Check if the resource is const.
+         * @return True if the resource is const, false otherwise.
+         */
+        constexpr bool is_const() {
+            return std::is_const_v<std::remove_reference_t<ResT>>;
+        }
 
         /*! @brief Check if the resource has a value.
          * @return True if the resource has a value, false otherwise.
