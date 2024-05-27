@@ -158,8 +158,8 @@ int main() {
     std::cout
         << std::boolalpha
         << ecs_trial::queries_contrary<
-               ecs_trial::Query<std::tuple<const Health>, std::tuple<>>,
-               ecs_trial::Query<std::tuple<Position>, std::tuple<>>>()
+               ecs_trial::Query<std::tuple<entt::entity, const Health>, std::tuple<Position>>,
+               ecs_trial::Query<std::tuple<entt::entity, Health, Position>, std::tuple<>>>()
                .value()
         << std::endl;
 

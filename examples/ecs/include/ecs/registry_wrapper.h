@@ -324,28 +324,27 @@ namespace ecs_trial {
         }
 
         template <typename First, typename Second>
-        struct first_tuple_contains_all_non_const_type_in_second_tuple {
+        struct first_tuple_contains_any_type_in_second_tuple {
             static const bool value = false;
         };
 
         template <typename... Args1, typename Args2First, typename... Args2>
-        struct first_tuple_contains_all_non_const_type_in_second_tuple<
+        struct first_tuple_contains_any_type_in_second_tuple<
             std::tuple<Args1...>, std::tuple<Args2First, Args2...>> {
             bool value() {
                 if constexpr (sizeof...(Args1) == 0) {
                     return false;
-                } else if (std::is_const_v<Args2First> ||
-                           type_in_group<Args2First, Args1...>()) {
-                    if constexpr (sizeof...(Args2) > 0) {
-                        return first_tuple_contains_all_non_const_type_in_second_tuple<
-                                   std::tuple<Args1...>, std::tuple<Args2...>>{}
-                            .value();
-                    } else {
-                        return true;
-                    }
-                } else {
-                    return false;
-                }
+                } else if (type_in_group<std::remove_const_t<Args2First>, Args1...>()) {
+					return true;
+				} else {
+					if constexpr (sizeof...(Args2) > 0) {
+						return first_tuple_contains_any_type_in_second_tuple<
+							std::tuple<Args1...>, std::tuple<Args2...>>{}
+							.value();
+					} else {
+						return false;
+					}
+				}
             }
         };
 
@@ -383,15 +382,15 @@ namespace ecs_trial {
                     return false;
                 }
 
-                // if Exs1 contains all non-const Type in Qus2 return false
-                if (first_tuple_contains_all_non_const_type_in_second_tuple<
+                // if Exs1 contains any non-const Type in Qus2 return false
+                if (first_tuple_contains_any_type_in_second_tuple<
                         std::tuple<Exs2...>, std::tuple<Qu1, Qus1...>>{}
                         .value()) {
                     return false;
                 }
 
-                // if Exs2 contains all non-const Type in Qus1 return false
-                if (first_tuple_contains_all_non_const_type_in_second_tuple<
+                // if Exs2 contains any non-const Type in Qus1 return false
+                if (first_tuple_contains_any_type_in_second_tuple<
                         std::tuple<Exs1...>, std::tuple<Qu2, Qus2...>>{}
                         .value()) {
                     return false;
@@ -400,6 +399,58 @@ namespace ecs_trial {
                 // if Qus1 and Qus2 has no same non-const type return false
                 if (tuples_has_no_same_non_const_type<
                         std::tuple<Qu1, Qus1...>, std::tuple<Qu2, Qus2...>>{}
+                        .value()) {
+                    return false;
+                }
+            } else if constexpr (std::is_same_v<Qu1, entt::entity>) {
+                // if Qus1 and Qus2 are all const return false
+                if (args_all_const<Qus1..., Qu2, Qus2...>()) {
+                    return false;
+                }
+
+                // if Exs1 contains any non-const Type in Qus2 return false
+                if (first_tuple_contains_any_type_in_second_tuple<
+                        std::tuple<Exs2...>, std::tuple<Qus1...>>{}
+                        .value()) {
+                    return false;
+                }
+
+                // if Exs2 contains any non-const Type in Qus1 return false
+                if (first_tuple_contains_any_type_in_second_tuple<
+                        std::tuple<Exs1...>, std::tuple<Qu2, Qus2...>>{}
+                        .value()) {
+                    return false;
+                }
+
+                // if Qus1 and Qus2 has no same non-const type return false
+                if (tuples_has_no_same_non_const_type<
+                        std::tuple<Qus1...>, std::tuple<Qu2, Qus2...>>{}
+                        .value()) {
+                    return false;
+                }
+            } else if constexpr (std::is_same_v<Qu2, entt::entity>) {
+                // if Qus1 and Qus2 are all const return false
+                if (args_all_const<Qu1, Qus1..., Qus2...>()) {
+                    return false;
+                }
+
+                // if Exs1 contains any non-const Type in Qus2 return false
+                if (first_tuple_contains_any_type_in_second_tuple<
+                        std::tuple<Exs2...>, std::tuple<Qu1, Qus1...>>{}
+                        .value()) {
+                    return false;
+                }
+
+                // if Exs2 contains any non-const Type in Qus1 return false
+                if (first_tuple_contains_any_type_in_second_tuple<
+                        std::tuple<Exs1...>, std::tuple<Qus2...>>{}
+                        .value()) {
+                    return false;
+                }
+
+                // if Qus1 and Qus2 has no same non-const type return false
+                if (tuples_has_no_same_non_const_type<std::tuple<Qu1, Qus1...>,
+                                                      std::tuple<Qus2...>>{}
                         .value()) {
                     return false;
                 }
@@ -513,6 +564,7 @@ namespace ecs_trial {
             m_entity_relation_tree;
         std::unordered_map<size_t, std::any> m_resources;
         std::unordered_map<size_t, std::deque<std::any>> m_events;
+        std::vector<Command> m_existing_commands;
 
         template <typename... Args, typename Tuple, std::size_t... I>
         void process(void (*func)(Args...), Tuple const& tuple,
@@ -605,7 +657,9 @@ namespace ecs_trial {
                           "an illegal argument type is used in systems.");
             if constexpr (std::same_as<T, Command>) {
                 if constexpr (sizeof...(Args) > 0) {
-                    return std::tuple_cat(std::make_tuple(command()),
+                    Command cmd = command();
+                    m_existing_commands.push_back(cmd);
+                    return std::tuple_cat(std::make_tuple(cmd),
                                           get_values<Args...>());
                 } else {
                     return std::make_tuple(command());
@@ -654,7 +708,7 @@ namespace ecs_trial {
         /*! @brief Get a command object on this app.
          * @return The command object.
          */
-        auto command() {
+        Command command() {
             Command command(&m_registry, &m_entity_relation_tree, &m_resources);
             return command;
         }
