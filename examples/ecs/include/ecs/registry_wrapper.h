@@ -334,17 +334,18 @@ namespace ecs_trial {
             bool value() {
                 if constexpr (sizeof...(Args1) == 0) {
                     return false;
-                } else if (type_in_group<std::remove_const_t<Args2First>, Args1...>()) {
-					return true;
-				} else {
-					if constexpr (sizeof...(Args2) > 0) {
-						return first_tuple_contains_any_type_in_second_tuple<
-							std::tuple<Args1...>, std::tuple<Args2...>>{}
-							.value();
-					} else {
-						return false;
-					}
-				}
+                } else if (type_in_group<std::remove_const_t<Args2First>,
+                                         Args1...>()) {
+                    return true;
+                } else {
+                    if constexpr (sizeof...(Args2) > 0) {
+                        return first_tuple_contains_any_type_in_second_tuple<
+                                   std::tuple<Args1...>, std::tuple<Args2...>>{}
+                            .value();
+                    } else {
+                        return false;
+                    }
+                }
             }
         };
 
@@ -566,16 +567,18 @@ namespace ecs_trial {
         std::unordered_map<size_t, std::deque<std::any>> m_events;
         std::vector<Command> m_existing_commands;
 
-        template <typename... Args, typename Tuple, std::size_t... I>
-        void process(void (*func)(Args...), Tuple const& tuple,
-                     std::index_sequence<I...>) {
-            func(std::get<I>(tuple)...);
+        template <typename T, typename... Args, typename Tuple,
+                  std::size_t... I>
+        T process(T (*func)(Args...), Tuple const& tuple,
+                  std::index_sequence<I...>) {
+            return func(std::get<I>(tuple)...);
         }
 
-        template <typename... Args, typename Tuple>
-        void process(void (*func)(Args...), Tuple const& tuple) {
-            process(func, tuple,
-                    std::make_index_sequence<std::tuple_size<Tuple>::value>());
+        template <typename T, typename... Args, typename Tuple>
+        T process(T (*func)(Args...), Tuple const& tuple) {
+            return process(
+                func, tuple,
+                std::make_index_sequence<std::tuple_size<Tuple>::value>());
         }
 
         template <typename T>
@@ -720,9 +723,25 @@ namespace ecs_trial {
          */
         template <typename... Args>
         App& run_system(void (*func)(Args...)) {
-            using argument_type = std::tuple<Args...>;
             auto args = get_values<Args...>();
             process(func, args);
+            return *this;
+        }
+
+        /*! @brief Run a system with a condition.
+         * @tparam Args1 The types of the arguments for the system.
+         * @tparam Args2 The types of the arguments for the condition.
+         * @param func The system to be run.
+         * @param condition The condition for the system to be run.
+         * @return The App object itself.
+         */
+        template <typename... Args1, typename... Args2>
+        App& run_system(void (*func)(Args1...), bool (*condition)(Args2...)) {
+            auto args2 = get_values<Args2...>();
+            if (process(condition, args2)) {
+                auto args1 = get_values<Args1...>();
+                process(func, args1);
+            }
             return *this;
         }
 

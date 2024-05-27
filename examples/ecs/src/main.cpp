@@ -31,8 +31,9 @@ void start(ecs_trial::Command command) {
     std::cout << std::endl;
 }
 
-void create_child(ecs_trial::Command command,
-                  ecs_trial::Query<std::tuple<entt::entity, WithChild>, std::tuple<>> query) {
+void create_child(
+    ecs_trial::Command command,
+    ecs_trial::Query<std::tuple<entt::entity, WithChild>, std::tuple<>> query) {
     std::cout << "create_child" << std::endl;
     for (auto [entity] : query.iter()) {
         std::cout << "entity with child: " << static_cast<int>(entity)
@@ -43,8 +44,9 @@ void create_child(ecs_trial::Command command,
     std::cout << std::endl;
 }
 
-void despawn(ecs_trial::Command command,
-             ecs_trial::Query<std::tuple<entt::entity, WithChild>, std::tuple<>> query) {
+void despawn(
+    ecs_trial::Command command,
+    ecs_trial::Query<std::tuple<entt::entity, WithChild>, std::tuple<>> query) {
     std::cout << "despawn" << std::endl;
     for (auto [entity] : query.iter()) {
         command.entity(entity).despawn_recurse();
@@ -58,9 +60,9 @@ void add_res(ecs_trial::Command command) {
     std::cout << std::endl;
 }
 
-void print(
-    ecs_trial::Query<std::tuple<entt::entity, const Health, const Position>, std::tuple<>>
-        query) {
+void print(ecs_trial::Query<
+           std::tuple<entt::entity, const Health, const Position>, std::tuple<>>
+               query) {
     std::cout << "print" << std::endl;
     auto [entity, health, pos] = query.single().value();
     std::cout << "single entity: " << static_cast<int>(entity) << ": "
@@ -134,6 +136,12 @@ void write_event(ecs_trial::EventWriter<Health> writer) {
     std::cout << std::endl;
 }
 
+bool chech_if_event(ecs_trial::EventReader<Health> reader) {
+    std::cout << "chech_if_event" << std::endl;
+    std::cout << std::endl;
+    return !reader.empty();
+}
+
 void read_event(ecs_trial::EventReader<Health> reader) {
     std::cout << "read_event" << std::endl;
     for (auto health : reader.read()) {
@@ -152,14 +160,17 @@ int main() {
     app.run_system(access_not_exist_res);
     app.run_system(add_not_exist_res).run_system(access_not_exist_res);
     app.run_system(remove_not_exist_res).run_system(access_not_exist_res);
-    app.run_system(write_event).run_system(read_event);
+    app.run_system(write_event);
+    app.run_system(read_event, chech_if_event);
     app.run_system(access_no_entity_health);
 
     std::cout
         << std::boolalpha
         << ecs_trial::queries_contrary<
-               ecs_trial::Query<std::tuple<entt::entity, const Health>, std::tuple<Position>>,
-               ecs_trial::Query<std::tuple<entt::entity, Health, Position>, std::tuple<>>>()
+               ecs_trial::Query<std::tuple<entt::entity, const Health>,
+                                std::tuple<Position>>,
+               ecs_trial::Query<std::tuple<entt::entity, Health, Position>,
+                                std::tuple<>>>()
                .value()
         << std::endl;
 
