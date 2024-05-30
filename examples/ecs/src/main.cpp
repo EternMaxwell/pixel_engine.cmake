@@ -1,7 +1,7 @@
-﻿#include <iostream>
-#include <random>
+﻿#include <pixel_engine/entity/entity.h>
 
-#include "ecs/registry_wrapper.h"
+#include <iostream>
+#include <random>
 
 struct Health {
     float life;
@@ -13,7 +13,7 @@ struct Position {
 
 struct WithChild {};
 
-void start(ecs_trial::Command command) {
+void start(entity::Command command) {
     std::cout << "start" << std::endl;
     for (int i = 0; i < 50; i++) {
         using namespace std;
@@ -32,8 +32,8 @@ void start(ecs_trial::Command command) {
 }
 
 void create_child(
-    ecs_trial::Command command,
-    ecs_trial::Query<std::tuple<entt::entity, WithChild>, std::tuple<>> query) {
+    entity::Command command,
+    entity::Query<std::tuple<entt::entity, WithChild>, std::tuple<>> query) {
     std::cout << "create_child" << std::endl;
     for (auto [entity] : query.iter()) {
         std::cout << "entity with child: " << static_cast<int>(entity)
@@ -45,8 +45,8 @@ void create_child(
 }
 
 void despawn(
-    ecs_trial::Command command,
-    ecs_trial::Query<std::tuple<entt::entity, WithChild>, std::tuple<>> query) {
+    entity::Command command,
+    entity::Query<std::tuple<entt::entity, WithChild>, std::tuple<>> query) {
     std::cout << "despawn" << std::endl;
     for (auto [entity] : query.iter()) {
         command.entity(entity).despawn_recurse();
@@ -54,14 +54,14 @@ void despawn(
     std::cout << std::endl;
 }
 
-void add_res(ecs_trial::Command command) {
+void add_res(entity::Command command) {
     std::cout << "add_res" << std::endl;
     command.insert_resource(Health{.life = 100.0f});
     std::cout << std::endl;
 }
 
-void print(ecs_trial::Query<
-           std::tuple<entt::entity, const Health, const Position>, std::tuple<>>
+void print(entity::Query<std::tuple<entt::entity, const Health, const Position>,
+                         std::tuple<>>
                query) {
     std::cout << "print" << std::endl;
     auto [entity, health, pos] = query.single().value();
@@ -76,7 +76,7 @@ void print(ecs_trial::Query<
 }
 
 void access_no_entity_health(
-    ecs_trial::Query<std::tuple<const Health>, std::tuple<>> query) {
+    entity::Query<std::tuple<const Health>, std::tuple<>> query) {
     std::cout << "access_no_entity_health" << std::endl;
     for (auto [health] : query.iter()) {
         std::cout << health.life << std::endl;
@@ -90,7 +90,7 @@ void access_no_entity_health(
     std::cout << std::endl;
 }
 
-void print_res(ecs_trial::Resource<const Health> res) {
+void print_res(entity::Resource<const Health> res) {
     std::cout << "print_res" << std::endl;
     if (res.has_value()) {
         std::cout << "resource: " << res.value().life << std::endl;
@@ -98,7 +98,7 @@ void print_res(ecs_trial::Resource<const Health> res) {
     std::cout << std::endl;
 }
 
-void access_not_exist_res(ecs_trial::Resource<Position> res) {
+void access_not_exist_res(entity::Resource<Position> res) {
     std::cout << "access_not_exist_res" << std::endl;
     if (res.has_value()) {
         std::cout << "resource: " << res.value().x << std::endl;
@@ -108,19 +108,19 @@ void access_not_exist_res(ecs_trial::Resource<Position> res) {
     std::cout << std::endl;
 }
 
-void add_not_exist_res(ecs_trial::Command command) {
+void add_not_exist_res(entity::Command command) {
     std::cout << "add_not_exist_res" << std::endl;
     command.init_resource<Position>();
     std::cout << std::endl;
 }
 
-void remove_not_exist_res(ecs_trial::Command command) {
+void remove_not_exist_res(entity::Command command) {
     std::cout << "remove_not_exist_res" << std::endl;
     command.remove_resource<Position>();
     std::cout << std::endl;
 }
 
-void change_res(ecs_trial::Resource<Health> res) {
+void change_res(entity::Resource<Health> res) {
     std::cout << "change_res" << std::endl;
     if (res.has_value()) {
         res.value().life = 50.0f;
@@ -128,7 +128,7 @@ void change_res(ecs_trial::Resource<Health> res) {
     std::cout << std::endl;
 }
 
-void write_event(ecs_trial::EventWriter<Health> writer) {
+void write_event(entity::EventWriter<Health> writer) {
     std::cout << "write_event" << std::endl;
     writer.write(Health{.life = 100.0f});
     writer.write(Health{.life = 50.0f});
@@ -136,13 +136,13 @@ void write_event(ecs_trial::EventWriter<Health> writer) {
     std::cout << std::endl;
 }
 
-bool chech_if_event(ecs_trial::EventReader<Health> reader) {
+bool chech_if_event(entity::EventReader<Health> reader) {
     std::cout << "chech_if_event" << std::endl;
     std::cout << std::endl;
     return !reader.empty();
 }
 
-void read_event(ecs_trial::EventReader<Health> reader) {
+void read_event(entity::EventReader<Health> reader) {
     std::cout << "read_event" << std::endl;
     for (auto health : reader.read()) {
         std::cout << "event: " << health.life << std::endl;
@@ -151,7 +151,7 @@ void read_event(ecs_trial::EventReader<Health> reader) {
 }
 
 int main() {
-    ecs_trial::App app;
+    entity::App app;
     app.run_system(start).run_system(print);
     app.run_system(create_child).run_system(print);
     app.run_system(despawn).run_system(print);
@@ -164,15 +164,17 @@ int main() {
     app.run_system(read_event, chech_if_event);
     app.run_system(access_no_entity_health);
 
-    std::cout
-        << std::boolalpha
-        << ecs_trial::queries_contrary<
-               ecs_trial::Query<std::tuple<entt::entity, const Health>,
-                                std::tuple<Position>>,
-               ecs_trial::Query<std::tuple<entt::entity, Health, Position>,
-                                std::tuple<>>>()
-               .value()
-        << std::endl;
+    std::cout << std::boolalpha
+              << entity::queries_contrary<
+                     entity::Query<std::tuple<entt::entity, const Health>,
+                                   std::tuple<Position>>,
+                     entity::Query<std::tuple<entt::entity, Health, Position>,
+                                   std::tuple<>>>()
+                     .value()
+              << std::endl;
+
+    app.add_system(print).run();
+    app.add_system(read_event, chech_if_event).run();
 
     return 0;
 }

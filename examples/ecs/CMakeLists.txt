@@ -9,4 +9,5 @@ file(GLOB_RECURSE SOURCE_FILES "include/*.h" "include/*.hpp" "src/*.c" "src/*.cp
 add_executable (${PROJNAME} ${SOURCE_FILES})
 target_include_directories(${PROJNAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+target_link_libraries (${PROJNAME} PUBLIC pixel_engine)
 target_link_libraries (${PROJNAME} PUBLIC EnTT::EnTT)

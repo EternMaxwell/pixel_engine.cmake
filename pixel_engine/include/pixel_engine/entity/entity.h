@@ -12,7 +12,9 @@
 #include <type_traits>
 #include <unordered_map>
 
-namespace ecs_trial {
+#include "pixel_engine/entity/system.h"
+
+namespace entity {
     template <template <typename...> typename Template, typename T>
     struct is_template_of {
         static const bool value = false;
@@ -559,13 +561,17 @@ namespace ecs_trial {
     class Scheduler {};
 
     class App {
-       private:
+       protected:
         entt::registry m_registry;
         std::unordered_map<entt::entity, std::set<entt::entity>>
             m_entity_relation_tree;
         std::unordered_map<size_t, std::any> m_resources;
         std::unordered_map<size_t, std::deque<std::any>> m_events;
         std::vector<Command> m_existing_commands;
+        std::vector<std::unique_ptr<BasicSystem<void>>> m_systems;
+        std::unordered_map<std::unique_ptr<BasicSystem<void>>*,
+                           std::unique_ptr<BasicSystem<bool>>>
+            m_system_conditions;
 
         template <typename T, typename... Args, typename Tuple,
                   std::size_t... I>
@@ -745,9 +751,62 @@ namespace ecs_trial {
             return *this;
         }
 
+        /*! @brief Run a system.
+         * @tparam Args1 The types of the arguments for the system.
+         * @tparam Args2 The types of the arguments for the condition.
+         * @param func The system to be run.
+         * @param condition The condition for the system to be run.
+         * @return The App object itself.
+         */
+        template <typename T, typename... Args>
+        T run_system_v(T (*func)(Args...)) {
+            auto args = get_values<Args...>();
+            return process(func, args);
+        }
+
+        /*! @brief Add a system.
+         * @tparam Args The types of the arguments for the system.
+         * @param func The system to be run.
+         * @return The App object itself.
+         */
+        template <typename... Args>
+        App& add_system(void (*func)(Args...)) {
+            m_systems.push_back(
+                std::make_unique<System<Args...>>(System<Args...>(this, func)));
+            return *this;
+        }
+
+        /*! @brief Add a system with a condition.
+         * @tparam Args1 The types of the arguments for the system.
+         * @tparam Args2 The types of the arguments for the condition.
+         * @param func The system to be run.
+         * @param condition The condition for the system to be run.
+         * @return The App object itself.
+         */
+        template <typename... Args1, typename... Args2>
+        App& add_system(void (*func)(Args1...), bool (*condition)(Args2...)) {
+            m_systems.push_back(std::make_unique<System<Args1...>>(
+                System<Args1...>(this, func)));
+            m_system_conditions[&m_systems.back()] =
+                std::make_unique<Condition<Args2...>>(
+                    Condition<Args2...>(this, condition));
+            return *this;
+        }
+
         /*! @brief Run the app.
          * Still need to figure out how to use this.
          */
-        void run() {}
+        void run() {
+            for (auto& system : m_systems) {
+                if (m_system_conditions.find(&system) !=
+                    m_system_conditions.end()) {
+                    if (m_system_conditions.at(&system)->run()) {
+                        system->run();
+                    }
+                } else {
+                    system->run();
+                }
+            }
+        }
     };
-}  // namespace ecs_trial
+}  // namespace entity

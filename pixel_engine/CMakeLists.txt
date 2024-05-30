@@ -18,5 +18,7 @@ target_include_directories(pixel_engine PUBLIC ${OPENGL_INCLUDE_DIR})
 target_link_libraries (pixel_engine ${CMAKE_SOURCE_DIR}/lib/glfw/lib-vc2022/glfw3.lib)
 target_link_libraries (pixel_engine OpenGL::GL)
 
+target_link_libraries (pixel_engine EnTT::EnTT)
+
 #install(TARGETS ${PROJECT_NAME} DESTINATION lib/${PROJECT_NAME})
 #install(FILES ${ENGINE_HEADERS} DESTINATION include/${PROJECT_NAME})
