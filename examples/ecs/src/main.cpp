@@ -3,6 +3,8 @@
 #include <iostream>
 #include <random>
 
+using namespace pixel_engine;
+
 struct Health {
     float life;
 };
