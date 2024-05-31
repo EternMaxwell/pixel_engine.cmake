@@ -572,6 +572,11 @@ namespace pixel_engine {
 
         class Scheduler {};
 
+        class Plugin {
+           public:
+            virtual void build(App& app) = 0;
+        };
+
         class App {
            protected:
             entt::registry m_registry;
@@ -805,6 +810,24 @@ namespace pixel_engine {
                 m_system_conditions[&m_systems.back()] =
                     std::make_unique<Condition<Args2...>>(
                         Condition<Args2...>(this, condition));
+                return *this;
+            }
+
+            /*! @brief Add a plugin.
+             * @param plugin The plugin to be added.
+             * @return The App object itself.
+             */
+            App& add_plugin(Plugin& plugin) {
+                plugin.build(*this);
+                return *this;
+            }
+
+            /*! @brief Add a plugin.
+             * @param plugin The plugin to be added.
+             * @return The App object itself.
+             */
+            App& add_plugin(Plugin* plugin) {
+                plugin->build(*this);
                 return *this;
             }
 
