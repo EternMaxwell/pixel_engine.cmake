@@ -15,6 +15,8 @@ struct Position {
 
 struct WithChild {};
 
+using TestBundle = std::tuple<Health, Position>;
+
 void start(entity::Command command) {
     std::cout << "start" << std::endl;
     for (int i = 0; i < 50; i++) {
@@ -41,7 +43,7 @@ void create_child(
         std::cout << "entity with child: " << static_cast<int>(entity)
                   << std::endl;
         command.entity(entity).spawn(
-            std::make_tuple(Health{.life = 50}, Position{.x = 0, .y = 0}));
+            TestBundle{Health{.life = 50}, Position{.x = 0, .y = 0}});
     }
     std::cout << std::endl;
 }
