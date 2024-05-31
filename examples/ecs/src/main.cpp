@@ -152,6 +152,12 @@ void read_event(entity::EventReader<Health> reader) {
     std::cout << std::endl;
 }
 
+struct TestPlugin : entity::Plugin {
+    void build(entity::App& app) override {
+        app.add_system(print);
+    };
+};
+
 int main() {
     entity::App app;
     app.run_system(start).run_system(print);
@@ -177,6 +183,7 @@ int main() {
 
     app.add_system(print).run();
     app.add_system(read_event, chech_if_event).run();
+    app.add_plugin(new TestPlugin()).run();
 
     return 0;
 }
