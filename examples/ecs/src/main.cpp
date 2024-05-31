@@ -40,8 +40,8 @@ void create_child(
     for (auto [entity] : query.iter()) {
         std::cout << "entity with child: " << static_cast<int>(entity)
                   << std::endl;
-        command.entity(entity).spawn(Health{.life = 50},
-                                     Position{.x = 0, .y = 0});
+        command.entity(entity).spawn(
+            std::make_tuple(Health{.life = 50}, Position{.x = 0, .y = 0}));
     }
     std::cout << std::endl;
 }
@@ -153,9 +153,7 @@ void read_event(entity::EventReader<Health> reader) {
 }
 
 struct TestPlugin : entity::Plugin {
-    void build(entity::App& app) override {
-        app.add_system(print);
-    };
+    void build(entity::App& app) override { app.add_system(print); };
 };
 
 int main() {
