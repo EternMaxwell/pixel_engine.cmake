@@ -12,6 +12,7 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include "pixel_engine/entity/scheduler.h"
 #include "pixel_engine/entity/system.h"
 
 namespace pixel_engine {
@@ -605,8 +606,6 @@ namespace pixel_engine {
             void clear() { m_events->clear(); }
         };
 
-        class Scheduler {};
-
         class Plugin {
            public:
             virtual void build(App& app) = 0;
@@ -614,16 +613,17 @@ namespace pixel_engine {
 
         class App {
            protected:
+            bool m_loop_enabled = false;
             entt::registry m_registry;
             std::unordered_map<entt::entity, std::set<entt::entity>>
                 m_entity_relation_tree;
             std::unordered_map<size_t, std::any> m_resources;
             std::unordered_map<size_t, std::deque<std::any>> m_events;
             std::vector<Command> m_existing_commands;
-            std::vector<std::unique_ptr<BasicSystem<void>>> m_systems;
-            std::unordered_map<BasicSystem<void>*,
-                               std::unique_ptr<BasicSystem<bool>>>
-                m_system_conditions;
+            std::vector<std::tuple<std::unique_ptr<Scheduler>,
+                                   std::unique_ptr<BasicSystem<void>>,
+                                   std::unique_ptr<BasicSystem<bool>>>>
+                m_systems;
 
             template <typename T, typename... Args, typename Tuple,
                       std::size_t... I>
@@ -825,8 +825,11 @@ namespace pixel_engine {
              */
             template <typename... Args>
             App& add_system(void (*func)(Args...)) {
-                m_systems.push_back(std::make_unique<System<Args...>>(
-                    System<Args...>(this, func)));
+                m_systems.push_back(
+                    std::make_tuple(nullptr,
+                                    std::make_unique<System<Args...>>(
+                                        System<Args...>(this, func)),
+                                    nullptr));
                 return *this;
             }
 
@@ -840,11 +843,12 @@ namespace pixel_engine {
             template <typename... Args1, typename... Args2>
             App& add_system(void (*func)(Args1...),
                             bool (*condition)(Args2...)) {
-                m_systems.push_back(std::make_unique<System<Args1...>>(
-                    System<Args1...>(this, func)));
-                m_system_conditions[m_systems.back().get()] =
-                    std::make_unique<Condition<Args2...>>(
-                        Condition<Args2...>(this, condition));
+                m_systems.push_back(
+                    std::make_tuple(nullptr,
+                                    std::make_unique<System<Args1...>>(
+                                        System<Args1...>(this, func)),
+                                    std::make_unique<Condition<Args2...>>(
+                                        Condition<Args2...>(this, condition))));
                 return *this;
             }
 
@@ -870,14 +874,11 @@ namespace pixel_engine {
              * Still need to figure out how to use this.
              */
             void run() {
-                for (auto& system : m_systems) {
-                    if (m_system_conditions.find(system.get()) !=
-                        m_system_conditions.end()) {
-                        if (m_system_conditions.at(system.get())->run()) {
+                for (auto& [scheduler, system, condition] : m_systems) {
+                    if (scheduler == nullptr || scheduler->should_run()) {
+                        if (condition == nullptr || condition->run()) {
                             system->run();
                         }
-                    } else {
-                        system->run();
                     }
                 }
             }
