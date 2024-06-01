@@ -29,38 +29,44 @@ namespace pixel_engine {
         template <typename Q1, typename Q2>
         struct queries_contrary {};
 
+        struct internal {
+            template <typename T, typename... Args>
+            static void emplace_internal(entt::registry* registry, entt::entity entity,
+                                  T arg, Args... args) {
+                if constexpr (is_template_of<std::tuple, T>::value) {
+                    emplace_internal_tuple(registry, entity, arg);
+                } else {
+                    registry->emplace<T>(entity, arg);
+                }
+                if constexpr (sizeof...(Args) > 0) {
+                    emplace_internal(registry, entity, args...);
+                }
+            }
+
+            template <typename... Args, size_t... I>
+            static void emplace_internal_tuple(entt::registry* registry,
+                                        entt::entity entity,
+                                        std::tuple<Args...> tuple,
+                                        std::index_sequence<I...>) {
+                emplace_internal(registry, entity, std::get<I>(tuple)...);
+            }
+
+            template <typename... Args>
+            static void emplace_internal_tuple(entt::registry* registry,
+                                        entt::entity entity,
+                                        std::tuple<Args...> tuple) {
+                emplace_internal_tuple(
+                    registry, entity, tuple,
+                    std::make_index_sequence<sizeof...(Args)>());
+            }
+        };
+
         class EntityCommand {
            private:
             entt::registry* const m_registry;
             const entt::entity& m_entity;
             std::unordered_map<entt::entity, std::set<entt::entity>>* const
                 m_parent_tree;
-
-            template <typename... Args, size_t... I>
-            void emplace_internal_tuple(entt::entity entity,
-                                        std::tuple<Args...> tuple,
-                                        std::index_sequence<I...>) {
-                emplace_internal(entity, std::get<I>(tuple)...);
-            }
-
-            template <typename... Args>
-            void emplace_internal_tuple(entt::entity entity,
-                                        std::tuple<Args...> tuple) {
-                emplace_internal_tuple(
-                    entity, tuple, std::make_index_sequence<sizeof...(Args)>());
-            }
-
-            template <typename T, typename... Args>
-            void emplace_internal(entt::entity entity, T arg, Args... args) {
-                if constexpr (is_template_of<std::tuple, T>::value) {
-                    emplace_internal_tuple(entity, arg);
-                } else {
-                    m_registry->emplace<T>(entity, arg);
-                }
-                if constexpr (sizeof...(Args) > 0) {
-                    emplace_internal(entity, args...);
-                }
-            }
 
            public:
             EntityCommand(
@@ -80,7 +86,7 @@ namespace pixel_engine {
             template <typename... Args>
             auto spawn(Args... args) {
                 auto child = m_registry->create();
-                emplace_internal(child, args...);
+                entity::internal::emplace_internal(m_registry, child, args...);
                 (*m_parent_tree)[m_entity].insert(child);
                 return child;
             }
@@ -107,32 +113,6 @@ namespace pixel_engine {
                 m_parent_tree;
             std::unordered_map<size_t, std::any>* const m_resources;
 
-            template <typename... Args, size_t... I>
-            void emplace_internal_tuple(entt::entity entity,
-                                        std::tuple<Args...> tuple,
-                                        std::index_sequence<I...>) {
-                emplace_internal(entity, std::get<I>(tuple)...);
-            }
-
-            template <typename... Args>
-            void emplace_internal_tuple(entt::entity entity,
-                                        std::tuple<Args...> tuple) {
-                emplace_internal_tuple(
-                    entity, tuple, std::make_index_sequence<sizeof...(Args)>());
-            }
-
-            template <typename T, typename... Args>
-            void emplace_internal(entt::entity entity, T arg, Args... args) {
-                if constexpr (is_template_of<std::tuple, T>::value) {
-                    emplace_internal_tuple(entity, arg);
-                } else {
-                    m_registry->emplace<T>(entity, arg);
-                }
-                if constexpr (sizeof...(Args) > 0) {
-                    emplace_internal(entity, args...);
-                }
-            }
-
            public:
             Command(entt::registry* registry,
                     std::unordered_map<entt::entity, std::set<entt::entity>>*
@@ -151,7 +131,7 @@ namespace pixel_engine {
             template <typename... Args>
             auto spawn(Args... args) {
                 auto entity = m_registry->create();
-                emplace_internal(entity, args...);
+                entity::internal::emplace_internal(m_registry, entity, args...);
                 return entity;
             }
 
