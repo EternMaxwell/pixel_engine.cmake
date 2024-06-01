@@ -113,15 +113,18 @@ namespace pixel_engine {
             std::unordered_map<entt::entity, std::set<entt::entity>>* const
                 m_parent_tree;
             std::unordered_map<size_t, std::any>* const m_resources;
+            std::unordered_map<size_t, std::deque<std::any>>* m_events;
 
            public:
             Command(entt::registry* registry,
                     std::unordered_map<entt::entity, std::set<entt::entity>>*
                         relation_tree,
-                    std::unordered_map<size_t, std::any>* resources)
+                    std::unordered_map<size_t, std::any>* resources,
+                    std::unordered_map<size_t, std::deque<std::any>>* events)
                 : m_registry(registry),
                   m_parent_tree(relation_tree),
-                  m_resources(resources) {}
+                  m_resources(resources),
+                  m_events(events) {}
 
             /*! @brief Spawn an entity.
              * @tparam Args The types of the components to be added to the
@@ -145,6 +148,7 @@ namespace pixel_engine {
             }
 
             /*! @brief Insert a resource.
+             * If the resource already exists, nothing will happen.
              * @tparam T The type of the resource.
              * @param res The resource to be inserted.
              */
@@ -157,6 +161,7 @@ namespace pixel_engine {
             }
 
             /*! @brief Remove a resource.
+             * If the resource does not exist, nothing will happen.
              * @tparam T The type of the resource.
              */
             template <typename T>
@@ -165,6 +170,7 @@ namespace pixel_engine {
             }
 
             /*! @brief Insert Resource using default values.
+             * If the resource already exists, nothing will happen.
              * @tparam T The type of the resource.
              */
             template <typename T>
@@ -174,6 +180,15 @@ namespace pixel_engine {
                     auto res = std::make_any<T>();
                     m_resources->insert({typeid(T).hash_code(), res});
                 }
+            }
+
+            /*! @brief Clear events of type T.
+             * If the event does not exist nothing will happen.
+             * @tparam T The type of the event.
+             */
+            template <typename T>
+            void clear_events() {
+                m_events->erase(typeid(T).hash_code());
             }
 
             /*! @brief Not figured out what this do and how to use it.
@@ -606,7 +621,7 @@ namespace pixel_engine {
             std::unordered_map<size_t, std::deque<std::any>> m_events;
             std::vector<Command> m_existing_commands;
             std::vector<std::unique_ptr<BasicSystem<void>>> m_systems;
-            std::unordered_map<std::unique_ptr<BasicSystem<void>>*,
+            std::unordered_map<BasicSystem<void>*,
                                std::unique_ptr<BasicSystem<bool>>>
                 m_system_conditions;
 
@@ -756,7 +771,7 @@ namespace pixel_engine {
              */
             Command command() {
                 Command command(&m_registry, &m_entity_relation_tree,
-                                &m_resources);
+                                &m_resources, &m_events);
                 return command;
             }
 
@@ -827,7 +842,7 @@ namespace pixel_engine {
                             bool (*condition)(Args2...)) {
                 m_systems.push_back(std::make_unique<System<Args1...>>(
                     System<Args1...>(this, func)));
-                m_system_conditions[&m_systems.back()] =
+                m_system_conditions[m_systems.back().get()] =
                     std::make_unique<Condition<Args2...>>(
                         Condition<Args2...>(this, condition));
                 return *this;
@@ -856,9 +871,9 @@ namespace pixel_engine {
              */
             void run() {
                 for (auto& system : m_systems) {
-                    if (m_system_conditions.find(&system) !=
+                    if (m_system_conditions.find(system.get()) !=
                         m_system_conditions.end()) {
-                        if (m_system_conditions.at(&system)->run()) {
+                        if (m_system_conditions.at(system.get())->run()) {
                             system->run();
                         }
                     } else {
