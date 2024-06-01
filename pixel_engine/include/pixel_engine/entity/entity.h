@@ -852,6 +852,40 @@ namespace pixel_engine {
                 return *this;
             }
 
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param func The system to be run.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args>
+            App& add_system(Sch scheduler, void (*func)(Args...)) {
+                m_systems.push_back(
+                    std::make_tuple(std::make_unique<Sch>(scheduler),
+                                    std::make_unique<System<Args...>>(
+                                        System<Args...>(this, func)),
+                                    nullptr));
+                return *this;
+            }
+
+            /*! @brief Add a system with a condition.
+             * @tparam Args1 The types of the arguments for the system.
+             * @tparam Args2 The types of the arguments for the condition.
+             * @param func The system to be run.
+             * @param condition The condition for the system to be run.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args1, typename... Args2>
+            App& add_system(Sch scheduler, void (*func)(Args1...),
+                            bool (*condition)(Args2...)) {
+                m_systems.push_back(
+                    std::make_tuple(std::make_unique<Sch>(scheduler),
+                                    std::make_unique<System<Args1...>>(
+                                        System<Args1...>(this, func)),
+                                    std::make_unique<Condition<Args2...>>(
+                                        Condition<Args2...>(this, condition))));
+                return *this;
+            }
+
             /*! @brief Add a plugin.
              * @param plugin The plugin to be added.
              * @return The App object itself.
