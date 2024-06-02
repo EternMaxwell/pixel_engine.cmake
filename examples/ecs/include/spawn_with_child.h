@@ -70,6 +70,17 @@ namespace test_with_child {
         std::cout << std::endl;
     }
 
+    void print_count(
+        entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+        std::cout << "print_count" << std::endl;
+        int count = 0;
+        for (auto [entity, health] : query.iter()) {
+            count++;
+        }
+        std::cout << "entity count: " << count << std::endl;
+        std::cout << std::endl;
+    }
+
     void despawn_recurese(
         entity::Command command,
         entity::Query<std::tuple<entt::entity, WithChild>, std::tuple<>>
