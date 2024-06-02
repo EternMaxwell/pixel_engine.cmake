@@ -10,7 +10,7 @@ namespace pixel_engine {
 
            public:
             BasicSystem(App* app) : app(app) {}
-            virtual Ret run() { return Ret(); };
+            virtual Ret run() = 0;
         };
 
         template <typename... Args>
@@ -26,8 +26,6 @@ namespace pixel_engine {
 
         template <typename... Args>
         class Condition : public BasicSystem<bool> {
-            friend class App;
-
            private:
             bool (*func)(Args...);
 

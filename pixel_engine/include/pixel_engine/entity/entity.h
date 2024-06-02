@@ -12,6 +12,8 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include "pixel_engine/entity/scheduler.h"
+#include "pixel_engine/entity/state.h"
 #include "pixel_engine/entity/system.h"
 
 namespace pixel_engine {
@@ -29,20 +31,44 @@ namespace pixel_engine {
         template <typename Q1, typename Q2>
         struct queries_contrary {};
 
+        struct internal {
+            template <typename T, typename... Args>
+            static void emplace_internal(entt::registry* registry, entt::entity entity,
+                                  T arg, Args... args) {
+                if constexpr (is_template_of<std::tuple, T>::value) {
+                    emplace_internal_tuple(registry, entity, arg);
+                } else {
+                    registry->emplace<T>(entity, arg);
+                }
+                if constexpr (sizeof...(Args) > 0) {
+                    emplace_internal(registry, entity, args...);
+                }
+            }
+
+            template <typename... Args, size_t... I>
+            static void emplace_internal_tuple(entt::registry* registry,
+                                        entt::entity entity,
+                                        std::tuple<Args...> tuple,
+                                        std::index_sequence<I...>) {
+                emplace_internal(registry, entity, std::get<I>(tuple)...);
+            }
+
+            template <typename... Args>
+            static void emplace_internal_tuple(entt::registry* registry,
+                                        entt::entity entity,
+                                        std::tuple<Args...> tuple) {
+                emplace_internal_tuple(
+                    registry, entity, tuple,
+                    std::make_index_sequence<sizeof...(Args)>());
+            }
+        };
+
         class EntityCommand {
            private:
             entt::registry* const m_registry;
             const entt::entity& m_entity;
             std::unordered_map<entt::entity, std::set<entt::entity>>* const
                 m_parent_tree;
-
-            template <typename T, typename... Args>
-            void emplace_internal(entt::entity entity, T arg, Args... args) {
-                m_registry->emplace<T>(entity, arg);
-                if constexpr (sizeof...(Args) > 0) {
-                    emplace_internal(entity, args...);
-                }
-            }
 
            public:
             EntityCommand(
@@ -62,7 +88,7 @@ namespace pixel_engine {
             template <typename... Args>
             auto spawn(Args... args) {
                 auto child = m_registry->create();
-                emplace_internal(child, args...);
+                entity::internal::emplace_internal(m_registry, child, args...);
                 (*m_parent_tree)[m_entity].insert(child);
                 return child;
             }
@@ -88,23 +114,18 @@ namespace pixel_engine {
             std::unordered_map<entt::entity, std::set<entt::entity>>* const
                 m_parent_tree;
             std::unordered_map<size_t, std::any>* const m_resources;
-
-            template <typename T, typename... Args>
-            void emplace_internal(entt::entity entity, T arg, Args... args) {
-                m_registry->emplace<T>(entity, arg);
-                if constexpr (sizeof...(Args) > 0) {
-                    emplace_internal(entity, args...);
-                }
-            }
+            std::unordered_map<size_t, std::deque<std::any>>* m_events;
 
            public:
             Command(entt::registry* registry,
                     std::unordered_map<entt::entity, std::set<entt::entity>>*
                         relation_tree,
-                    std::unordered_map<size_t, std::any>* resources)
+                    std::unordered_map<size_t, std::any>* resources,
+                    std::unordered_map<size_t, std::deque<std::any>>* events)
                 : m_registry(registry),
                   m_parent_tree(relation_tree),
-                  m_resources(resources) {}
+                  m_resources(resources),
+                  m_events(events) {}
 
             /*! @brief Spawn an entity.
              * @tparam Args The types of the components to be added to the
@@ -115,7 +136,7 @@ namespace pixel_engine {
             template <typename... Args>
             auto spawn(Args... args) {
                 auto entity = m_registry->create();
-                emplace_internal(entity, args...);
+                entity::internal::emplace_internal(m_registry, entity, args...);
                 return entity;
             }
 
@@ -128,6 +149,7 @@ namespace pixel_engine {
             }
 
             /*! @brief Insert a resource.
+             * If the resource already exists, nothing will happen.
              * @tparam T The type of the resource.
              * @param res The resource to be inserted.
              */
@@ -140,6 +162,7 @@ namespace pixel_engine {
             }
 
             /*! @brief Remove a resource.
+             * If the resource does not exist, nothing will happen.
              * @tparam T The type of the resource.
              */
             template <typename T>
@@ -148,6 +171,7 @@ namespace pixel_engine {
             }
 
             /*! @brief Insert Resource using default values.
+             * If the resource already exists, nothing will happen.
              * @tparam T The type of the resource.
              */
             template <typename T>
@@ -157,6 +181,15 @@ namespace pixel_engine {
                     auto res = std::make_any<T>();
                     m_resources->insert({typeid(T).hash_code(), res});
                 }
+            }
+
+            /*! @brief Clear events of type T.
+             * If the event does not exist nothing will happen.
+             * @tparam T The type of the event.
+             */
+            template <typename T>
+            void clear_events() {
+                m_events->erase(typeid(T).hash_code());
             }
 
             /*! @brief Not figured out what this do and how to use it.
@@ -512,7 +545,10 @@ namespace pixel_engine {
             /*! @brief Write an event.
              * @param evt The event to be written.
              */
-            void write(Evt evt) { m_events->push_back(evt); }
+            auto& write(Evt evt) {
+                m_events->push_back(evt);
+                return *this;
+            }
         };
 
         template <typename Evt>
@@ -570,20 +606,24 @@ namespace pixel_engine {
             void clear() { m_events->clear(); }
         };
 
-        class Scheduler {};
+        class Plugin {
+           public:
+            virtual void build(App& app) = 0;
+        };
 
         class App {
            protected:
+            bool m_loop_enabled = false;
             entt::registry m_registry;
             std::unordered_map<entt::entity, std::set<entt::entity>>
                 m_entity_relation_tree;
             std::unordered_map<size_t, std::any> m_resources;
             std::unordered_map<size_t, std::deque<std::any>> m_events;
             std::vector<Command> m_existing_commands;
-            std::vector<std::unique_ptr<BasicSystem<void>>> m_systems;
-            std::unordered_map<std::unique_ptr<BasicSystem<void>>*,
-                               std::unique_ptr<BasicSystem<bool>>>
-                m_system_conditions;
+            std::vector<std::tuple<std::unique_ptr<Scheduler>,
+                                   std::unique_ptr<BasicSystem<void>>,
+                                   std::unique_ptr<BasicSystem<bool>>>>
+                m_systems;
 
             template <typename T, typename... Args, typename Tuple,
                       std::size_t... I>
@@ -731,7 +771,7 @@ namespace pixel_engine {
              */
             Command command() {
                 Command command(&m_registry, &m_entity_relation_tree,
-                                &m_resources);
+                                &m_resources, &m_events);
                 return command;
             }
 
@@ -783,10 +823,13 @@ namespace pixel_engine {
              * @param func The system to be run.
              * @return The App object itself.
              */
-            template <typename... Args>
-            App& add_system(void (*func)(Args...)) {
-                m_systems.push_back(std::make_unique<System<Args...>>(
-                    System<Args...>(this, func)));
+            template <typename Sch, typename... Args>
+            App& add_system(Sch scheduler, void (*func)(Args...)) {
+                m_systems.push_back(
+                    std::make_tuple(std::make_unique<Sch>(scheduler),
+                                    std::make_unique<System<Args...>>(
+                                        System<Args...>(this, func)),
+                                    nullptr));
                 return *this;
             }
 
@@ -797,29 +840,85 @@ namespace pixel_engine {
              * @param condition The condition for the system to be run.
              * @return The App object itself.
              */
-            template <typename... Args1, typename... Args2>
-            App& add_system(void (*func)(Args1...),
+            template <typename Sch, typename... Args1, typename... Args2>
+            App& add_system(Sch scheduler, void (*func)(Args1...),
                             bool (*condition)(Args2...)) {
-                m_systems.push_back(std::make_unique<System<Args1...>>(
-                    System<Args1...>(this, func)));
-                m_system_conditions[&m_systems.back()] =
-                    std::make_unique<Condition<Args2...>>(
-                        Condition<Args2...>(this, condition));
+                m_systems.push_back(
+                    std::make_tuple(std::make_unique<Sch>(scheduler),
+                                    std::make_unique<System<Args1...>>(
+                                        System<Args1...>(this, func)),
+                                    std::make_unique<Condition<Args2...>>(
+                                        Condition<Args2...>(this, condition))));
+                return *this;
+            }
+
+            /*! @brief Add a plugin.
+             * @param plugin The plugin to be added.
+             * @return The App object itself.
+             */
+            App& add_plugin(Plugin& plugin) {
+                plugin.build(*this);
+                return *this;
+            }
+
+            /*! @brief Add a plugin.
+             * @param plugin The plugin to be added.
+             * @return The App object itself.
+             */
+            App& add_plugin(Plugin* plugin) {
+                plugin->build(*this);
+                return *this;
+            }
+
+            /*! @brief Insert a state.
+             * If the state already exists, nothing will happen.
+             * @tparam T The type of the state.
+             * @param state The state value to be set when inserted.
+             * @return The App object itself.
+             */
+            template <typename T>
+            App& insert_state(T state) {
+                Command cmd = command();
+                cmd.insert_resource(State(state));
+                cmd.insert_resource(NextState(state));
+                return *this;
+            }
+
+            /*! @brief Insert a state using default values.
+             * If the state already exists, nothing will happen.
+             * @tparam T The type of the state.
+             * @return The App object itself.
+             */
+            template <typename T>
+            App& init_state() {
+                Command cmd = command();
+                cmd.init_resource<State<T>>();
+                cmd.init_resource<NextState<T>>();
                 return *this;
             }
 
             /*! @brief Run the app.
-             * Still need to figure out how to use this.
              */
             void run() {
-                for (auto& system : m_systems) {
-                    if (m_system_conditions.find(&system) !=
-                        m_system_conditions.end()) {
-                        if (m_system_conditions.at(&system)->run()) {
+                // run start up systems
+                for (auto& [scheduler, system, condition] : m_systems) {
+                    if (scheduler != nullptr &&
+                        dynamic_cast<Startup*>(scheduler.get()) != NULL &&
+                        scheduler->should_run()) {
+                        if (condition == nullptr || condition->run()) {
                             system->run();
                         }
-                    } else {
-                        system->run();
+                    }
+                }
+
+                // run update systems
+                for (auto& [scheduler, system, condition] : m_systems) {
+                    if (scheduler != nullptr &&
+                        dynamic_cast<Update*>(scheduler.get()) != NULL &&
+                        scheduler->should_run()) {
+                        if (condition == nullptr || condition->run()) {
+                            system->run();
+                        }
                     }
                 }
             }
