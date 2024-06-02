@@ -49,19 +49,20 @@ namespace test_with_child {
     }
 
     void print_count(
-		entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
-		std::cout << "print_count" << std::endl;
-		int count = 0;
-		for (auto [entity, health] : query.iter()) {
-			count++;
-		}
-		std::cout << "entity count: " << count << std::endl;
-		std::cout << std::endl;
-	}
+        entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+        std::cout << "print_count" << std::endl;
+        int count = 0;
+        for (auto [entity, health] : query.iter()) {
+            count++;
+        }
+        std::cout << "entity count: " << count << std::endl;
+        std::cout << std::endl;
+    }
 
     void despawn_recurese(
         entity::Command command,
-        entity::Query<std::tuple<entt::entity, WithChild>, std::tuple<>> query) {
+        entity::Query<std::tuple<entt::entity, WithChild>, std::tuple<>>
+            query) {
         std::cout << "despawn" << std::endl;
         for (auto [entity] : query.iter()) {
             command.entity(entity).despawn_recurse();
@@ -71,12 +72,12 @@ namespace test_with_child {
 
     void test() {
         entity::App app;
-        app.add_system(spawn)
-            .add_system(print_count)
-            .add_system(create_child)
-            .add_system(print_count)
-            .add_system(despawn_recurese)
-            .add_system(print_count)
+        app.add_system(entity::Startup{}, spawn)
+            .add_system(entity::Startup{}, print_count)
+            .add_system(entity::Startup{}, create_child)
+            .add_system(entity::Startup{}, print_count)
+            .add_system(entity::Startup{}, despawn_recurese)
+            .add_system(entity::Startup{}, print_count)
             .run();
     }
 }  // namespace test_with_child

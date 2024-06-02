@@ -42,7 +42,7 @@ namespace test_event {
 
     void test() {
         entity::App app;
-        app.add_system(write_event)
+        app.add_system(entity::Startup{}, write_event)
             .add_system(entity::Startup{}, read_event)
             .add_system(entity::Startup{}, clear_event)
             .add_system(entity::Startup{}, read_event, check_if_event_exist)
