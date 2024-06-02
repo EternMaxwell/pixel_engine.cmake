@@ -50,14 +50,14 @@ namespace test_resource {
 
     void test() {
         entity::App app;
-        app.add_system(set_resource)
-            .add_system(access_resource)
-            .add_system(remove_resource)
-            .add_system(set_resource_with_init)
-            .add_system(access_resource)
-            .add_system(change_resource)
-            .add_system(access_resource)
-            .add_system(remove_resource)
+        app.add_system(entity::Startup{}, set_resource)
+            .add_system(entity::Startup{}, access_resource)
+            .add_system(entity::Startup{}, remove_resource)
+            .add_system(entity::Startup{}, set_resource_with_init)
+            .add_system(entity::Startup{}, access_resource)
+            .add_system(entity::Startup{}, change_resource)
+            .add_system(entity::Startup{}, access_resource)
+            .add_system(entity::Startup{}, remove_resource)
             .run();
     }
 }  // namespace test_resource
