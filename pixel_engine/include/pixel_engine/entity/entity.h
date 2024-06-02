@@ -13,6 +13,7 @@
 #include <unordered_map>
 
 #include "pixel_engine/entity/scheduler.h"
+#include "pixel_engine/entity/state.h"
 #include "pixel_engine/entity/system.h"
 
 namespace pixel_engine {
@@ -870,8 +871,34 @@ namespace pixel_engine {
                 return *this;
             }
 
+            /*! @brief Insert a state.
+             * If the state already exists, nothing will happen.
+             * @tparam T The type of the state.
+             * @param state The state value to be set when inserted.
+             * @return The App object itself.
+             */
+            template <typename T>
+            App& insert_state(T state) {
+                Command cmd = command();
+                cmd.insert_resource(State(state));
+                cmd.insert_resource(NextState(state));
+                return *this;
+            }
+
+            /*! @brief Insert a state using default values.
+             * If the state already exists, nothing will happen.
+             * @tparam T The type of the state.
+             * @return The App object itself.
+             */
+            template <typename T>
+            App& init_state() {
+                Command cmd = command();
+                cmd.init_resource<State<T>>();
+                cmd.init_resource<NextState<T>>();
+                return *this;
+            }
+
             /*! @brief Run the app.
-             * Still need to figure out how to use this.
              */
             void run() {
                 // run start up systems
