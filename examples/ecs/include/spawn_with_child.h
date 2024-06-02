@@ -49,15 +49,15 @@ namespace test_with_child {
     }
 
     void print_count(
-		entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
-		std::cout << "print_count" << std::endl;
-		int count = 0;
-		for (auto [entity, health] : query.iter()) {
-			count++;
-		}
-		std::cout << "entity count: " << count << std::endl;
-		std::cout << std::endl;
-	}
+        entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+        std::cout << "print_count" << std::endl;
+        int count = 0;
+        for (auto [entity, health] : query.iter()) {
+            count++;
+        }
+        std::cout << "entity count: " << count << std::endl;
+        std::cout << std::endl;
+    }
 
     void print_count(
         entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
