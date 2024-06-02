@@ -22,5 +22,7 @@ find_package (OpenGL REQUIRED)
 #sub directories
 add_subdirectory (libs/entt)
 add_subdirectory (libs/glfw)
+add_subdirectory (libs/spdlog)
+add_subdirectory (libs/fmt)
 add_subdirectory (pixel_engine)
 add_subdirectory (examples)
