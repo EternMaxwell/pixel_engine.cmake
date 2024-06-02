@@ -16,8 +16,5 @@ target_include_directories(pixel_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inclu
 target_link_libraries (pixel_engine glfw)
 target_link_libraries (pixel_engine OpenGL::GL)
 target_link_libraries (pixel_engine Vulkan::Vulkan)
-
 target_link_libraries (pixel_engine EnTT::EnTT)
-
-#install(TARGETS ${PROJECT_NAME} DESTINATION lib/${PROJECT_NAME})
-#install(FILES ${ENGINE_HEADERS} DESTINATION include/${PROJECT_NAME})
+target_link_libraries (pixel_engine spdlog::spdlog)
