@@ -70,14 +70,20 @@ namespace test_with_child {
         std::cout << std::endl;
     }
 
+    class SpawnWithChildPlugin : public entity::Plugin {
+       public:
+        void build(entity::App& app) override {
+            app.add_system(entity::Startup{}, spawn)
+                .add_system(entity::Startup{}, print_count)
+                .add_system(entity::Startup{}, create_child)
+                .add_system(entity::Startup{}, print_count)
+                .add_system(entity::Startup{}, despawn_recurese)
+                .add_system(entity::Startup{}, print_count);
+        }
+    };
+
     void test() {
         entity::App app;
-        app.add_system(entity::Startup{}, spawn)
-            .add_system(entity::Startup{}, print_count)
-            .add_system(entity::Startup{}, create_child)
-            .add_system(entity::Startup{}, print_count)
-            .add_system(entity::Startup{}, despawn_recurese)
-            .add_system(entity::Startup{}, print_count)
-            .run();
+        app.add_plugin(SpawnWithChildPlugin{}).run();
     }
 }  // namespace test_with_child

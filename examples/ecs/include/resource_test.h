@@ -41,23 +41,29 @@ namespace test_resource {
     }
 
     void change_resource(entity::Resource<Resource> resource) {
-		std::cout << "change_resource" << std::endl;
+        std::cout << "change_resource" << std::endl;
         if (resource.has_value()) {
             resource.value().data = 200;
         }
-		std::cout << std::endl;
-	}
+        std::cout << std::endl;
+    }
+
+    class ResourceTestPlugin : public entity::Plugin {
+       public:
+        void build(entity::App& app) override {
+            app.add_system(entity::Startup{}, set_resource)
+                .add_system(entity::Startup{}, access_resource)
+                .add_system(entity::Startup{}, remove_resource)
+                .add_system(entity::Startup{}, set_resource_with_init)
+                .add_system(entity::Startup{}, access_resource)
+                .add_system(entity::Startup{}, change_resource)
+                .add_system(entity::Startup{}, access_resource)
+                .add_system(entity::Startup{}, remove_resource);
+        }
+    };
 
     void test() {
         entity::App app;
-        app.add_system(entity::Startup{}, set_resource)
-            .add_system(entity::Startup{}, access_resource)
-            .add_system(entity::Startup{}, remove_resource)
-            .add_system(entity::Startup{}, set_resource_with_init)
-            .add_system(entity::Startup{}, access_resource)
-            .add_system(entity::Startup{}, change_resource)
-            .add_system(entity::Startup{}, access_resource)
-            .add_system(entity::Startup{}, remove_resource)
-            .run();
+        app.add_plugin(ResourceTestPlugin{}).run();
     }
 }  // namespace test_resource

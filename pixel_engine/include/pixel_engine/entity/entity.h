@@ -33,8 +33,9 @@ namespace pixel_engine {
 
         struct internal {
             template <typename T, typename... Args>
-            static void emplace_internal(entt::registry* registry, entt::entity entity,
-                                  T arg, Args... args) {
+            static void emplace_internal(entt::registry* registry,
+                                         entt::entity entity, T arg,
+                                         Args... args) {
                 if constexpr (is_template_of<std::tuple, T>::value) {
                     emplace_internal_tuple(registry, entity, arg);
                 } else {
@@ -47,16 +48,16 @@ namespace pixel_engine {
 
             template <typename... Args, size_t... I>
             static void emplace_internal_tuple(entt::registry* registry,
-                                        entt::entity entity,
-                                        std::tuple<Args...> tuple,
-                                        std::index_sequence<I...>) {
+                                               entt::entity entity,
+                                               std::tuple<Args...> tuple,
+                                               std::index_sequence<I...>) {
                 emplace_internal(registry, entity, std::get<I>(tuple)...);
             }
 
             template <typename... Args>
             static void emplace_internal_tuple(entt::registry* registry,
-                                        entt::entity entity,
-                                        std::tuple<Args...> tuple) {
+                                               entt::entity entity,
+                                               std::tuple<Args...> tuple) {
                 emplace_internal_tuple(
                     registry, entity, tuple,
                     std::make_index_sequence<sizeof...(Args)>());
@@ -856,17 +857,10 @@ namespace pixel_engine {
              * @param plugin The plugin to be added.
              * @return The App object itself.
              */
-            App& add_plugin(Plugin& plugin) {
+            template <typename T,
+                      std::enable_if_t<std::is_base_of_v<Plugin, T>>* = nullptr>
+            App& add_plugin(T plugin) {
                 plugin.build(*this);
-                return *this;
-            }
-
-            /*! @brief Add a plugin.
-             * @param plugin The plugin to be added.
-             * @return The App object itself.
-             */
-            App& add_plugin(Plugin* plugin) {
-                plugin->build(*this);
                 return *this;
             }
 

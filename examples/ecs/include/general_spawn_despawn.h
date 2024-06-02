@@ -1,11 +1,11 @@
 ﻿#include <pixel_engine/entity/entity.h>
 
+#include <format>
 #include <iomanip>
 #include <iostream>
 #include <random>
-#include <format>
 
-namespace test_spawn_despawn{
+namespace test_spawn_despawn {
     using namespace pixel_engine;
 
     struct Health {
@@ -40,8 +40,7 @@ namespace test_spawn_despawn{
         std::cout << "print" << std::endl;
         for (auto [entity, health, position] : query.iter()) {
             std::string id = std::format("{:#05x}", static_cast<int>(entity));
-            std::cout << "entity: " << id
-                      << " [health: " << health.life
+            std::cout << "entity: " << id << " [health: " << health.life
                       << " position: " << position.x << ", " << position.y
                       << "]" << std::endl;
         }
@@ -49,25 +48,25 @@ namespace test_spawn_despawn{
     }
 
     void print_count(
-		entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
-		std::cout << "print_count" << std::endl;
+        entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+        std::cout << "print_count" << std::endl;
         int count = 0;
         for (auto [entity, health] : query.iter()) {
             count++;
-		}
-		std::cout << "entity count: " << count << std::endl;
-		std::cout << std::endl;
-	}
+        }
+        std::cout << "entity count: " << count << std::endl;
+        std::cout << std::endl;
+    }
 
     void change_component_data(
-		entity::Command command,
-		entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
-		std::cout << "change_component_data" << std::endl;
-		for (auto [entity, health] : query.iter()) {
-			health.life = 200.0f;
-		}
-		std::cout << std::endl;
-	}
+        entity::Command command,
+        entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+        std::cout << "change_component_data" << std::endl;
+        for (auto [entity, health] : query.iter()) {
+            health.life = 200.0f;
+        }
+        std::cout << std::endl;
+    }
 
     void despawn(
         entity::Command command,
@@ -79,14 +78,20 @@ namespace test_spawn_despawn{
         std::cout << std::endl;
     }
 
+    class SpawnDespawnPlugin : public entity::Plugin {
+       public:
+        void build(entity::App& app) override {
+            app.add_system(entity::Startup{}, spawn)
+                .add_system(entity::Startup{}, print_count)
+                .add_system(entity::Startup{}, change_component_data)
+                .add_system(entity::Startup{}, print_count)
+                .add_system(entity::Startup{}, despawn)
+                .add_system(entity::Startup{}, print_count);
+        }
+    };
+
     void test() {
         entity::App app;
-        app.add_system(entity::Startup{}, spawn)
-            .add_system(entity::Startup{}, print_count)
-            .add_system(entity::Startup{}, change_component_data)
-            .add_system(entity::Startup{}, print_count)
-            .add_system(entity::Startup{}, despawn)
-            .add_system(entity::Startup{}, print_count)
-            .run();
+        app.add_plugin(SpawnDespawnPlugin{}).run();
     }
-}
+}  // namespace test_spawn_despawn
