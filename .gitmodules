@@ -7,3 +7,6 @@
 [submodule "libs/spdlog"]
 	path = libs/spdlog
 	url = git@github.com:gabime/spdlog.git
+[submodule "libs/fmt"]
+	path = libs/fmt
+	url = git@github.com:fmtlib/fmt.git
