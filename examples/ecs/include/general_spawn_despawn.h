@@ -48,6 +48,17 @@ namespace test_spawn_despawn{
         std::cout << std::endl;
     }
 
+    void print_count(
+		entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+		std::cout << "print_count" << std::endl;
+        int count = 0;
+        for (auto [entity, health] : query.iter()) {
+            count++;
+		}
+		std::cout << "entity count: " << count << std::endl;
+		std::cout << std::endl;
+	}
+
     void change_component_data(
 		entity::Command command,
 		entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
@@ -71,11 +82,11 @@ namespace test_spawn_despawn{
     void test() {
         entity::App app;
         app.add_system(spawn)
-            .add_system(print)
+            .add_system(print_count)
             .add_system(change_component_data)
-            .add_system(print)
+            .add_system(print_count)
             .add_system(despawn)
-            .add_system(print)
+            .add_system(print_count)
             .run();
     }
 }

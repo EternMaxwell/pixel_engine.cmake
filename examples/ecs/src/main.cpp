@@ -11,13 +11,13 @@
 #include "spawn_with_child.h"
 
 int main() {
-    std::cout << "TEST GENERAL SPAWN DESPAWN" << std::endl;
+    std::cout << "==TEST GENERAL SPAWN DESPAWN===" << std::endl;
     test_spawn_despawn::test();
-    std::cout << "TEST SPAWN WITH CHILD" << std::endl;
+    std::cout << "=====TEST SPAWN WITH CHILD=====" << std::endl;
     test_with_child::test();
-    std::cout << "TEST RESOURCE" << std::endl;
+    std::cout << "==========TEST RESOURCE========" << std::endl;
     test_resource::test();
-    std::cout << "TEST EVENT" << std::endl;
+    std::cout << "===========TEST EVENT==========" << std::endl;
     test_event::test();
 
     return 0;

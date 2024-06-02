@@ -32,9 +32,6 @@ namespace test_with_child {
             query) {
         std::cout << "create_child" << std::endl;
         for (auto [entity] : query.iter()) {
-            std::cout << "entity with child: "
-                      << std::format("{:#05x}", static_cast<int>(entity))
-                      << std::endl;
             command.entity(entity).spawn(Health{.life = 50.0f});
         }
         std::cout << std::endl;
@@ -51,6 +48,17 @@ namespace test_with_child {
         std::cout << std::endl;
     }
 
+    void print_count(
+		entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+		std::cout << "print_count" << std::endl;
+		int count = 0;
+		for (auto [entity, health] : query.iter()) {
+			count++;
+		}
+		std::cout << "entity count: " << count << std::endl;
+		std::cout << std::endl;
+	}
+
     void despawn_recurese(
         entity::Command command,
         entity::Query<std::tuple<entt::entity, WithChild>, std::tuple<>> query) {
@@ -64,11 +72,11 @@ namespace test_with_child {
     void test() {
         entity::App app;
         app.add_system(spawn)
-            .add_system(print)
+            .add_system(print_count)
             .add_system(create_child)
-            .add_system(print)
+            .add_system(print_count)
             .add_system(despawn_recurese)
-            .add_system(print)
+            .add_system(print_count)
             .run();
     }
 }  // namespace test_with_child
