@@ -81,12 +81,12 @@ namespace test_spawn_despawn{
 
     void test() {
         entity::App app;
-        app.add_system(spawn)
-            .add_system(print_count)
-            .add_system(change_component_data)
-            .add_system(print_count)
-            .add_system(despawn)
-            .add_system(print_count)
+        app.add_system(entity::Startup{}, spawn)
+            .add_system(entity::Startup{}, print_count)
+            .add_system(entity::Startup{}, change_component_data)
+            .add_system(entity::Startup{}, print_count)
+            .add_system(entity::Startup{}, despawn)
+            .add_system(entity::Startup{}, print_count)
             .run();
     }
 }

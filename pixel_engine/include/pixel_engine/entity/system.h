@@ -26,8 +26,6 @@ namespace pixel_engine {
 
         template <typename... Args>
         class Condition : public BasicSystem<bool> {
-            friend class App;
-
            private:
             bool (*func)(Args...);
 
