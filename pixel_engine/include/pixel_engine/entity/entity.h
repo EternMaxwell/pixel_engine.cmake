@@ -40,7 +40,8 @@ namespace pixel_engine {
                 bool is_bundle = false;
                 bool* target = &is_bundle;
                 pfr::for_each_field(T(), [&](const auto& field) {
-                    if constexpr (std::is_same_v<const Bundle&, decltype(field)>) {
+                    if constexpr (std::is_same_v<const Bundle&,
+                                                 decltype(field)>) {
                         *target = true;
                     }
                 });
@@ -103,7 +104,14 @@ namespace pixel_engine {
                   m_entity(entity),
                   m_parent_tree(relation_tree) {}
 
-            /*! @brief Spawn a child entity.
+            /*! @brief Spawn an entity.
+             * Note that the components to be added should not be type that is
+             * inherited or a reference.
+             * @brief Accepted types are:
+             * @brief - Any pure struct.
+             * @brief - std::tuple<Args...> where Args... are pure structs.
+             * @brief - A pure struct that contains a Bundle, which means it is
+             * a bundle, and all its fields will be components.
              * @tparam Args The types of the components to be added to the
              * child entity.
              * @param args The components to be added to the child entity.
@@ -152,6 +160,13 @@ namespace pixel_engine {
                   m_events(events) {}
 
             /*! @brief Spawn an entity.
+             * Note that the components to be added should not be type that is
+             * inherited or a reference.
+             * @brief Accepted types are:
+             * @brief - Any pure struct.
+             * @brief - std::tuple<Args...> where Args... are pure structs.
+             * @brief - A pure struct that contains a Bundle, which means it is
+             * a bundle, and all its fields will be components.
              * @tparam Args The types of the components to be added to the
              * entity.
              * @param args The components to be added to the entity.
