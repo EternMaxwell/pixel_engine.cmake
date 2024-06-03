@@ -30,5 +30,11 @@ namespace pixel_engine {
             Update() : Scheduler() {}
             bool should_run() override { return true; }
         };
+
+        class Render : public Scheduler {
+           public:
+            Render() : Scheduler() {}
+            bool should_run() override { return true; }
+        };
     }  // namespace entity
 }  // namespace pixel_engine

@@ -341,11 +341,21 @@ namespace pixel_engine {
                     }
                 }
 
-                // run update systems
+                // run update and render systems
                 while (m_loop_enabled && !run_system_v(check_exit)) {
                     for (auto& [scheduler, system, condition] : m_systems) {
                         if (scheduler != nullptr &&
                             dynamic_cast<Update*>(scheduler.get()) != NULL &&
+                            scheduler->should_run()) {
+                            if (condition == nullptr || condition->run()) {
+                                system->run();
+                            }
+                        }
+                    }
+
+                    for (auto& [scheduler, system, condition] : m_systems) {
+                        if (scheduler != nullptr &&
+                            dynamic_cast<Render*>(scheduler.get()) != NULL &&
                             scheduler->should_run()) {
                             if (condition == nullptr || condition->run()) {
                                 system->run();
