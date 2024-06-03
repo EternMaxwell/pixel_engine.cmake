@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include <pixel_engine/entity/entity.h>
+#include <pixel_engine/entity.h>
 
 #include <iostream>
 #include <random>

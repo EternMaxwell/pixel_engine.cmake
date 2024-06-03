@@ -2,3 +2,9 @@
 #include "pixel_engine/entity/system.h"
 #include "pixel_engine/entity/scheduler.h"
 #include "pixel_engine/entity/state.h"
+#include "pixel_engine/entity/command.h"
+#include "pixel_engine/entity/query.h"
+#include "pixel_engine/entity/resource.h"
+#include "pixel_engine/entity/event.h"
+
+#include "pixel_engine/entity.h"
