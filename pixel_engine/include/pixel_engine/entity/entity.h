@@ -14,12 +14,12 @@
 #include <unordered_map>
 
 #include "pixel_engine/entity/command.h"
+#include "pixel_engine/entity/event.h"
 #include "pixel_engine/entity/query.h"
 #include "pixel_engine/entity/resource.h"
 #include "pixel_engine/entity/scheduler.h"
 #include "pixel_engine/entity/state.h"
 #include "pixel_engine/entity/system.h"
-#include "pixel_engine/entity/event.h"
 
 namespace pixel_engine {
     namespace entity {
@@ -28,7 +28,24 @@ namespace pixel_engine {
             virtual void build(App& app) = 0;
         };
 
+        class LoopPlugin;
+
+        struct AppExit {};
+
+        static bool check_exit(EventReader<AppExit> exit_events) {
+            for (auto& e : exit_events.read()) {
+                return true;
+            }
+            return false;
+        }
+
+        void exit_app(EventWriter<AppExit> exit_events) {
+            exit_events.write(AppExit{});
+        }
+
         class App {
+            friend class LoopPlugin;
+
            protected:
             bool m_loop_enabled = false;
             entt::registry m_registry;
@@ -41,6 +58,9 @@ namespace pixel_engine {
                                    std::unique_ptr<BasicSystem<void>>,
                                    std::unique_ptr<BasicSystem<bool>>>>
                 m_systems;
+
+            void enable_loop() { m_loop_enabled = true; }
+            void disable_loop() { m_loop_enabled = false; }
 
             template <typename T, typename... Args, typename Tuple,
                       std::size_t... I>
@@ -322,16 +342,23 @@ namespace pixel_engine {
                 }
 
                 // run update systems
-                for (auto& [scheduler, system, condition] : m_systems) {
-                    if (scheduler != nullptr &&
-                        dynamic_cast<Update*>(scheduler.get()) != NULL &&
-                        scheduler->should_run()) {
-                        if (condition == nullptr || condition->run()) {
-                            system->run();
+                while (m_loop_enabled && !run_system_v(check_exit)) {
+                    for (auto& [scheduler, system, condition] : m_systems) {
+                        if (scheduler != nullptr &&
+                            dynamic_cast<Update*>(scheduler.get()) != NULL &&
+                            scheduler->should_run()) {
+                            if (condition == nullptr || condition->run()) {
+                                system->run();
+                            }
                         }
                     }
                 }
             }
+        };
+
+        class LoopPlugin : Plugin {
+           public:
+            void build(App& app) override { app.enable_loop(); }
         };
     }  // namespace entity
 }  // namespace pixel_engine

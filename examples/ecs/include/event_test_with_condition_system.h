@@ -20,7 +20,7 @@ namespace test_event {
 
     void read_event(entity::EventReader<TestEvent> event) {
         std::cout << "read_event" << std::endl;
-        for (auto e : event.read()) {
+        for (auto& e : event.read()) {
             std::cout << "event: " << e.data << std::endl;
         }
         std::cout << std::endl;
