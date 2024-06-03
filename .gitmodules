@@ -10,3 +10,6 @@
 [submodule "libs/fmt"]
 	path = libs/fmt
 	url = git@github.com:fmtlib/fmt.git
+[submodule "libs/pfr"]
+	path = libs/pfr
+	url = git@github.com:apolukhin/pfr_non_boost.git

@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <pfr.hpp>
 #include <set>
 #include <tuple>
 #include <type_traits>
@@ -31,13 +32,35 @@ namespace pixel_engine {
         template <typename Q1, typename Q2>
         struct queries_contrary {};
 
+        struct Bundle {};
+
+        template <typename T>
+        struct is_bundle {
+            static constexpr bool value() {
+                bool is_bundle = false;
+                bool* target = &is_bundle;
+                pfr::for_each_field(T(), [&](const auto& field) {
+                    if constexpr (std::is_same_v<const Bundle&, decltype(field)>) {
+                        *target = true;
+                    }
+                });
+                return is_bundle;
+            }
+        };
+
         struct internal {
             template <typename T, typename... Args>
             static void emplace_internal(entt::registry* registry,
                                          entt::entity entity, T arg,
                                          Args... args) {
                 if constexpr (is_template_of<std::tuple, T>::value) {
-                    emplace_internal_tuple(registry, entity, arg);
+                    emplace_internal_tuple(registry, entity, &arg);
+                } else if constexpr (is_bundle<T>::value()) {
+                    pfr::for_each_field(arg, [&](const auto& field) {
+                        if (!std::is_same_v<Bundle, decltype(field)>) {
+                            emplace_internal(registry, entity, field);
+                        }
+                    });
                 } else {
                     registry->emplace<T>(entity, arg);
                 }
@@ -49,15 +72,15 @@ namespace pixel_engine {
             template <typename... Args, size_t... I>
             static void emplace_internal_tuple(entt::registry* registry,
                                                entt::entity entity,
-                                               std::tuple<Args...> tuple,
+                                               std::tuple<Args...>* tuple,
                                                std::index_sequence<I...>) {
-                emplace_internal(registry, entity, std::get<I>(tuple)...);
+                emplace_internal(registry, entity, std::get<I>(*tuple)...);
             }
 
             template <typename... Args>
             static void emplace_internal_tuple(entt::registry* registry,
                                                entt::entity entity,
-                                               std::tuple<Args...> tuple) {
+                                               std::tuple<Args...>* tuple) {
                 emplace_internal_tuple(
                     registry, entity, tuple,
                     std::make_index_sequence<sizeof...(Args)>());
@@ -81,8 +104,8 @@ namespace pixel_engine {
                   m_parent_tree(relation_tree) {}
 
             /*! @brief Spawn a child entity.
-             * @tparam Args The types of the components to be added to the child
-             * entity.
+             * @tparam Args The types of the components to be added to the
+             * child entity.
              * @param args The components to be added to the child entity.
              * @return The child entity id.
              */
@@ -259,7 +282,8 @@ namespace pixel_engine {
                     return m_iter != rhs.m_iter;
                 }
                 std::tuple<Qus...> operator*() {
-                    // remove the first element of the tuple and return the rest
+                    // remove the first element of the tuple and return the
+                    // rest
                     return remove_first(*m_iter);
                 }
                 auto begin() { return iterator(m_full, m_full.begin()); }
@@ -429,21 +453,24 @@ namespace pixel_engine {
                         return false;
                     }
 
-                    // if Exs1 contains any non-const Type in Qus2 return false
+                    // if Exs1 contains any non-const Type in Qus2 return
+                    // false
                     if (first_tuple_contains_any_type_in_second_tuple<
                             std::tuple<Exs2...>, std::tuple<Qu1, Qus1...>>{}
                             .value()) {
                         return false;
                     }
 
-                    // if Exs2 contains any non-const Type in Qus1 return false
+                    // if Exs2 contains any non-const Type in Qus1 return
+                    // false
                     if (first_tuple_contains_any_type_in_second_tuple<
                             std::tuple<Exs1...>, std::tuple<Qu2, Qus2...>>{}
                             .value()) {
                         return false;
                     }
 
-                    // if Qus1 and Qus2 has no same non-const type return false
+                    // if Qus1 and Qus2 has no same non-const type return
+                    // false
                     if (tuples_has_no_same_non_const_type<
                             std::tuple<Qu1, Qus1...>,
                             std::tuple<Qu2, Qus2...>>{}
@@ -456,21 +483,24 @@ namespace pixel_engine {
                         return false;
                     }
 
-                    // if Exs1 contains any non-const Type in Qus2 return false
+                    // if Exs1 contains any non-const Type in Qus2 return
+                    // false
                     if (first_tuple_contains_any_type_in_second_tuple<
                             std::tuple<Exs2...>, std::tuple<Qus1...>>{}
                             .value()) {
                         return false;
                     }
 
-                    // if Exs2 contains any non-const Type in Qus1 return false
+                    // if Exs2 contains any non-const Type in Qus1 return
+                    // false
                     if (first_tuple_contains_any_type_in_second_tuple<
                             std::tuple<Exs1...>, std::tuple<Qu2, Qus2...>>{}
                             .value()) {
                         return false;
                     }
 
-                    // if Qus1 and Qus2 has no same non-const type return false
+                    // if Qus1 and Qus2 has no same non-const type return
+                    // false
                     if (tuples_has_no_same_non_const_type<
                             std::tuple<Qus1...>, std::tuple<Qu2, Qus2...>>{}
                             .value()) {
@@ -482,21 +512,24 @@ namespace pixel_engine {
                         return false;
                     }
 
-                    // if Exs1 contains any non-const Type in Qus2 return false
+                    // if Exs1 contains any non-const Type in Qus2 return
+                    // false
                     if (first_tuple_contains_any_type_in_second_tuple<
                             std::tuple<Exs2...>, std::tuple<Qu1, Qus1...>>{}
                             .value()) {
                         return false;
                     }
 
-                    // if Exs2 contains any non-const Type in Qus1 return false
+                    // if Exs2 contains any non-const Type in Qus1 return
+                    // false
                     if (first_tuple_contains_any_type_in_second_tuple<
                             std::tuple<Exs1...>, std::tuple<Qus2...>>{}
                             .value()) {
                         return false;
                     }
 
-                    // if Qus1 and Qus2 has no same non-const type return false
+                    // if Qus1 and Qus2 has no same non-const type return
+                    // false
                     if (tuples_has_no_same_non_const_type<
                             std::tuple<Qu1, Qus1...>, std::tuple<Qus2...>>{}
                             .value()) {
@@ -706,8 +739,8 @@ namespace pixel_engine {
             };
 
             /*!
-             * @brief This is where the systems get their parameters by type.
-             * All possible type should be handled here.
+             * @brief This is where the systems get their parameters by
+             * type. All possible type should be handled here.
              */
             template <typename T, typename... Args>
             std::tuple<T, Args...> get_values() {

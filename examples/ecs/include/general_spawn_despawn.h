@@ -16,6 +16,12 @@ namespace test_spawn_despawn {
         float x, y;
     };
 
+    struct HealthPositionBundle {
+        entity::Bundle tag;
+        Health health{.life = 100.0f};
+        Position position{.x = 0.0f, .y = 0.0f};
+    };
+
     void spawn(entity::Command command) {
         std::cout << "spawn" << std::endl;
         for (int i = 0; i < 50; i++) {
@@ -26,7 +32,7 @@ namespace test_spawn_despawn {
             uniform_int_distribution<> distrib(min, max);
             int random = distrib(engine);
             if (random > 50) {
-                command.spawn(Health{.life = 100.0f}, Position{.x = 0, .y = 0});
+                command.spawn(HealthPositionBundle());
             } else {
                 command.spawn(Health{.life = 100.0f});
             }
