@@ -9,6 +9,7 @@
 #include "general_spawn_despawn.h"
 #include "resource_test.h"
 #include "spawn_with_child.h"
+#include "basic_loop.h"
 
 int main() {
     std::cout << "==TEST GENERAL SPAWN DESPAWN===" << std::endl;
@@ -19,6 +20,8 @@ int main() {
     test_resource::test();
     std::cout << "===========TEST EVENT==========" << std::endl;
     test_event::test();
+    std::cout << "===========TEST BASIC LOOP==========" << std::endl;
+    test_loop::test();
 
     return 0;
 }
