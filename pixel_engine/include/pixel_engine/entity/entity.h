@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <spdlog/spdlog.h>
+
 #include <any>
 #include <deque>
 #include <entt/entity/registry.hpp>
@@ -33,7 +35,9 @@ namespace pixel_engine {
         struct AppExit {};
 
         static bool check_exit(EventReader<AppExit> exit_events) {
+            spdlog::debug("Check if exit");
             for (auto& e : exit_events.read()) {
+                spdlog::info("Exit event received, exiting app.");
                 return true;
             }
             return false;
@@ -327,7 +331,9 @@ namespace pixel_engine {
             /*! @brief Run the app.
              */
             void run() {
+                spdlog::info("App started.");
                 // run start up systems
+                spdlog::debug("Run start up systems.");
                 for (auto& [scheduler, system, condition] : m_systems) {
                     if (scheduler != nullptr &&
                         dynamic_cast<Startup*>(scheduler.get()) != NULL &&
@@ -338,13 +344,21 @@ namespace pixel_engine {
                     }
                 }
 
+                spdlog::debug("End start up system commands.");
                 for (auto& cmd : m_existing_commands) {
                     cmd.end();
                 }
                 m_existing_commands.clear();
 
+                if (m_loop_enabled && !run_system_v(check_exit)) {
+                    spdlog::debug("Loop enabled, start app loop.");
+                } else {
+                    spdlog::info("Loop not enabled, end app.");
+                }
+
                 // run update and render systems
                 while (m_loop_enabled && !run_system_v(check_exit)) {
+                    spdlog::debug("Run update systems.");
                     for (auto& [scheduler, system, condition] : m_systems) {
                         if (scheduler != nullptr &&
                             dynamic_cast<Update*>(scheduler.get()) != NULL &&
@@ -355,6 +369,15 @@ namespace pixel_engine {
                         }
                     }
 
+                    if (!m_existing_commands.empty()) {
+                        spdlog::debug("End update system commands.");
+                        for (auto& cmd : m_existing_commands) {
+                            cmd.end();
+                        }
+                        m_existing_commands.clear();
+                    }
+
+                    spdlog::debug("Run render systems.");
                     for (auto& [scheduler, system, condition] : m_systems) {
                         if (scheduler != nullptr &&
                             dynamic_cast<Render*>(scheduler.get()) != NULL &&
@@ -365,11 +388,15 @@ namespace pixel_engine {
                         }
                     }
 
-                    for (auto& cmd : m_existing_commands) {
-                        cmd.end();
+                    if (!m_existing_commands.empty()) {
+                        spdlog::debug("End render system commands.");
+                        for (auto& cmd : m_existing_commands) {
+                            cmd.end();
+                        }
+                        m_existing_commands.clear();
                     }
-                    m_existing_commands.clear();
 
+                    spdlog::debug("Tick events and clear out-dated events.");
                     for (auto& [key, value] : m_events) {
                         while (!value.empty()) {
                             auto& event = value.front();

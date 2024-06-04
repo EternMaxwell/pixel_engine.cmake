@@ -1,4 +1,5 @@
 ﻿#pragma once
+
 namespace pixel_engine {
     namespace entity {
         class App;
