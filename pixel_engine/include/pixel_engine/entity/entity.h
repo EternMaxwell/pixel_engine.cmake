@@ -389,10 +389,11 @@ namespace pixel_engine {
                 }
             }
 
-            void run_start_up_systems() {
+            template <typename T>
+            void run_systems_scheduled() {
                 for (auto& [scheduler, system, condition] : m_systems) {
                     if (scheduler != nullptr &&
-                        dynamic_cast<Startup*>(scheduler.get()) != NULL &&
+                        dynamic_cast<T*>(scheduler.get()) != NULL &&
                         scheduler->should_run()) {
                         if (condition == nullptr || condition->run()) {
                             system->run();
@@ -401,29 +402,11 @@ namespace pixel_engine {
                 }
             }
 
-            void run_update_systems() {
-                for (auto& [scheduler, system, condition] : m_systems) {
-                    if (scheduler != nullptr &&
-                        dynamic_cast<Update*>(scheduler.get()) != NULL &&
-                        scheduler->should_run()) {
-                        if (condition == nullptr || condition->run()) {
-                            system->run();
-                        }
-                    }
-                }
-            }
+            void run_start_up_systems() { run_systems_scheduled<Startup>(); }
 
-            void run_render_systems() {
-                for (auto& [scheduler, system, condition] : m_systems) {
-                    if (scheduler != nullptr &&
-                        dynamic_cast<Render*>(scheduler.get()) != NULL &&
-                        scheduler->should_run()) {
-                        if (condition == nullptr || condition->run()) {
-                            system->run();
-                        }
-                    }
-                }
-            }
+            void run_update_systems() { run_systems_scheduled<Update>(); }
+
+            void run_render_systems() { run_systems_scheduled<Render>(); }
 
             void tick_events() {
                 for (auto& [key, value] : m_events) {
