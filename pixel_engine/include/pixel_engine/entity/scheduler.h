@@ -1,12 +1,15 @@
 ﻿#pragma once
 
-#include "pixel_engine/entity/entity.h"
+#include "pixel_engine/entity/resource.h"
+#include "pixel_engine/entity/state.h"
 
 namespace pixel_engine {
     namespace entity {
+        class App;
+
         class Scheduler {
            public:
-            virtual bool should_run() = 0;
+            virtual bool should_run(App* app) = 0;
         };
 
         class Startup : public Scheduler {
@@ -15,7 +18,7 @@ namespace pixel_engine {
 
            public:
             Startup() : m_value(true), Scheduler() {}
-            bool should_run() override {
+            bool should_run(App* app) override {
                 if (m_value) {
                     m_value = false;
                     return true;
@@ -28,13 +31,54 @@ namespace pixel_engine {
         class Update : public Scheduler {
            public:
             Update() : Scheduler() {}
-            bool should_run() override { return true; }
+            bool should_run(App* app) override { return true; }
         };
 
         class Render : public Scheduler {
            public:
             Render() : Scheduler() {}
-            bool should_run() override { return true; }
+            bool should_run(App* app) override { return true; }
+        };
+
+        template <typename T>
+        class OnEnter : public Scheduler {
+           private:
+            T m_state;
+            App* m_app;
+
+           public:
+            OnEnter(T state) : m_state(state) {}
+            bool should_run(App* app) override {
+                m_app = app;
+                return m_app->run_system_v(
+                    [&](Resource<NextState<T>> state_next) {
+                        if (state_next.has_value()) {
+                            return state_next.value().is_state(m_state);
+                        } else {
+                            return false;
+                        }
+                    });
+            }
+        };
+
+        template <typename T>
+        class OnExit : public Scheduler {
+           private:
+            T m_state;
+            App* m_app;
+
+           public:
+            OnExit(T state) : m_state(state) {}
+            bool should_run(App* app) override {
+                m_app = app;
+                return m_app->run_system_v([&](Resource<State<T>> state) {
+                    if (state.has_value()) {
+                        return state.value().is_state(m_state);
+                    } else {
+                        return false;
+                    }
+                });
+            }
         };
     }  // namespace entity
 }  // namespace pixel_engine

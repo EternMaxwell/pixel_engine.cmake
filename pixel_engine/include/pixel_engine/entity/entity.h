@@ -394,7 +394,7 @@ namespace pixel_engine {
                 for (auto& [scheduler, system, condition] : m_systems) {
                     if (scheduler != nullptr &&
                         dynamic_cast<T*>(scheduler.get()) != NULL &&
-                        scheduler->should_run()) {
+                        scheduler->should_run(this)) {
                         if (condition == nullptr || condition->run()) {
                             system->run();
                         }
