@@ -52,7 +52,7 @@ namespace pixel_engine {
             std::unordered_map<entt::entity, std::set<entt::entity>>
                 m_entity_relation_tree;
             std::unordered_map<size_t, std::any> m_resources;
-            std::unordered_map<size_t, std::deque<std::any>> m_events;
+            std::unordered_map<size_t, std::deque<Event>> m_events;
             std::vector<Command> m_existing_commands;
             std::vector<std::tuple<std::unique_ptr<Scheduler>,
                                    std::unique_ptr<BasicSystem<void>>,
@@ -126,9 +126,6 @@ namespace pixel_engine {
 
             template <template <typename...> typename Template, typename Arg>
             struct get_event_reader<Template<Arg>> {
-                friend class App;
-                friend class EventReader<Arg>;
-
                private:
                 App& m_app;
 
@@ -341,6 +338,11 @@ namespace pixel_engine {
                     }
                 }
 
+                for (auto& cmd : m_existing_commands) {
+                    cmd.end();
+                }
+                m_existing_commands.clear();
+
                 // run update and render systems
                 while (m_loop_enabled && !run_system_v(check_exit)) {
                     for (auto& [scheduler, system, condition] : m_systems) {
@@ -360,6 +362,25 @@ namespace pixel_engine {
                             if (condition == nullptr || condition->run()) {
                                 system->run();
                             }
+                        }
+                    }
+
+                    for (auto& cmd : m_existing_commands) {
+                        cmd.end();
+                    }
+                    m_existing_commands.clear();
+
+                    for (auto& [key, value] : m_events) {
+                        while (!value.empty()) {
+                            auto& event = value.front();
+                            if (event.ticks >= 1) {
+                                value.pop_front();
+                            } else {
+                                break;
+                            }
+                        }
+                        for (auto& event : value) {
+                            event.ticks++;
                         }
                     }
                 }

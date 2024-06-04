@@ -8,6 +8,8 @@
 #include <tuple>
 #include <unordered_map>
 
+#include "pixel_engine/entity/event.h"
+
 namespace pixel_engine {
     namespace entity {
         template <template <typename...> typename Template, typename T>
@@ -137,14 +139,14 @@ namespace pixel_engine {
             std::unordered_map<entt::entity, std::set<entt::entity>>* const
                 m_parent_tree;
             std::unordered_map<size_t, std::any>* const m_resources;
-            std::unordered_map<size_t, std::deque<std::any>>* m_events;
+            std::unordered_map<size_t, std::deque<Event>>* m_events;
 
            public:
             Command(entt::registry* registry,
                     std::unordered_map<entt::entity, std::set<entt::entity>>*
                         relation_tree,
                     std::unordered_map<size_t, std::any>* resources,
-                    std::unordered_map<size_t, std::deque<std::any>>* events)
+                    std::unordered_map<size_t, std::deque<Event>>* events)
                 : m_registry(registry),
                   m_parent_tree(relation_tree),
                   m_resources(resources),
