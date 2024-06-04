@@ -58,6 +58,7 @@ namespace pixel_engine {
             std::unordered_map<size_t, std::any> m_resources;
             std::unordered_map<size_t, std::deque<Event>> m_events;
             std::vector<Command> m_existing_commands;
+            std::vector<std::unique_ptr<BasicSystem<void>>> m_state_update;
             std::vector<std::tuple<std::unique_ptr<Scheduler>,
                                    std::unique_ptr<BasicSystem<void>>,
                                    std::unique_ptr<BasicSystem<bool>>>>
@@ -301,6 +302,18 @@ namespace pixel_engine {
                 return *this;
             }
 
+            template <typename Evt>
+            static void update_state(Resource<State<Evt>> state,
+                                     Resource<NextState<Evt>> state_next) {
+                if (state.has_value() && state_next.has_value()) {
+                    state_next.value().reset();
+                    if (state_next.value().has_next_state()) {
+                        state.value().m_state = state_next.value().m_state;
+                        state_next.value().apply();
+                    }
+                }
+            }
+
             /*! @brief Insert a state.
              * If the state already exists, nothing will happen.
              * @tparam T The type of the state.
@@ -312,6 +325,10 @@ namespace pixel_engine {
                 Command cmd = command();
                 cmd.insert_resource(State(state));
                 cmd.insert_resource(NextState(state));
+                m_state_update.push_back(
+                    std::make_unique<
+                        System<Resource<State<T>>, Resource<NextState<T>>>>(
+                        System(this, update_state<T>)));
                 return *this;
             }
 
@@ -325,15 +342,23 @@ namespace pixel_engine {
                 Command cmd = command();
                 cmd.init_resource<State<T>>();
                 cmd.init_resource<NextState<T>>();
+                m_state_update.push_back(
+                    std::make_unique<
+                        System<Resource<State<T>>, Resource<NextState<T>>>>(
+                        System(this, update_state<T>)));
                 return *this;
             }
 
-            /*! @brief Run the app.
-             */
-            void run() {
-                spdlog::info("App started.");
-                // run start up systems
-                spdlog::debug("Run start up systems.");
+            void end_commands() {
+                if (!m_existing_commands.empty()) {
+                    for (auto& cmd : m_existing_commands) {
+                        cmd.end();
+                    }
+                    m_existing_commands.clear();
+                }
+            }
+
+            void run_start_up_systems() {
                 for (auto& [scheduler, system, condition] : m_systems) {
                     if (scheduler != nullptr &&
                         dynamic_cast<Startup*>(scheduler.get()) != NULL &&
@@ -343,73 +368,79 @@ namespace pixel_engine {
                         }
                     }
                 }
+            }
 
-                spdlog::debug("End start up system commands.");
-                for (auto& cmd : m_existing_commands) {
-                    cmd.end();
+            void run_update_systems() {
+                for (auto& [scheduler, system, condition] : m_systems) {
+                    if (scheduler != nullptr &&
+                        dynamic_cast<Update*>(scheduler.get()) != NULL &&
+                        scheduler->should_run()) {
+                        if (condition == nullptr || condition->run()) {
+                            system->run();
+                        }
+                    }
                 }
-                m_existing_commands.clear();
+            }
 
-                if (m_loop_enabled && !run_system_v(check_exit)) {
+            void run_render_systems() {
+                for (auto& [scheduler, system, condition] : m_systems) {
+                    if (scheduler != nullptr &&
+                        dynamic_cast<Render*>(scheduler.get()) != NULL &&
+                        scheduler->should_run()) {
+                        if (condition == nullptr || condition->run()) {
+                            system->run();
+                        }
+                    }
+                }
+            }
+
+            void tick_events() {
+                for (auto& [key, value] : m_events) {
+                    while (!value.empty()) {
+                        auto& event = value.front();
+                        if (event.ticks >= 1) {
+                            value.pop_front();
+                        } else {
+                            break;
+                        }
+                    }
+                    for (auto& event : value) {
+                        event.ticks++;
+                    }
+                }
+            }
+
+            void update_states() {
+                for (auto& state : m_state_update) {
+                    state->run();
+                }
+            }
+
+            /*! @brief Run the app.
+             */
+            void run() {
+                spdlog::info("App started.");
+                spdlog::debug("Run start up systems.");
+                run_start_up_systems();
+                spdlog::debug("End start up system commands.");
+                end_commands();
+                if (m_loop_enabled) {
                     spdlog::debug("Loop enabled, start app loop.");
+                    while (m_loop_enabled && !run_system_v(check_exit)) {
+                        spdlog::debug("Run update systems.");
+                        run_update_systems();
+                        end_commands();
+                        spdlog::debug("Run render systems.");
+                        run_render_systems();
+                        end_commands();
+                        spdlog::debug(
+                            "Tick events and clear out-dated events.");
+                        tick_events();
+                        spdlog::debug("Update states.");
+                        update_states();
+                    }
                 } else {
                     spdlog::info("Loop not enabled, end app.");
-                }
-
-                // run update and render systems
-                while (m_loop_enabled && !run_system_v(check_exit)) {
-                    spdlog::debug("Run update systems.");
-                    for (auto& [scheduler, system, condition] : m_systems) {
-                        if (scheduler != nullptr &&
-                            dynamic_cast<Update*>(scheduler.get()) != NULL &&
-                            scheduler->should_run()) {
-                            if (condition == nullptr || condition->run()) {
-                                system->run();
-                            }
-                        }
-                    }
-
-                    if (!m_existing_commands.empty()) {
-                        spdlog::debug("End update system commands.");
-                        for (auto& cmd : m_existing_commands) {
-                            cmd.end();
-                        }
-                        m_existing_commands.clear();
-                    }
-
-                    spdlog::debug("Run render systems.");
-                    for (auto& [scheduler, system, condition] : m_systems) {
-                        if (scheduler != nullptr &&
-                            dynamic_cast<Render*>(scheduler.get()) != NULL &&
-                            scheduler->should_run()) {
-                            if (condition == nullptr || condition->run()) {
-                                system->run();
-                            }
-                        }
-                    }
-
-                    if (!m_existing_commands.empty()) {
-                        spdlog::debug("End render system commands.");
-                        for (auto& cmd : m_existing_commands) {
-                            cmd.end();
-                        }
-                        m_existing_commands.clear();
-                    }
-
-                    spdlog::debug("Tick events and clear out-dated events.");
-                    for (auto& [key, value] : m_events) {
-                        while (!value.empty()) {
-                            auto& event = value.front();
-                            if (event.ticks >= 1) {
-                                value.pop_front();
-                            } else {
-                                break;
-                            }
-                        }
-                        for (auto& event : value) {
-                            event.ticks++;
-                        }
-                    }
                 }
             }
         };

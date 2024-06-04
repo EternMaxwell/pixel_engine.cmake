@@ -10,6 +10,7 @@
 #include "resource_test.h"
 #include "spawn_with_child.h"
 #include "basic_loop.h"
+#include "state_nextstate.h"
 
 int main() {
     std::cout << "==TEST GENERAL SPAWN DESPAWN===" << std::endl;
@@ -22,6 +23,8 @@ int main() {
     test_event::test();
     std::cout << "===========TEST BASIC LOOP==========" << std::endl;
     test_loop::test();
+    std::cout << "===========TEST STATE NEXTSTATE==========" << std::endl;
+    test_state::test();
 
     return 0;
 }
