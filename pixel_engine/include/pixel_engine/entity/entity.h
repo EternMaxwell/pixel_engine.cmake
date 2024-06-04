@@ -69,13 +69,13 @@ namespace pixel_engine {
 
             template <typename T, typename... Args, typename Tuple,
                       std::size_t... I>
-            T process(T (*func)(Args...), Tuple const& tuple,
+            T process(std::function<T(Args...)> func, Tuple const& tuple,
                       std::index_sequence<I...>) {
                 return func(std::get<I>(tuple)...);
             }
 
             template <typename T, typename... Args, typename Tuple>
-            T process(T (*func)(Args...), Tuple const& tuple) {
+            T process(std::function<T(Args...)> func, Tuple const& tuple) {
                 return process(
                     func, tuple,
                     std::make_index_sequence<std::tuple_size<Tuple>::value>());
@@ -220,7 +220,7 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename... Args>
-            App& run_system(void (*func)(Args...)) {
+            App& run_system(std::function<void(Args...)> func) {
                 auto args = get_values<Args...>();
                 process(func, args);
                 return *this;
@@ -234,8 +234,8 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename... Args1, typename... Args2>
-            App& run_system(void (*func)(Args1...),
-                            bool (*condition)(Args2...)) {
+            App& run_system(std::function<void(Args1...)> func,
+                            std::function<bool(Args2...)> condition) {
                 auto args2 = get_values<Args2...>();
                 if (process(condition, args2)) {
                     auto args1 = get_values<Args1...>();
@@ -252,7 +252,7 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename T, typename... Args>
-            T run_system_v(T (*func)(Args...)) {
+            T run_system_v(std::function<T(Args...)> func) {
                 auto args = get_values<Args...>();
                 return process(func, args);
             }
@@ -325,10 +325,21 @@ namespace pixel_engine {
                 Command cmd = command();
                 cmd.insert_resource(State(state));
                 cmd.insert_resource(NextState(state));
+                auto state_update = [&](Resource<State<T>> state,
+                                        Resource<NextState<T>> state_next) {
+                    if (state.has_value() && state_next.has_value()) {
+                        state_next.value().reset();
+                        if (state_next.value().has_next_state()) {
+                            state.value().m_state = state_next.value().m_state;
+                            state_next.value().apply();
+                        }
+                    }
+                };
                 m_state_update.push_back(
                     std::make_unique<
                         System<Resource<State<T>>, Resource<NextState<T>>>>(
-                        System(this, update_state<T>)));
+                        System<Resource<State<T>>, Resource<NextState<T>>>(
+                            this, state_update)));
                 return *this;
             }
 
@@ -342,10 +353,21 @@ namespace pixel_engine {
                 Command cmd = command();
                 cmd.init_resource<State<T>>();
                 cmd.init_resource<NextState<T>>();
+                auto state_update = [&](Resource<State<T>> state,
+                                        Resource<NextState<T>> state_next) {
+                    if (state.has_value() && state_next.has_value()) {
+                        state_next.value().reset();
+                        if (state_next.value().has_next_state()) {
+                            state.value().m_state = state_next.value().m_state;
+                            state_next.value().apply();
+                        }
+                    }
+                };
                 m_state_update.push_back(
                     std::make_unique<
                         System<Resource<State<T>>, Resource<NextState<T>>>>(
-                        System(this, update_state<T>)));
+                        System<Resource<State<T>>, Resource<NextState<T>>>(
+                            this, state_update)));
                 return *this;
             }
 
@@ -426,7 +448,10 @@ namespace pixel_engine {
                 end_commands();
                 if (m_loop_enabled) {
                     spdlog::debug("Loop enabled, start app loop.");
-                    while (m_loop_enabled && !run_system_v(check_exit)) {
+                    while (m_loop_enabled &&
+                           !run_system_v(std::function(check_exit))) {
+                        spdlog::debug("Update states.");
+                        update_states();
                         spdlog::debug("Run update systems.");
                         run_update_systems();
                         end_commands();
@@ -436,8 +461,6 @@ namespace pixel_engine {
                         spdlog::debug(
                             "Tick events and clear out-dated events.");
                         tick_events();
-                        spdlog::debug("Update states.");
-                        update_states();
                     }
                 } else {
                     spdlog::info("Loop not enabled, end app.");
