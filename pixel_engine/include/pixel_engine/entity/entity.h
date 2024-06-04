@@ -148,7 +148,7 @@ namespace pixel_engine {
              * type. All possible type should be handled here.
              */
             template <typename T, typename... Args>
-            std::tuple<T, Args...> get_values() {
+            std::tuple<T, Args...> get_values_internal() {
                 static_assert(std::same_as<T, Command> ||
                                   is_template_of<Query, T>::value ||
                                   is_template_of<Resource, T>::value ||
@@ -196,6 +196,15 @@ namespace pixel_engine {
                     } else {
                         return std::make_tuple(writer);
                     }
+                }
+            }
+
+            template <typename... Args>
+            std::tuple<Args...> get_values() {
+                if constexpr (sizeof...(Args) > 0) {
+                    return get_values_internal<Args...>();
+                } else {
+                    return std::make_tuple();
                 }
             }
 

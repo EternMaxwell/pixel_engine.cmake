@@ -9,7 +9,7 @@ namespace test_loop {
 
     int count_down = 20;
 
-    bool should_call_exit(entity::Command) {
+    bool should_call_exit() {
         count_down--;
         return count_down <= 0;
     }
