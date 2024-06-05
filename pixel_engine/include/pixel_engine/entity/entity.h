@@ -311,16 +311,20 @@ namespace pixel_engine {
                 return *this;
             }
 
-            template <typename Evt>
-            static void update_state(Resource<State<Evt>> state,
-                                     Resource<NextState<Evt>> state_next) {
-                if (state.has_value() && state_next.has_value()) {
-                    state_next.value().reset();
-                    if (state_next.value().has_next_state()) {
-                        state.value().m_state = state_next.value().m_state;
-                        state_next.value().apply();
+            template <typename T>
+            auto state_update() {
+                return [&](Resource<State<T>> state,
+                           Resource<NextState<T>> state_next) {
+                    if (state.has_value() && state_next.has_value()) {
+                        state_next.value().reset();
+                        if (state_next.value().has_next_state()) {
+                            run_systems_scheduled<OnEnter<T>>();
+                            run_systems_scheduled<OnExit<T>>();
+                            state.value().m_state = state_next.value().m_state;
+                            state_next.value().apply();
+                        }
                     }
-                }
+                };
             }
 
             /*! @brief Insert a state.
@@ -334,21 +338,11 @@ namespace pixel_engine {
                 Command cmd = command();
                 cmd.insert_resource(State(state));
                 cmd.insert_resource(NextState(state));
-                auto state_update = [&](Resource<State<T>> state,
-                                        Resource<NextState<T>> state_next) {
-                    if (state.has_value() && state_next.has_value()) {
-                        state_next.value().reset();
-                        if (state_next.value().has_next_state()) {
-                            state.value().m_state = state_next.value().m_state;
-                            state_next.value().apply();
-                        }
-                    }
-                };
                 m_state_update.push_back(
                     std::make_unique<
                         System<Resource<State<T>>, Resource<NextState<T>>>>(
                         System<Resource<State<T>>, Resource<NextState<T>>>(
-                            this, state_update)));
+                            this, state_update<T>())));
                 return *this;
             }
 
@@ -362,21 +356,11 @@ namespace pixel_engine {
                 Command cmd = command();
                 cmd.init_resource<State<T>>();
                 cmd.init_resource<NextState<T>>();
-                auto state_update = [&](Resource<State<T>> state,
-                                        Resource<NextState<T>> state_next) {
-                    if (state.has_value() && state_next.has_value()) {
-                        state_next.value().reset();
-                        if (state_next.value().has_next_state()) {
-                            state.value().m_state = state_next.value().m_state;
-                            state_next.value().apply();
-                        }
-                    }
-                };
                 m_state_update.push_back(
                     std::make_unique<
                         System<Resource<State<T>>, Resource<NextState<T>>>>(
                         System<Resource<State<T>>, Resource<NextState<T>>>(
-                            this, state_update)));
+                            this, state_update<T>())));
                 return *this;
             }
 

@@ -29,7 +29,7 @@ namespace pixel_engine {
             friend class App;
 
            protected:
-            bool has_next = false;
+            bool has_next = true;
             bool applied = false;
             void apply() {
                 applied = true;

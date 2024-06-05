@@ -58,6 +58,12 @@ namespace test_state {
         return false;
     }
 
+    void set_state_start(entity::Resource<entity::NextState<State>> state) {
+        if (state.has_value()) {
+            state.value().set_state(State::Start);
+        }
+    }
+
     void set_state_middle(entity::Resource<entity::NextState<State>> state) {
         if (state.has_value()) {
             state.value().set_state(State::Middle);
@@ -81,8 +87,10 @@ namespace test_state {
             app.init_state<State>()
                 .add_plugin(entity::LoopPlugin{})
                 .add_system(entity::Startup{}, is_state_start)
-                .add_system(entity::Startup{}, set_state_middle)
+                .add_system(entity::Update{}, is_state_start)
                 .add_system(entity::Update{}, is_state_middle)
+                .add_system(entity::Update{}, is_state_end)
+                .add_system(entity::Update{}, set_state_start, state_end)
                 .add_system(entity::Update{}, exit);
         }
     };

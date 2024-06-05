@@ -51,13 +51,13 @@ namespace pixel_engine {
             bool should_run(App* app) override {
                 m_app = app;
                 return m_app->run_system_v(
-                    [&](Resource<NextState<T>> state_next) {
+                    std::function([&](Resource<NextState<T>> state_next) {
                         if (state_next.has_value()) {
                             return state_next.value().is_state(m_state);
                         } else {
                             return false;
                         }
-                    });
+                    }));
             }
         };
 
@@ -71,13 +71,13 @@ namespace pixel_engine {
             OnExit(T state) : m_state(state) {}
             bool should_run(App* app) override {
                 m_app = app;
-                return m_app->run_system_v([&](Resource<State<T>> state) {
+                return m_app->run_system_v(std::function([&](Resource<State<T>> state) {
                     if (state.has_value()) {
                         return state.value().is_state(m_state);
                     } else {
                         return false;
                     }
-                });
+                }));
             }
         };
     }  // namespace entity
