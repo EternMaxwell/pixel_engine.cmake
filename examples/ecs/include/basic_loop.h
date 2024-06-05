@@ -14,11 +14,15 @@ namespace test_loop {
         return count_down <= 0;
     }
 
+    void exit_app(entity::EventWriter<entity::AppExit> exit_event) {
+        if ((count_down--) <= 0) exit_event.write(entity::AppExit{});
+    }
+
     class LoopTestPlugin : public entity::Plugin {
        public:
         void build(entity::App& app) override {
             app.add_system(entity::Update{}, print_hello)
-                .add_system(entity::Update{}, entity::exit_app, should_call_exit);
+                .add_system(entity::Update{}, exit_app);
         }
     };
 

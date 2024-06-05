@@ -2,9 +2,11 @@
 
 #include <spdlog/spdlog.h>
 
+#include <BS_thread_pool.hpp>
 #include <any>
 #include <deque>
 #include <entt/entity/registry.hpp>
+#include <future>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -47,6 +49,23 @@ namespace pixel_engine {
             exit_events.write(AppExit{});
         }
 
+        struct SystemNode {
+            std::shared_ptr<Scheduler> scheduler;
+            std::shared_ptr<BasicSystem<void>> system;
+            std::vector<std::shared_ptr<SystemNode>> user_defined_before;
+            std::vector<std::shared_ptr<SystemNode>> app_generated_before;
+
+            SystemNode(std::shared_ptr<Scheduler> scheduler,
+                       std::shared_ptr<BasicSystem<void>> system)
+                : scheduler(scheduler), system(system) {}
+
+            std::tuple<std::shared_ptr<Scheduler>,
+                       std::shared_ptr<BasicSystem<void>>>
+            to_tuple() {
+                return std::make_tuple(scheduler, system);
+            }
+        };
+
         class App {
             friend class LoopPlugin;
 
@@ -59,10 +78,7 @@ namespace pixel_engine {
             std::unordered_map<size_t, std::deque<Event>> m_events;
             std::vector<Command> m_existing_commands;
             std::vector<std::unique_ptr<BasicSystem<void>>> m_state_update;
-            std::vector<std::tuple<std::unique_ptr<Scheduler>,
-                                   std::unique_ptr<BasicSystem<void>>,
-                                   std::unique_ptr<BasicSystem<bool>>>>
-                m_systems;
+            std::vector<std::shared_ptr<SystemNode>> m_systems;
 
             void enable_loop() { m_loop_enabled = true; }
             void disable_loop() { m_loop_enabled = false; }
@@ -268,35 +284,94 @@ namespace pixel_engine {
 
             /*! @brief Add a system.
              * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
              * @param func The system to be run.
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
             App& add_system(Sch scheduler, void (*func)(Args...)) {
-                m_systems.push_back(
-                    std::make_tuple(std::make_unique<Sch>(scheduler),
-                                    std::make_unique<System<Args...>>(
-                                        System<Args...>(this, func)),
-                                    nullptr));
+                std::shared_ptr<SystemNode> node = std::make_shared<SystemNode>(
+                    std::make_shared<Sch>(scheduler),
+                    std::make_shared<System<Args...>>(
+                        System<Args...>(this, func)));
+                m_systems.push_back(node);
                 return *this;
             }
 
-            /*! @brief Add a system with a condition.
-             * @tparam Args1 The types of the arguments for the system.
-             * @tparam Args2 The types of the arguments for the condition.
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param condition The condition for the system to be run.
              * @return The App object itself.
              */
-            template <typename Sch, typename... Args1, typename... Args2>
-            App& add_system(Sch scheduler, void (*func)(Args1...),
-                            bool (*condition)(Args2...)) {
-                m_systems.push_back(
-                    std::make_tuple(std::make_unique<Sch>(scheduler),
-                                    std::make_unique<System<Args1...>>(
-                                        System<Args1...>(this, func)),
-                                    std::make_unique<Condition<Args2...>>(
-                                        Condition<Args2...>(this, condition))));
+            template <typename Sch, typename... Args, typename... Nods>
+            App& add_system(Sch scheduler, void (*func)(Args...),
+                            std::shared_ptr<SystemNode>& systems_before_this,
+                            Nods... nodes) {
+                std::shared_ptr<SystemNode> node = std::make_shared<SystemNode>(
+                    std::make_shared<Sch>(scheduler),
+                    std::make_shared<System<Args...>>(
+                        System<Args...>(this, func)));
+                std::shared_ptr<SystemNode> before[] = {systems_before_this,
+                                                        nodes...};
+                for (auto& before_node : before) {
+                    if (before_node != nullptr) {
+                        node->user_defined_before.push_back(before_node);
+                    }
+                }
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @param node The node this system will be in.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args, typename... Nods>
+            App& add_system(Sch scheduler, void (*func)(Args...),
+                            std::shared_ptr<SystemNode>* node,
+                            std::shared_ptr<SystemNode>& systems_before_this,
+                            Nods... nodes) {
+                std::shared_ptr<SystemNode> new_node =
+                    std::make_shared<SystemNode>(
+                        std::make_shared<Sch>(scheduler),
+                        std::make_shared<System<Args...>>(
+                            System<Args...>(this, func)));
+                std::shared_ptr<SystemNode> before[] = {systems_before_this,
+                                                        nodes...};
+                for (auto& before_node : before) {
+                    if (before_node != nullptr) {
+                        new_node->user_defined_before.push_back(before_node);
+                    }
+                }
+                if (node != nullptr) {
+                    *node = new_node;
+                }
+                m_systems.push_back(new_node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @param node The node this system will be in.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args>
+            App& add_system(Sch scheduler, void (*func)(Args...),
+                            std::shared_ptr<SystemNode>* node) {
+                std::shared_ptr<SystemNode> new_node =
+                    std::make_shared<SystemNode>(
+                        std::make_shared<Sch>(scheduler),
+                        std::make_shared<System<Args...>>(
+                            System<Args...>(this, func)));
+                if (node != nullptr) {
+                    *node = new_node;
+                }
+                m_systems.push_back(new_node);
                 return *this;
             }
 
@@ -375,13 +450,13 @@ namespace pixel_engine {
 
             template <typename T>
             void run_systems_scheduled() {
-                for (auto& [scheduler, system, condition] : m_systems) {
+                for (auto& node : m_systems) {
+                    auto& scheduler = node->scheduler;
+                    auto& system = node->system;
                     if (scheduler != nullptr &&
                         dynamic_cast<T*>(scheduler.get()) != NULL &&
                         scheduler->should_run(this)) {
-                        if (condition == nullptr || condition->run()) {
-                            system->run();
-                        }
+                        system->run();
                     }
                 }
             }
