@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <concurrent_unordered_set.h>
 #include <spdlog/spdlog.h>
 
 #include <BS_thread_pool.hpp>
@@ -16,6 +17,7 @@
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "pixel_engine/entity/command.h"
 #include "pixel_engine/entity/event.h"
@@ -66,6 +68,118 @@ namespace pixel_engine {
             }
         };
 
+        struct SystemRunner {
+           private:
+            App* const app;
+            const bool ignore_scheduler;
+
+           public:
+            SystemRunner(App* app) : app(app), ignore_scheduler(false) {}
+            SystemRunner(App* app, bool ignore_scheduler)
+                : app(app), ignore_scheduler(ignore_scheduler) {}
+            void run() {
+                while (!done()) {
+                    auto next = get_next();
+                    if (next != nullptr) {
+                        if (ignore_scheduler) {
+                            futures[next] = pool.submit_task([next] {
+                                next->system->run();
+                                return;
+                            });
+                        } else {
+                            App* app = this->app;
+                            futures[next] = pool.submit_task([app, next] {
+                                if (next->scheduler->should_run(app)) {
+                                    next->system->run();
+                                }
+                                return;
+                            });
+                        }
+                    }
+                }
+            }
+
+            void add_system(std::shared_ptr<SystemNode> node) {
+                tails.insert(node);
+            }
+
+            void prepare() {
+                for (auto& sys : tails) {
+                    for (auto& before : sys->user_defined_before) {
+                        tails.erase(before);
+                    }
+                    for (auto& before : sys->app_generated_before) {
+                        tails.erase(before);
+                    }
+                }
+            }
+
+            void reset() { futures.clear(); }
+
+            void wait() { pool.wait(); }
+
+           private:
+            std::unordered_set<std::shared_ptr<SystemNode>> tails;
+            std::unordered_map<std::shared_ptr<SystemNode>, std::future<void>>
+                futures;
+            BS::thread_pool pool;
+            std::shared_ptr<SystemNode> should_run(
+                const std::shared_ptr<SystemNode>& sys) {
+                bool before_done = sys->user_defined_before.empty() &&
+                                   sys->app_generated_before.empty();
+                // user def before
+                for (auto& before : sys->user_defined_before) {
+                    // if before not in futures
+                    if (futures.find(before) == futures.end()) {
+                        return should_run(before);
+                    }
+                    // else if in and finished
+                    if (futures[before].wait_for(std::chrono::seconds(0)) ==
+                        std::future_status::ready) {
+                        before_done = true;
+                    }
+                }
+                // app gen before
+                for (auto& before : sys->app_generated_before) {
+                    // if before not in futures
+                    if (futures.find(before) == futures.end()) {
+                        return should_run(before);
+                    }
+                    // else if in and finished
+                    if (futures[before].wait_for(std::chrono::seconds(0)) ==
+                        std::future_status::ready) {
+                        before_done = true;
+                    }
+                }
+                if (before_done) return sys;
+                return nullptr;
+            }
+            std::shared_ptr<SystemNode> get_next() {
+                for (auto& sys : tails) {
+                    if (futures.find(sys) != futures.end()) {
+                        continue;
+                    }
+                    auto should = should_run(sys);
+                    if (should != nullptr) {
+                        return should;
+                    }
+                }
+                return nullptr;
+            }
+            bool done() {
+                for (auto& sys : tails) {
+                    if (futures.find(sys) == futures.end()) {
+                        return false;
+                    }
+                    if (futures[sys].wait_for(std::chrono::seconds(0)) !=
+                        std::future_status::ready) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        };
+
         class App {
             friend class LoopPlugin;
 
@@ -79,6 +193,10 @@ namespace pixel_engine {
             std::vector<Command> m_existing_commands;
             std::vector<std::unique_ptr<BasicSystem<void>>> m_state_update;
             std::vector<std::shared_ptr<SystemNode>> m_systems;
+            SystemRunner m_state_change_runner;
+            SystemRunner m_start_up_runner;
+            SystemRunner m_update_runner;
+            SystemRunner m_render_runner;
 
             void enable_loop() { m_loop_enabled = true; }
             void disable_loop() { m_loop_enabled = false; }
@@ -225,6 +343,12 @@ namespace pixel_engine {
             }
 
            public:
+            App()
+                : m_state_change_runner(this),
+                  m_start_up_runner(this, true),
+                  m_update_runner(this, true),
+                  m_render_runner(this, true) {}
+
             /*! @brief Get the registry.
              * @return The registry.
              */
@@ -319,6 +443,7 @@ namespace pixel_engine {
                         node->user_defined_before.push_back(before_node);
                     }
                 }
+                m_systems.push_back(node);
                 return *this;
             }
 
@@ -391,13 +516,8 @@ namespace pixel_engine {
                 return [&](Resource<State<T>> state,
                            Resource<NextState<T>> state_next) {
                     if (state.has_value() && state_next.has_value()) {
-                        state_next.value().reset();
-                        if (state_next.value().has_next_state()) {
-                            run_systems_scheduled<OnEnter<T>>();
-                            run_systems_scheduled<OnExit<T>>();
-                            state.value().m_state = state_next.value().m_state;
-                            state_next.value().apply();
-                        }
+                        state.value().just_created = false;
+                        state.value().m_state = state_next.value().m_state;
                     }
                 };
             }
@@ -461,6 +581,10 @@ namespace pixel_engine {
                 }
             }
 
+            void run_state_change_systems() {
+                run_systems_scheduled<OnStateChange>();
+            }
+
             void run_start_up_systems() { run_systems_scheduled<Startup>(); }
 
             void run_update_systems() { run_systems_scheduled<Update>(); }
@@ -509,6 +633,75 @@ namespace pixel_engine {
                         spdlog::debug("Run render systems.");
                         run_render_systems();
                         end_commands();
+                        spdlog::debug(
+                            "Tick events and clear out-dated events.");
+                        tick_events();
+                    }
+                } else {
+                    spdlog::info("Loop not enabled, end app.");
+                }
+            }
+
+            void run_parallel() {
+                spdlog::info("App started.");
+                spdlog::info("Prepare systems.");
+                // add start up systems
+                spdlog::debug("Prepare start up systems.");
+                for (auto& node : m_systems) {
+                    auto& scheduler = node->scheduler;
+                    if (scheduler != nullptr &&
+                        dynamic_cast<Startup*>(scheduler.get()) != NULL) {
+                        m_start_up_runner.add_system(node);
+                    }
+                }
+                m_start_up_runner.prepare();
+                spdlog::debug("Prepare state change systems.");
+                for (auto& node : m_systems) {
+                    auto& scheduler = node->scheduler;
+                    if (scheduler != nullptr &&
+                        dynamic_cast<OnStateChange*>(scheduler.get()) != NULL) {
+                        m_state_change_runner.add_system(node);
+                    }
+                }
+                m_state_change_runner.prepare();
+                spdlog::debug("Prepare update systems.");
+                for (auto& node : m_systems) {
+                    auto& scheduler = node->scheduler;
+                    if (scheduler != nullptr &&
+                        dynamic_cast<Update*>(scheduler.get()) != NULL) {
+                        m_update_runner.add_system(node);
+                    }
+                }
+                m_update_runner.prepare();
+                spdlog::debug("Prepare render systems.");
+                for (auto& node : m_systems) {
+                    auto& scheduler = node->scheduler;
+                    if (scheduler != nullptr &&
+                        dynamic_cast<Render*>(scheduler.get()) != NULL) {
+                        m_render_runner.add_system(node);
+                    }
+                }
+                m_render_runner.prepare();
+
+                spdlog::debug("Run start up systems.");
+                m_start_up_runner.run();
+                m_start_up_runner.wait();
+
+                if (m_loop_enabled) {
+                    spdlog::debug("Loop enabled, start app loop.");
+                    while (m_loop_enabled &&
+                           !run_system_v(std::function(check_exit))) {
+                        spdlog::debug("Run state change systems");
+                        m_state_change_runner.run();
+                        m_state_change_runner.wait();
+                        spdlog::debug("Update states.");
+                        update_states();
+                        spdlog::debug("Run update systems.");
+                        m_update_runner.run();
+                        m_update_runner.wait();
+                        spdlog::debug("Run render systems.");
+                        m_render_runner.run();
+                        m_render_runner.wait();
                         spdlog::debug(
                             "Tick events and clear out-dated events.");
                         tick_events();

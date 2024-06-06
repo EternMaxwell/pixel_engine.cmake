@@ -5,11 +5,12 @@
 #include <iostream>
 #include <random>
 
+#include "basic_loop.h"
 #include "event_test_with_condition_system.h"
 #include "general_spawn_despawn.h"
+#include "parallel_run_test.h"
 #include "resource_test.h"
 #include "spawn_with_child.h"
-#include "basic_loop.h"
 #include "state_nextstate.h"
 
 int main() {
@@ -25,6 +26,8 @@ int main() {
     test_loop::test();
     std::cout << "===========TEST STATE NEXTSTATE==========" << std::endl;
     test_state::test();
+    std::cout << "===========TEST PARALLEL RUN==========" << std::endl;
+    test_parallel_run::test();
 
     return 0;
 }

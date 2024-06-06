@@ -40,8 +40,10 @@ namespace pixel_engine {
             bool should_run(App* app) override { return true; }
         };
 
+        class OnStateChange : public Scheduler {};
+
         template <typename T>
-        class OnEnter : public Scheduler {
+        class OnEnter : public OnStateChange {
            private:
             T m_state;
             App* m_app;
@@ -51,12 +53,20 @@ namespace pixel_engine {
             bool should_run(App* app) override {
                 m_app = app;
                 return m_app->run_system_v(
-                    std::function([&](Resource<NextState<T>> state_next) {
-                        if (state_next.has_value()) {
-                            return state_next.value().is_state(m_state);
-                        } else {
-                            return false;
+                    std::function([&](Resource<NextState<T>> state_next,
+                                      Resource<State<T>> state) {
+                        if (state.has_value()) {
+                            if (state.value().is_state(m_state)) {
+                                if (state.value().is_just_created()) {
+                                    return true;
+                                } else if (state_next.has_value()) {
+                                    if (!state_next.value().is_state(m_state)) {
+                                        return true;
+                                    }
+                                }
+                            }
                         }
+                        return false;
                     }));
             }
         };
@@ -71,13 +81,20 @@ namespace pixel_engine {
             OnExit(T state) : m_state(state) {}
             bool should_run(App* app) override {
                 m_app = app;
-                return m_app->run_system_v(std::function([&](Resource<State<T>> state) {
-                    if (state.has_value()) {
-                        return state.value().is_state(m_state);
-                    } else {
+                return m_app->run_system_v(
+                    std::function([&](Resource<NextState<T>> state_next,
+                                      Resource<State<T>> state) {
+                        if (state.has_value()) {
+                            if (state.value().is_state(m_state)) {
+                                if (state_next.has_value()) {
+                                    if (!state_next.value().is_state(m_state)) {
+                                        return true;
+                                    }
+                                }
+                            }
+                        }
                         return false;
-                    }
-                }));
+                    }));
             }
         };
     }  // namespace entity

@@ -13,10 +13,12 @@ namespace pixel_engine {
 
            protected:
             T m_state;
+            bool just_created = true;
 
            public:
             State() : m_state() {}
             State(const T& state) : m_state(state) {}
+            bool is_just_created() { return just_created; }
 
             bool is_state(const T& state) { return m_state == state; }
             bool is_state(const NextState<T>& state) {
@@ -28,23 +30,12 @@ namespace pixel_engine {
         class NextState : public State<T> {
             friend class App;
 
-           protected:
-            bool has_next = true;
-            bool applied = false;
-            void apply() {
-                applied = true;
-                has_next = false;
-            }
-            void reset() { applied = false; }
-            bool has_next_state() { return has_next; }
-
            public:
             NextState() : State<T>() {}
             NextState(const T& state) : State<T>(state) {}
 
             void set_state(const T& state) {
                 State<T>::m_state = state;
-                has_next = true;
             }
         };
     }  // namespace entity
