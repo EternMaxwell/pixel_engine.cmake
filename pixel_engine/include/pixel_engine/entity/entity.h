@@ -135,7 +135,8 @@ namespace pixel_engine {
         }
 
         std::shared_ptr<SystemNode> SystemRunner::should_run(const std::shared_ptr<SystemNode>& sys) {
-            bool before_done = sys->user_defined_before.empty() && sys->app_generated_before.empty();
+            bool before_done = true;
+
             // user def before
             for (auto& before : sys->user_defined_before) {
                 // if before not in futures
@@ -143,8 +144,8 @@ namespace pixel_engine {
                     return should_run(before);
                 }
                 // else if in and finished
-                if (futures[before].wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-                    before_done = true;
+                else if (futures[before].wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+                    before_done = false;
                 }
             }
             // app gen before
@@ -154,8 +155,8 @@ namespace pixel_engine {
                     return should_run(before);
                 }
                 // else if in and finished
-                if (futures[before].wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-                    before_done = true;
+                else if (futures[before].wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+                    before_done = false;
                 }
             }
             if (before_done) return sys;
@@ -195,6 +196,46 @@ namespace pixel_engine {
             }
             return true;
         }
+
+        template <typename T, typename U>
+        struct contrary {
+            const static bool value = false;
+        };
+
+        template <typename T, typename U>
+        struct contrary<Resource<T>, Resource<U>> {
+            const static bool value = resource_access_contrary<Resource<T>, Resource<U>>::value;
+        };
+
+        template <typename T, typename U>
+        struct contrary<EventReader<T>, EventReader<U>> {
+            const static bool value = event_access_contrary<EventReader<T>, EventReader<U>>::value;
+        };
+
+        template <typename T, typename U>
+        struct contrary<EventWriter<T>, EventWriter<U>> {
+            const static bool value = event_access_contrary<EventWriter<T>, EventWriter<U>>::value;
+        };
+
+        template <typename T, typename U>
+        struct contrary<EventReader<T>, EventWriter<U>> {
+            const static bool value = event_access_contrary<EventReader<T>, EventWriter<U>>::value;
+        };
+
+        template <typename T, typename U>
+        struct contrary<EventWriter<T>, EventReader<U>> {
+            const static bool value = event_access_contrary<EventWriter<T>, EventReader<U>>::value;
+        };
+
+        template <typename... T, typename... U>
+        struct contrary<Query<T...>, Query<U...>> {
+            const static bool value = queries_contrary<Query<T...>, Query<U...>>::value();
+        };
+
+        template <>
+        struct contrary<Command, Command> {
+            const static bool value = true;
+        };
 
         class App {
             friend class LoopPlugin;
@@ -437,6 +478,32 @@ namespace pixel_engine {
                 return process(func, get_values<Args...>());
             }
 
+            template <typename Ret1, typename... Args1, typename Ret2, typename... Args2>
+            const static bool systems_contrary(const std::function<Ret1(Args1...)>& func1,
+                                               const std::function<Ret2(Args2...)>& func2) {
+                if constexpr (sizeof...(Args1) == 0 || sizeof...(Args2) == 0) {
+                    return false;
+                }
+                return (arg_contrary_to_args<Args1, Args2...>() || ...);
+            }
+
+            template <typename Arg, typename... Args>
+            const static bool arg_contrary_to_args() {
+                return (contrary<Arg, Args>::value || ...);
+            }
+
+            template <typename Sch, typename... Args>
+            void configure_app_generated_before(std::shared_ptr<SystemNode>& node) {
+                for (auto& sys : m_systems) {
+                    if (sys->scheduler != nullptr && dynamic_cast<Sch*>(sys->scheduler.get()) != NULL) {
+                        if (sys->system->contrary_to(node->system)) {
+                            spdlog::debug("add app generated before.");
+                            node->app_generated_before.push_back(sys);
+                        }
+                    }
+                }
+            }
+
             /*! @brief Add a system.
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
@@ -447,6 +514,7 @@ namespace pixel_engine {
             App& add_system(Sch scheduler, void (*func)(Args...)) {
                 std::shared_ptr<SystemNode> node = std::make_shared<SystemNode>(
                     std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
+                configure_app_generated_before<Sch>(node);
                 m_systems.push_back(node);
                 return *this;
             }
@@ -468,6 +536,7 @@ namespace pixel_engine {
                         node->user_defined_before.push_back(before_node);
                     }
                 }
+                configure_app_generated_before<Sch>(node);
                 m_systems.push_back(node);
                 return *this;
             }
@@ -493,6 +562,7 @@ namespace pixel_engine {
                 if (node != nullptr) {
                     *node = new_node;
                 }
+                configure_app_generated_before<Sch>(new_node);
                 m_systems.push_back(new_node);
                 return *this;
             }
@@ -511,6 +581,7 @@ namespace pixel_engine {
                 if (node != nullptr) {
                     *node = new_node;
                 }
+                configure_app_generated_before<Sch>(new_node);
                 m_systems.push_back(new_node);
                 return *this;
             }

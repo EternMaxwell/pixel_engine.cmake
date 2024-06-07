@@ -39,5 +39,16 @@ namespace pixel_engine {
              */
             ResT& value() { return std::any_cast<ResT&>(*m_res); }
         };
+
+        template <typename T, typename U>
+        struct resource_access_contrary {
+            const static bool value = true;
+        };
+
+        template <typename T, typename U>
+        struct resource_access_contrary<Resource<T>, Resource<U>> {
+            const static bool value = std::is_same_v<std::remove_const_t<T>, std::remove_const_t<U>> &&
+                                        !(std::is_const_v<T> && std::is_const_v<U>);
+        };
     }  // namespace entity
 }  // namespace pixel_engine

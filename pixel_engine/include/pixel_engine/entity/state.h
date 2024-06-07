@@ -33,5 +33,15 @@ namespace pixel_engine {
 
             void set_state(const T& state) { State<T>::m_state = state; }
         };
+
+        template <typename T, typename U>
+        struct state_access_contrary {
+            const static bool value = true;
+        };
+
+        template <typename T, typename U>
+        struct state_access_contrary<NextState<T>, NextState<U>> {
+            const static bool value = std::is_same_v<T, U>;
+        };
     }  // namespace entity
 }  // namespace pixel_engine

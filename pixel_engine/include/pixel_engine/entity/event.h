@@ -64,7 +64,7 @@ namespace pixel_engine {
                 }
                 bool operator==(const event_iter& rhs) const { return m_iter == rhs.m_iter; }
                 bool operator!=(const event_iter& rhs) const { return m_iter != rhs.m_iter; }
-                Evt& operator*() { return std::any_cast<Evt&>((*m_iter).event); }
+                const Evt& operator*() { return std::any_cast<Evt&>((*m_iter).event); }
 
                 event_iter begin() { return event_iter(m_events, m_events->begin()); }
 
@@ -84,6 +84,31 @@ namespace pixel_engine {
             /*! @brief Clear the event queue.
              */
             void clear() { m_events->clear(); }
+        };
+
+        template <typename T, typename U>
+        struct event_access_contrary {
+            const static bool value = true;
+        };
+
+        template <typename T, typename U>
+        struct event_access_contrary<EventWriter<T>, EventWriter<U>> {
+            const static bool value = std::is_same_v<T, U>;
+        };
+
+        template <typename T, typename U>
+        struct event_access_contrary<EventReader<T>, EventReader<U>> {
+            const static bool value = false;
+        };
+
+        template <typename T, typename U>
+        struct event_access_contrary<EventReader<T>, EventWriter<U>> {
+            const static bool value = std::is_same_v<T, U>;
+        };
+
+        template <typename T, typename U>
+        struct event_access_contrary<EventWriter<T>, EventReader<U>> {
+            const static bool value = std::is_same_v<T, U>;
         };
     }  // namespace entity
 }  // namespace pixel_engine

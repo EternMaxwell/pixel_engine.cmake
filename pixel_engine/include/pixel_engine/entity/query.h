@@ -34,18 +34,14 @@ namespace pixel_engine {
                 decltype(registry.view<Qus...>(entt::exclude_t<Exs...>{}).each()) m_full;
                 decltype(m_full.begin()) m_iter;
 
-                template <size_t I, typename T, typename... Args>
-                std::tuple<Args...> remove_first(std::tuple<T, Args...> tuple) {
-                    if constexpr (sizeof...(Args) > I) {
-                        return std::tuple_cat(std::make_tuple(std::get<I>(tuple)), remove_first<I++>(tuple));
-                    } else {
-                        return std::make_tuple(std::get<I>(tuple));
-                    }
+                template <size_t... I, typename T, typename... Args>
+                std::tuple<Args...> remove_first(std::tuple<T, Args...> tuple, std::index_sequence<I>...) {
+                    return std::tuple<Args...>(std::get<I+1>(tuple)...);
                 }
 
                 template <typename T, typename... Args>
                 std::tuple<Args...> remove_first(std::tuple<T, Args...> tuple) {
-                    return remove_first<1>(tuple);
+                    return remove_first(tuple, std::make_index_sequence<sizeof...(Args)>{});
                 }
 
                public:
@@ -127,7 +123,7 @@ namespace pixel_engine {
         struct queries_contrary<Query<std::tuple<Qu1, Qus1...>, std::tuple<Exs1...>>,
                                 Query<std::tuple<Qu2, Qus2...>, std::tuple<Exs2...>>> {
             template <typename T, typename... Args>
-            bool args_all_const() {
+            constexpr static bool args_all_const() {
                 if constexpr (std::is_const_v<T>) {
                     if constexpr (sizeof...(Args) > 0) {
                         return args_all_const<Args...>();
@@ -140,12 +136,12 @@ namespace pixel_engine {
             }
 
             template <typename T>
-            static bool type_in_group() {
+            static const bool type_in_group() {
                 return false;
             }
 
             template <typename T, typename First, typename... Args>
-            static bool type_in_group() {
+            static constexpr bool type_in_group() {
                 if constexpr (std::is_same_v<std::remove_const_t<T>, std::remove_const_t<First>>) {
                     return true;
                 } else {
@@ -165,7 +161,7 @@ namespace pixel_engine {
             template <typename... Args1, typename Args2First, typename... Args2>
             struct first_tuple_contains_any_type_in_second_tuple<std::tuple<Args1...>,
                                                                  std::tuple<Args2First, Args2...>> {
-                bool value() {
+                constexpr static bool value() {
                     if constexpr (sizeof...(Args1) == 0) {
                         return false;
                     } else if (type_in_group<std::remove_const_t<Args2First>, Args1...>()) {
@@ -189,7 +185,7 @@ namespace pixel_engine {
 
             template <typename... Args1, typename Args2First, typename... Args2>
             struct tuples_has_no_same_non_const_type<std::tuple<Args1...>, std::tuple<Args2First, Args2...>> {
-                bool value() {
+                constexpr static bool value() {
                     if constexpr (sizeof...(Args1) == 0) {
                         return true;
                     } else if ((!std::is_const_v<Args2First>)&&type_in_group<Args2First, Args1...>()) {
@@ -205,21 +201,21 @@ namespace pixel_engine {
                 }
             };
 
-            bool value() {
+            constexpr static bool value() {
                 if constexpr ((!std::is_same_v<Qu1, entt::entity>)&&(!std::is_same_v<Qu2, entt::entity>)) {
                     // if Qus1 and Qus2 are all const return false
                     if (args_all_const<Qu1, Qus1..., Qu2, Qus2...>()) {
                         return false;
                     }
 
-                    // if Exs1 contains any non-const Type in Qus2 return
+                    // if Exs1 contains any Type in Qus2 return
                     // false
                     if (first_tuple_contains_any_type_in_second_tuple<std::tuple<Exs2...>, std::tuple<Qu1, Qus1...>>{}
                             .value()) {
                         return false;
                     }
 
-                    // if Exs2 contains any non-const Type in Qus1 return
+                    // if Exs2 contains any Type in Qus1 return
                     // false
                     if (first_tuple_contains_any_type_in_second_tuple<std::tuple<Exs1...>, std::tuple<Qu2, Qus2...>>{}
                             .value()) {
