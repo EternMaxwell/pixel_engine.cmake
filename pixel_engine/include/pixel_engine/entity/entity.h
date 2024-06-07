@@ -78,24 +78,40 @@ namespace pixel_engine {
             SystemRunner(App* app, bool ignore_scheduler)
                 : app(app), ignore_scheduler(ignore_scheduler) {}
             void run() {
-                while (!done()) {
+                std::atomic<int> tasks_in = 0;
+                std::condition_variable cv;
+                std::mutex m;
+                while (!all_load()) {
                     auto next = get_next();
                     if (next != nullptr) {
+                        tasks_in++;
                         if (ignore_scheduler) {
-                            futures[next] = pool.submit_task([next] {
-                                next->system->run();
-                                return;
-                            });
+                            futures[next] =
+                                pool.submit_task([next, &tasks_in, &m, &cv] {
+                                    next->system->run();
+                                    tasks_in--;
+                                    std::unique_lock<std::mutex> lk(m);
+                                    cv.notify_all();
+                                    return;
+                                });
                         } else {
                             App* app = this->app;
-                            futures[next] = pool.submit_task([app, next] {
-                                if (next->scheduler->should_run(app)) {
-                                    next->system->run();
-                                }
-                                return;
-                            });
+                            futures[next] = pool.submit_task(
+                                [app, next, &tasks_in, &m, &cv] {
+                                    if (next->scheduler->should_run(app)) {
+                                        next->system->run();
+                                    }
+                                    tasks_in--;
+                                    std::unique_lock<std::mutex> lk(m);
+                                    cv.notify_all();
+                                    return;
+                                });
                         }
                     }
+                    std::unique_lock<std::mutex> lk(m);
+                    cv.wait(lk, [&] {
+                        return tasks_in <= pool.get_thread_count();
+                    });
                 }
             }
 
@@ -173,6 +189,14 @@ namespace pixel_engine {
                     }
                     if (futures[sys].wait_for(std::chrono::seconds(0)) !=
                         std::future_status::ready) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            bool all_load() {
+                for (auto& sys : tails) {
+                    if (futures.find(sys) == futures.end()) {
                         return false;
                     }
                 }
@@ -682,6 +706,8 @@ namespace pixel_engine {
                     }
                 }
                 m_render_runner.prepare();
+
+                spdlog::info("Preparation done.");
 
                 spdlog::debug("Run start up systems.");
                 m_start_up_runner.run();
