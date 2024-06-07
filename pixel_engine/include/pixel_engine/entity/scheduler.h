@@ -53,8 +53,7 @@ namespace pixel_engine {
             bool should_run(App* app) override {
                 m_app = app;
                 return m_app->run_system_v(
-                    std::function([&](Resource<NextState<T>> state_next,
-                                      Resource<State<T>> state) {
+                    std::function([&](Resource<NextState<T>> state_next, Resource<State<T>> state) {
                         if (state.has_value()) {
                             if (state.value().is_state(m_state)) {
                                 if (state.value().is_just_created()) {
@@ -82,8 +81,7 @@ namespace pixel_engine {
             bool should_run(App* app) override {
                 m_app = app;
                 return m_app->run_system_v(
-                    std::function([&](Resource<NextState<T>> state_next,
-                                      Resource<State<T>> state) {
+                    std::function([&](Resource<NextState<T>> state_next, Resource<State<T>> state) {
                         if (state.has_value()) {
                             if (state.value().is_state(m_state)) {
                                 if (state_next.has_value()) {

@@ -84,14 +84,14 @@ namespace test_state {
     class StateTestPlugin : public entity::Plugin {
        public:
         void build(entity::App& app) override {
-            std::shared_ptr<entity::SystemNode> node1;
+            entity::Node node1;
             app.init_state<State>()
                 .add_plugin(entity::LoopPlugin{})
                 .add_system(entity::Startup{}, is_state_start, &node1)
-                .add_system(entity::Update{}, is_state_start, node1)
+                .add_system(entity::OnEnter(State::Start), set_state_middle)
+                .add_system(entity::OnEnter(State::Middle), set_state_end)
                 .add_system(entity::Update{}, is_state_middle)
                 .add_system(entity::Update{}, is_state_end)
-                .add_system(entity::Update{}, set_state_start)
                 .add_system(entity::Update{}, exit);
         }
     };

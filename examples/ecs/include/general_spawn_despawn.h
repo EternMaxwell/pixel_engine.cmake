@@ -40,21 +40,17 @@ namespace test_spawn_despawn {
         std::cout << std::endl;
     }
 
-    void print(
-        entity::Query<std::tuple<entt::entity, Health, Position>, std::tuple<>>
-            query) {
+    void print(entity::Query<std::tuple<entt::entity, Health, Position>, std::tuple<>> query) {
         std::cout << "print" << std::endl;
         for (auto [entity, health, position] : query.iter()) {
             std::string id = std::format("{:#05x}", static_cast<int>(entity));
-            std::cout << "entity: " << id << " [health: " << health.life
-                      << " position: " << position.x << ", " << position.y
-                      << "]" << std::endl;
+            std::cout << "entity: " << id << " [health: " << health.life << " position: " << position.x << ", "
+                      << position.y << "]" << std::endl;
         }
         std::cout << std::endl;
     }
 
-    void print_count(
-        entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+    void print_count(entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
         std::cout << "print_count" << std::endl;
         int count = 0;
         for (auto [entity, health] : query.iter()) {
@@ -64,9 +60,8 @@ namespace test_spawn_despawn {
         std::cout << std::endl;
     }
 
-    void change_component_data(
-        entity::Command command,
-        entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+    void change_component_data(entity::Command command,
+                               entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
         std::cout << "change_component_data" << std::endl;
         for (auto [entity, health] : query.iter()) {
             health.life = 200.0f;
@@ -74,9 +69,7 @@ namespace test_spawn_despawn {
         std::cout << std::endl;
     }
 
-    void despawn(
-        entity::Command command,
-        entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+    void despawn(entity::Command command, entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
         std::cout << "despawn" << std::endl;
         for (auto [entity, health] : query.iter()) {
             command.entity(entity).despawn();
@@ -89,10 +82,12 @@ namespace test_spawn_despawn {
         void build(entity::App& app) override {
             app.add_system(entity::Startup{}, spawn)
                 .add_system(entity::Startup{}, print_count)
+                .add_system(entity::Startup{}, print)
                 .add_system(entity::Startup{}, change_component_data)
                 .add_system(entity::Startup{}, print_count)
+                .add_system(entity::Startup{}, print)
                 .add_system(entity::Startup{}, despawn)
-                .add_system(entity::Startup{}, print_count);
+                .add_system(entity::Update{}, print_count);
         }
     };
 

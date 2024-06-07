@@ -6,8 +6,7 @@ namespace pixel_engine {
         template <typename T>
         class NextState;
 
-        template <typename T,
-                  std::enable_if<std::is_enum_v<T>>::type* = nullptr>
+        template <typename T, std::enable_if<std::is_enum_v<T>>::type* = nullptr>
         class State {
             friend class App;
 
@@ -21,9 +20,7 @@ namespace pixel_engine {
             bool is_just_created() { return just_created; }
 
             bool is_state(const T& state) { return m_state == state; }
-            bool is_state(const NextState<T>& state) {
-                return m_state == state.m_state;
-            }
+            bool is_state(const NextState<T>& state) { return m_state == state.m_state; }
         };
 
         template <typename T>
@@ -34,9 +31,7 @@ namespace pixel_engine {
             NextState() : State<T>() {}
             NextState(const T& state) : State<T>(state) {}
 
-            void set_state(const T& state) {
-                State<T>::m_state = state;
-            }
+            void set_state(const T& state) { State<T>::m_state = state; }
         };
     }  // namespace entity
 }  // namespace pixel_engine

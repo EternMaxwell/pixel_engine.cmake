@@ -19,8 +19,7 @@ namespace test_parallel_run {
        public:
         void build(entity::App& app) override {
             std::shared_ptr<entity::SystemNode> node;
-            app.add_system(entity::Startup{}, system1, &node)
-                .add_system(entity::Startup{}, system2);
+            app.add_system(entity::Startup{}, system1, &node).add_system(entity::Startup{}, system2);
         }
     };
 

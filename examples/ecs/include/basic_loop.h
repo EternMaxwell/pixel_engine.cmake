@@ -3,9 +3,7 @@
 namespace test_loop {
     using namespace pixel_engine;
 
-    void print_hello(entity::Command command) {
-        std::cout << "Hello, World!" << std::endl;
-    }
+    void print_hello(entity::Command command) { std::cout << "Hello, World!" << std::endl; }
 
     int count_down = 20;
 
@@ -21,8 +19,7 @@ namespace test_loop {
     class LoopTestPlugin : public entity::Plugin {
        public:
         void build(entity::App& app) override {
-            app.add_system(entity::Update{}, print_hello)
-                .add_system(entity::Update{}, exit_app);
+            app.add_system(entity::Update{}, print_hello).add_system(entity::Update{}, exit_app);
         }
     };
 

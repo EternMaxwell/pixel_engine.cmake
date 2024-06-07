@@ -45,15 +45,13 @@ namespace pixel_engine {
            public:
             EventReader(std::deque<Event>* events) : m_events(events) {}
 
-            class event_iter
-                : public std::iterator<std::input_iterator_tag, Evt> {
+            class event_iter : public std::iterator<std::input_iterator_tag, Evt> {
                private:
                 std::deque<Event>* m_events;
                 std::deque<Event>::iterator m_iter;
 
                public:
-                event_iter(std::deque<Event>* events,
-                           std::deque<Event>::iterator iter)
+                event_iter(std::deque<Event>* events, std::deque<Event>::iterator iter)
                     : m_events(events), m_iter(iter) {}
                 event_iter& operator++() {
                     m_iter++;
@@ -64,23 +62,13 @@ namespace pixel_engine {
                     ++(*this);
                     return tmp;
                 }
-                bool operator==(const event_iter& rhs) const {
-                    return m_iter == rhs.m_iter;
-                }
-                bool operator!=(const event_iter& rhs) const {
-                    return m_iter != rhs.m_iter;
-                }
-                Evt& operator*() {
-                    return std::any_cast<Evt&>((*m_iter).event);
-                }
+                bool operator==(const event_iter& rhs) const { return m_iter == rhs.m_iter; }
+                bool operator!=(const event_iter& rhs) const { return m_iter != rhs.m_iter; }
+                Evt& operator*() { return std::any_cast<Evt&>((*m_iter).event); }
 
-                event_iter begin() {
-                    return event_iter(m_events, m_events->begin());
-                }
+                event_iter begin() { return event_iter(m_events, m_events->begin()); }
 
-                event_iter end() {
-                    return event_iter(m_events, m_events->end());
-                }
+                event_iter end() { return event_iter(m_events, m_events->end()); }
             };
 
             /*! @brief Read an event.

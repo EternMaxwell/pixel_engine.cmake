@@ -46,9 +46,9 @@ namespace test_event {
             app.add_system(entity::Startup{}, write_event)
                 .add_system(entity::Startup{}, read_event)
                 .add_system(entity::Startup{}, clear_event)
-                .add_system(entity::Startup{}, read_event)
-                .add_system(entity::Startup{}, write_event)
-                .add_system(entity::Startup{}, read_event);
+                .add_system(entity::Update{}, read_event)
+                .add_system(entity::Update{}, write_event)
+                .add_system(entity::Update{}, read_event);
         }
     };
 

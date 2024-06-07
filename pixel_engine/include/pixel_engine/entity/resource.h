@@ -27,9 +27,7 @@ namespace pixel_engine {
             /*! @brief Check if the resource is const.
              * @return True if the resource is const, false otherwise.
              */
-            constexpr bool is_const() {
-                return std::is_const_v<std::remove_reference_t<ResT>>;
-            }
+            constexpr bool is_const() { return std::is_const_v<std::remove_reference_t<ResT>>; }
 
             /*! @brief Check if the resource has a value.
              * @return True if the resource has a value, false otherwise.

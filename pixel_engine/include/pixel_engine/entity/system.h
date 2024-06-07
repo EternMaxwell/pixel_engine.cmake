@@ -20,10 +20,8 @@ namespace pixel_engine {
             std::function<void(Args...)> func;
 
            public:
-            System(App* app, void (*func)(Args...))
-                : BasicSystem(app), func(func) {}
-            System(App* app, std::function<void(Args...)> func)
-                : BasicSystem(app), func(func) {}
+            System(App* app, void (*func)(Args...)) : BasicSystem(app), func(func) {}
+            System(App* app, std::function<void(Args...)> func) : BasicSystem(app), func(func) {}
             void run() { app->run_system(func); }
         };
 
@@ -33,10 +31,8 @@ namespace pixel_engine {
             std::function<bool(Args...)> func;
 
            public:
-            Condition(App* app, bool (*func)(Args...))
-                : BasicSystem(app), func(func) {}
-            Condition(App* app, std::function<bool(Args...)> func)
-                : BasicSystem(app), func(func) {}
+            Condition(App* app, bool (*func)(Args...)) : BasicSystem(app), func(func) {}
+            Condition(App* app, std::function<bool(Args...)> func) : BasicSystem(app), func(func) {}
             bool run() { return app->run_system_v(func); }
         };
     }  // namespace entity
