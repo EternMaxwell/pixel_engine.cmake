@@ -284,16 +284,6 @@ namespace pixel_engine {
             void enable_loop() { m_loop_enabled = true; }
             void disable_loop() { m_loop_enabled = false; }
 
-            template <typename T, typename... Args, typename Tuple, std::size_t... I>
-            T process(std::function<T(Args...)> func, Tuple const& tuple, std::index_sequence<I...>) {
-                return func(std::get<I>(tuple)...);
-            }
-
-            template <typename T, typename... Args, typename Tuple>
-            T process(std::function<T(Args...)> func, Tuple const& tuple) {
-                return process(func, tuple, std::make_index_sequence<std::tuple_size<Tuple>::value>());
-            }
-
             template <typename T>
             struct get_resource {};
 
@@ -484,7 +474,7 @@ namespace pixel_engine {
              */
             template <typename... Args>
             App& run_system(std::function<void(Args...)> func) {
-                process(func, get_values<Args...>());
+                std::apply(func, get_values<Args...>());
                 return *this;
             }
 
@@ -497,7 +487,7 @@ namespace pixel_engine {
              */
             template <typename T, typename... Args>
             T run_system_v(std::function<T(Args...)> func) {
-                return process(func, get_values<Args...>());
+                return std::apply(func, get_values<Args...>());
             }
 
             template <typename Ret1, typename... Args1, typename Ret2, typename... Args2>
@@ -547,9 +537,46 @@ namespace pixel_engine {
              * @param func The system to be run.
              * @return The App object itself.
              */
+            template <typename Sch, typename... Args>
+            App& add_system(Sch scheduler, std::function<void(Args...)> func) {
+                std::shared_ptr<SystemNode> node = std::make_shared<SystemNode>(
+                    std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
+                configure_app_generated_before<Sch>(node);
+                m_systems.push_back(node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @return The App object itself.
+             */
             template <typename Sch, typename... Args, typename... Nods>
             App& add_system(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>& systems_before_this,
                             Nods... nodes) {
+                std::shared_ptr<SystemNode> node = std::make_shared<SystemNode>(
+                    std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
+                std::shared_ptr<SystemNode> before[] = {systems_before_this, nodes...};
+                for (auto& before_node : before) {
+                    if (before_node != nullptr) {
+                        node->user_defined_before.push_back(before_node);
+                    }
+                }
+                configure_app_generated_before<Sch>(node);
+                m_systems.push_back(node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args, typename... Nods>
+            App& add_system(Sch scheduler, std::function<void(Args...)> func,
+                            std::shared_ptr<SystemNode>& systems_before_this, Nods... nodes) {
                 std::shared_ptr<SystemNode> node = std::make_shared<SystemNode>(
                     std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
                 std::shared_ptr<SystemNode> before[] = {systems_before_this, nodes...};
@@ -596,8 +623,53 @@ namespace pixel_engine {
              * @param node The node this system will be in.
              * @return The App object itself.
              */
+            template <typename Sch, typename... Args, typename... Nods>
+            App& add_system(Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node,
+                            std::shared_ptr<SystemNode>& systems_before_this, Nods... nodes) {
+                std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
+                    std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
+                std::shared_ptr<SystemNode> before[] = {systems_before_this, nodes...};
+                for (auto& before_node : before) {
+                    if (before_node != nullptr) {
+                        new_node->user_defined_before.push_back(before_node);
+                    }
+                }
+                if (node != nullptr) {
+                    *node = new_node;
+                }
+                configure_app_generated_before<Sch>(new_node);
+                m_systems.push_back(new_node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @param node The node this system will be in.
+             * @return The App object itself.
+             */
             template <typename Sch, typename... Args>
             App& add_system(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node) {
+                std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
+                    std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
+                if (node != nullptr) {
+                    *node = new_node;
+                }
+                configure_app_generated_before<Sch>(new_node);
+                m_systems.push_back(new_node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @param node The node this system will be in.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args>
+            App& add_system(Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node) {
                 std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
                     std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
                 if (node != nullptr) {
@@ -630,9 +702,48 @@ namespace pixel_engine {
              * @param func The system to be run.
              * @return The App object itself.
              */
+            template <typename Sch, typename... Args>
+            App& add_system_main(Sch scheduler, std::function<void(Args...)> func) {
+                std::shared_ptr<SystemNode> node =
+                    std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
+                                                 std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
+                configure_app_generated_before<Sch>(node);
+                m_systems.push_back(node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @return The App object itself.
+             */
             template <typename Sch, typename... Args, typename... Nods>
             App& add_system_main(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>& systems_before_this,
                                  Nods... nodes) {
+                std::shared_ptr<SystemNode> node =
+                    std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
+                                                 std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
+                std::shared_ptr<SystemNode> before[] = {systems_before_this, nodes...};
+                for (auto& before_node : before) {
+                    if (before_node != nullptr) {
+                        node->user_defined_before.push_back(before_node);
+                    }
+                }
+                configure_app_generated_before<Sch>(node);
+                m_systems.push_back(node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args, typename... Nods>
+            App& add_system_main(Sch scheduler, std::function<void(Args...)> func,
+                                 std::shared_ptr<SystemNode>& systems_before_this, Nods... nodes) {
                 std::shared_ptr<SystemNode> node =
                     std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
                                                  std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
@@ -681,8 +792,55 @@ namespace pixel_engine {
              * @param node The node this system will be in.
              * @return The App object itself.
              */
+            template <typename Sch, typename... Args, typename... Nods>
+            App& add_system_main(Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node,
+                                 std::shared_ptr<SystemNode>& systems_before_this, Nods... nodes) {
+                std::shared_ptr<SystemNode> new_node =
+                    std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
+                                                 std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
+                std::shared_ptr<SystemNode> before[] = {systems_before_this, nodes...};
+                for (auto& before_node : before) {
+                    if (before_node != nullptr) {
+                        new_node->user_defined_before.push_back(before_node);
+                    }
+                }
+                if (node != nullptr) {
+                    *node = new_node;
+                }
+                configure_app_generated_before<Sch>(new_node);
+                m_systems.push_back(new_node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @param node The node this system will be in.
+             * @return The App object itself.
+             */
             template <typename Sch, typename... Args>
             App& add_system_main(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node) {
+                std::shared_ptr<SystemNode> new_node =
+                    std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
+                                                 std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
+                if (node != nullptr) {
+                    *node = new_node;
+                }
+                configure_app_generated_before<Sch>(new_node);
+                m_systems.push_back(new_node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @param node The node this system will be in.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args>
+            App& add_system_main(Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node) {
                 std::shared_ptr<SystemNode> new_node =
                     std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
                                                  std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
