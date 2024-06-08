@@ -279,7 +279,7 @@ namespace pixel_engine {
             std::vector<std::unique_ptr<BasicSystem<void>>> m_state_update;
             std::vector<std::shared_ptr<SystemNode>> m_systems;
             std::unordered_map<size_t, std::shared_ptr<Plugin>> m_plugins;
-            std::map<size_t, std::shared_ptr<SystemRunner>> m_runners;
+            std::unordered_map<size_t, std::shared_ptr<SystemRunner>> m_runners;
 
             void enable_loop() { m_loop_enabled = true; }
             void disable_loop() { m_loop_enabled = false; }

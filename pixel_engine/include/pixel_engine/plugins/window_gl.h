@@ -8,70 +8,169 @@ namespace pixel_engine {
     namespace plugins {
         using namespace entity;
 
-        namespace window_gl_systems {
+        namespace window_gl {
             using namespace render;
             using namespace context;
 
-            void insert_context(Command command) { command.insert_resource<Context>(); }
-            void insert_window(Command command) { command.insert_resource<Window>(); }
-            void init_window(Resource<Window> window) {
-                if (window.has_value()) {
-                    std::cout << "init_window" << std::endl;
-                    auto& win = window.value();
-                    win.defaultWindowHints()
-                        ->setWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4)
-                        ->setWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5)
-                        ->setWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE)
-                        ->createWindow(480 * 3, 270 * 3, "Pixel Engine");
-                    std::cout << "init_window done" << std::endl;
+            struct AnyWindowClose {};
+            struct NoWindowExists {};
+
+            struct WindowHandle {
+                GLFWwindow* window_handle = NULL;
+                bool created = false;
+            };
+
+            struct PrimaryWindow {};
+
+            struct WindowSize {
+                int width, height;
+            };
+
+            struct WindowPos {
+                int x, y;
+            };
+
+            struct WindowTitle {
+                std::string title;
+            };
+
+            struct WindowHints {
+                std::vector<std::pair<int, int>> hints;
+            };
+
+            struct WindowBundle {
+                Bundle bundle;
+                WindowHandle window_handle;
+                WindowSize window_size = {480 * 3, 270 * 3};
+                WindowPos window_pos = {0, 0};
+                WindowTitle window_title = {"Pixel Engine"};
+                WindowHints window_hints = {.hints = {{GLFW_CONTEXT_VERSION_MAJOR, 4},
+                                                      {GLFW_CONTEXT_VERSION_MINOR, 5},
+                                                      {GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE},
+                                                      {GLFW_VISIBLE, GLFW_FALSE}}};
+            };
+
+            void init_glfw() {
+                if (!glfwInit()) {
+                    throw std::runtime_error("Failed to initialize GLFW");
                 }
             }
-            void show_window(Resource<Window> window) {
-                if (window.has_value()) {
-                    window.value().show();
-                }
-            }
-            void make_context_current(Resource<Window> window) {
-                if (window.has_value()) {
-                    window.value().makeContextCurrent();
-                }
-            }
-            void poll_events(Resource<Context> context) {
-                if (context.has_value()) {
-                    context.value().pollEvents();
-                }
-            }
-            void swap_buffers(Resource<Window> window) {
-                if (window.has_value()) {
-                    window.value().swapBuffers();
-                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                }
-            }
-            void window_should_close(Resource<Window> window, EventWriter<AppExit> exit, Resource<Context> context) {
-                if (window.has_value()) {
-                    if (window.value().windowShouldClose()) {
-                        exit.write(AppExit{});
+
+            void create_window(
+                Query<std::tuple<WindowHandle, WindowSize, WindowPos, WindowTitle, WindowHints>, std::tuple<>> query) {
+                for (auto [window_handle, window_size, window_pos, window_title, window_hints] : query.iter()) {
+                    if (!window_handle.created) {
+                        glfwDefaultWindowHints();
+
+                        for (auto [hint, value] : window_hints.hints) {
+                            glfwWindowHint(hint, value);
+                        }
+
+                        window_handle.window_handle = glfwCreateWindow(window_size.width, window_size.height,
+                                                                       window_title.title.c_str(), nullptr, nullptr);
+                        if (!window_handle.window_handle) {
+                            glfwTerminate();
+                            throw std::runtime_error("Failed to create GLFW window");
+                        }
+
+                        window_handle.created = true;
+
+                        glfwShowWindow(window_handle.window_handle);
                     }
                 }
             }
-        }  // namespace window_gl_systems
+
+            void window_close(Command command, Query<std::tuple<entt::entity, WindowHandle>, std::tuple<>> query,
+                              EventWriter<AnyWindowClose> any_close_event) {
+                for (auto [entity, window_handle] : query.iter()) {
+                    if (window_handle.created) {
+                        if (glfwWindowShouldClose(window_handle.window_handle)) {
+                            glfwDestroyWindow(window_handle.window_handle);
+                            any_close_event.write(AnyWindowClose{});
+                            command.entity(entity).despawn();
+                        }
+                    }
+                }
+            }
+
+            void swap_buffers(Query<std::tuple<WindowHandle>, std::tuple<>> query) {
+                for (auto [window_handle] : query.iter()) {
+                    if (window_handle.created) {
+                        glfwSwapBuffers(window_handle.window_handle);
+                    }
+                }
+            }
+
+            void no_window_exists(Query<std::tuple<WindowHandle>, std::tuple<>> query,
+                                  EventWriter<NoWindowExists> no_window_event) {
+                bool exists = false;
+                for (auto [window_handle] : query.iter()) {
+                    if (window_handle.created) {
+                        exists = true;
+                    }
+                }
+                if (!exists) {
+                    no_window_event.write(NoWindowExists{});
+                }
+            }
+
+            void make_context_primary(Query<std::tuple<WindowHandle, PrimaryWindow>, std::tuple<>> query) {
+                for (auto [window_handle] : query.iter()) {
+                    if (window_handle.created) {
+                        glfwMakeContextCurrent(window_handle.window_handle);
+                    }
+                }
+            }
+
+            void poll_events() {
+                glfwPollEvents();
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            }
+
+            void exit_on_no_window(EventReader<NoWindowExists> no_window_event, EventWriter<AppExit> exit_event) {
+                for (auto& _ : no_window_event.read()) {
+                    exit_event.write(AppExit{});
+                }
+            }
+
+        }  // namespace window_gl
 
         class WindowGLPlugin : public Plugin {
+           private:
+            int primary_window_width = 480 * 3;
+            int primary_window_height = 270 * 3;
+            std::string primary_window_title = "Pixel Engine";
+
+            std::function<void(Command)> insert_primary_window = [&](Command command) {
+                command.spawn(window_gl::WindowBundle{.window_size = {.width = primary_window_width,
+                                                                      .height = primary_window_height},
+                                                      .window_title = {.title = primary_window_title}},
+                              window_gl::PrimaryWindow{});
+            };
+
            public:
+            Node start_up_window_create_node;
+            Node swap_buffer_node;
+            void set_primary_window_size(int width, int height) {
+                primary_window_width = width;
+                primary_window_height = height;
+            }
+            void set_primary_window_title(std::string title) { primary_window_title = title; }
             void build(App& app) override {
-                Node insert_context_node, insert_window_node, init_window_node, show_window_node,
-                    make_context_current_node, poll_events_node, window_should_close_node, swap_buffer_node;
-                app.add_system_main(Startup{}, window_gl_systems::insert_context, &insert_context_node)
-                    .add_system_main(Startup{}, window_gl_systems::insert_window, &insert_window_node,
-                                     insert_context_node)
-                    .add_system_main(Startup{}, window_gl_systems::init_window, &init_window_node, insert_window_node)
-                    .add_system_main(Startup{}, window_gl_systems::show_window, &show_window_node, init_window_node)
-                    .add_system_main(Startup{}, window_gl_systems::make_context_current, &make_context_current_node,
-                                     init_window_node)
-                    .add_system_main(Update{}, window_gl_systems::poll_events, &poll_events_node)
-                    .add_system_main(Update{}, window_gl_systems::swap_buffers, &swap_buffer_node, poll_events_node)
-                    .add_system_main(Update{}, window_gl_systems::window_should_close, &window_should_close_node,
-                                     swap_buffer_node, poll_events_node);
+                Node init_glfw_node, create_window_node, window_close_node, exit_on_no_window_node, insert_primary_node,
+                    make_context_primary_node;
+                app.add_system_main(Startup{}, insert_primary_window, &insert_primary_node)
+                    .add_system_main(Startup{}, window_gl::init_glfw, &init_glfw_node)
+                    .add_system_main(Startup{}, window_gl::create_window, &start_up_window_create_node, init_glfw_node,
+                                     insert_primary_node)
+                    .add_system_main(Update{}, window_gl::poll_events)
+                    .add_system_main(Update{}, window_gl::create_window, &create_window_node)
+                    .add_system_main(Update{}, window_gl::make_context_primary, &make_context_primary_node)
+                    .add_system_main(Update{}, window_gl::swap_buffers, &swap_buffer_node, make_context_primary_node)
+                    .add_system_main(Update{}, window_gl::window_close, &window_close_node, create_window_node,
+                                     swap_buffer_node)
+                    .add_system_main(Update{}, window_gl::no_window_exists, window_close_node)
+                    .add_system(Update{}, window_gl::exit_on_no_window);
             }
         };
     }  // namespace plugins
