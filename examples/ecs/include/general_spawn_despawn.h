@@ -61,9 +61,9 @@ namespace test_spawn_despawn {
     }
 
     void change_component_data(entity::Command command,
-                               entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+                               entity::Query<std::tuple<Health>, std::tuple<>> query) {
         std::cout << "change_component_data" << std::endl;
-        for (auto [entity, health] : query.iter()) {
+        for (auto [health] : query.iter()) {
             health.life = 200.0f;
         }
         std::cout << std::endl;

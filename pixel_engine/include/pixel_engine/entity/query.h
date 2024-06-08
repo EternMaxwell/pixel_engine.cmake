@@ -34,14 +34,9 @@ namespace pixel_engine {
                 decltype(registry.view<Qus...>(entt::exclude_t<Exs...>{}).each()) m_full;
                 decltype(m_full.begin()) m_iter;
 
-                template <size_t... I, typename T, typename... Args>
-                std::tuple<Args...> remove_first(std::tuple<T, Args...> tuple, std::index_sequence<I>...) {
-                    return std::tuple<Args...>(std::get<I+1>(tuple)...);
-                }
-
                 template <typename T, typename... Args>
                 std::tuple<Args...> remove_first(std::tuple<T, Args...> tuple) {
-                    return remove_first(tuple, std::make_index_sequence<sizeof...(Args)>{});
+                    return std::apply([](T t, Args... args) { return std::tuple<Args...>(args...); }, tuple);
                 }
 
                public:
@@ -59,7 +54,7 @@ namespace pixel_engine {
                 }
                 bool operator==(const iterator& rhs) const { return m_iter == rhs.m_iter; }
                 bool operator!=(const iterator& rhs) const { return m_iter != rhs.m_iter; }
-                std::tuple<Qus...> operator*() {
+                auto operator*() {
                     // remove the first element of the tuple and return the
                     // rest
                     return remove_first(*m_iter);
