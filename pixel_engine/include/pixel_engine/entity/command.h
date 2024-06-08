@@ -204,7 +204,7 @@ namespace pixel_engine {
             template <typename T>
             void init_resource() {
                 if (m_resources->find(typeid(T).hash_code()) == m_resources->end()) {
-                    auto res = std::make_any<T>();
+                    auto res = std::make_shared<T>();
                     m_resources->insert({typeid(T).hash_code(), res});
                 }
             }
