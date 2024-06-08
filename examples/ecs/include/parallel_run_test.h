@@ -15,7 +15,7 @@ namespace test_parallel_run {
 
     std::mutex mutex;
 
-    int loops = 10;
+    int loops = 100000;
 
     void spawn_data1(Command command) {
         for (int i = 0; i < 100; i++) command.spawn(Data1{.data = 1});
@@ -27,14 +27,14 @@ namespace test_parallel_run {
 
     void print_data1(Query<std::tuple<Data1>, std::tuple<>> query) {
         for (auto [data] : query.iter()) {
-            std::cout << "Data1: " << data.data << std::endl;
+            std::cout << "Data1: " << data.data++ << std::endl;
         }
         std::cout << "Data1: End" << std::endl;
     }
 
     void print_data2(Query<std::tuple<Data2>, std::tuple<>> query) {
         for (auto [data] : query.iter()) {
-            std::cout << "Data2: " << data.data << std::endl;
+            std::cout << "Data2: " << data.data++ << std::endl;
         }
         std::cout << "Data2: End" << std::endl;
     }

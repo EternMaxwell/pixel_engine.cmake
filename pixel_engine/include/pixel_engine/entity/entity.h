@@ -66,10 +66,6 @@ namespace pixel_engine {
         typedef std::shared_ptr<SystemNode> Node;
 
         struct SystemRunner {
-           private:
-            App* const app;
-            const bool ignore_scheduler;
-
            public:
             SystemRunner(App* app) : app(app), ignore_scheduler(false) {}
             SystemRunner(App* app, bool ignore_scheduler) : app(app), ignore_scheduler(ignore_scheduler) {}
@@ -80,9 +76,14 @@ namespace pixel_engine {
             void wait() { pool.wait(); }
 
            private:
+            App* const app;
+            const bool ignore_scheduler;
+            std::condition_variable cv;
+            std::mutex m;
+            std::atomic<bool> any_done = true;
             std::unordered_set<std::shared_ptr<SystemNode>> tails;
             std::unordered_map<std::shared_ptr<SystemNode>, std::future<void>> futures;
-            BS::thread_pool pool;
+            BS::thread_pool pool = BS::thread_pool(4);
             std::shared_ptr<SystemNode> should_run(const std::shared_ptr<SystemNode>& sys);
             std::shared_ptr<SystemNode> get_next();
             bool done();
@@ -91,28 +92,28 @@ namespace pixel_engine {
 
         void SystemRunner::run() {
             std::atomic<int> tasks_in = 0;
-            std::condition_variable cv;
-            std::mutex m;
             while (!all_load()) {
                 auto next = get_next();
                 if (next != nullptr) {
                     tasks_in++;
                     if (ignore_scheduler) {
-                        futures[next] = pool.submit_task([next, &tasks_in, &m, &cv] {
+                        futures[next] = pool.submit_task([&, next] {
                             next->system->run();
                             tasks_in--;
                             std::unique_lock<std::mutex> lk(m);
+                            any_done = true;
                             cv.notify_all();
                             return;
                         });
                     } else {
                         App* app = this->app;
-                        futures[next] = pool.submit_task([app, next, &tasks_in, &m, &cv] {
+                        futures[next] = pool.submit_task([&, app, next] {
                             if (next->scheduler->should_run(app)) {
                                 next->system->run();
                             }
                             tasks_in--;
                             std::unique_lock<std::mutex> lk(m);
+                            any_done = true;
                             cv.notify_all();
                             return;
                         });
@@ -172,6 +173,18 @@ namespace pixel_engine {
                 if (should != nullptr) {
                     return should;
                 }
+            }
+            std::unique_lock<std::mutex> lk(m);
+            if (!any_done) {
+                cv.wait_for(lk, std::chrono::milliseconds(2), [&] {
+                    if (any_done) {
+                        any_done = false;
+                        return true;
+                    }
+                    return false;
+                });
+            } else {
+                any_done = false;
             }
             return nullptr;
         }
