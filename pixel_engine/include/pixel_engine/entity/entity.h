@@ -50,13 +50,15 @@ namespace pixel_engine {
         void exit_app(EventWriter<AppExit> exit_events) { exit_events.write(AppExit{}); }
 
         struct SystemNode {
+            const bool in_main_thread;
             std::shared_ptr<Scheduler> scheduler;
             std::shared_ptr<BasicSystem<void>> system;
             std::vector<std::shared_ptr<SystemNode>> user_defined_before;
             std::vector<std::shared_ptr<SystemNode>> app_generated_before;
 
-            SystemNode(std::shared_ptr<Scheduler> scheduler, std::shared_ptr<BasicSystem<void>> system)
-                : scheduler(scheduler), system(system) {}
+            SystemNode(std::shared_ptr<Scheduler> scheduler, std::shared_ptr<BasicSystem<void>> system,
+                       const bool& in_main = false)
+                : scheduler(scheduler), system(system), in_main_thread(in_main) {}
 
             std::tuple<std::shared_ptr<Scheduler>, std::shared_ptr<BasicSystem<void>>> to_tuple() {
                 return std::make_tuple(scheduler, system);
@@ -95,32 +97,41 @@ namespace pixel_engine {
             while (!all_load()) {
                 auto next = get_next();
                 if (next != nullptr) {
-                    tasks_in++;
-                    if (ignore_scheduler) {
-                        futures[next] = pool.submit_task([&, next] {
-                            next->system->run();
-                            tasks_in--;
+                    if (!next->in_main_thread) {
+                        {
                             std::unique_lock<std::mutex> lk(m);
-                            any_done = true;
-                            cv.notify_all();
-                            return;
-                        });
-                    } else {
-                        App* app = this->app;
-                        futures[next] = pool.submit_task([&, app, next] {
-                            if (next->scheduler->should_run(app)) {
+                            cv.wait(lk, [&] { return tasks_in <= pool.get_thread_count(); });
+                        }
+                        tasks_in++;
+                        if (ignore_scheduler) {
+                            futures[next] = pool.submit_task([&, next] {
                                 next->system->run();
-                            }
-                            tasks_in--;
-                            std::unique_lock<std::mutex> lk(m);
-                            any_done = true;
-                            cv.notify_all();
-                            return;
-                        });
+                                tasks_in--;
+                                std::unique_lock<std::mutex> lk(m);
+                                any_done = true;
+                                cv.notify_all();
+                                return;
+                            });
+                        } else {
+                            App* app = this->app;
+                            futures[next] = pool.submit_task([&, app, next] {
+                                if (next->scheduler->should_run(app)) {
+                                    next->system->run();
+                                }
+                                tasks_in--;
+                                std::unique_lock<std::mutex> lk(m);
+                                any_done = true;
+                                cv.notify_all();
+                                return;
+                            });
+                        }
+                    } else {
+                        std::promise<void> p;
+                        futures[next] = p.get_future();
+                        next->system->run();
+                        p.set_value();
                     }
                 }
-                std::unique_lock<std::mutex> lk(m);
-                cv.wait(lk, [&] { return tasks_in <= pool.get_thread_count(); });
             }
         }
 
@@ -591,6 +602,92 @@ namespace pixel_engine {
             App& add_system(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node) {
                 std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
                     std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
+                if (node != nullptr) {
+                    *node = new_node;
+                }
+                configure_app_generated_before<Sch>(new_node);
+                m_systems.push_back(new_node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args>
+            App& add_system_main(Sch scheduler, void (*func)(Args...)) {
+                std::shared_ptr<SystemNode> node =
+                    std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
+                                                 std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
+                configure_app_generated_before<Sch>(node);
+                m_systems.push_back(node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args, typename... Nods>
+            App& add_system_main(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>& systems_before_this,
+                                 Nods... nodes) {
+                std::shared_ptr<SystemNode> node =
+                    std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
+                                                 std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
+                std::shared_ptr<SystemNode> before[] = {systems_before_this, nodes...};
+                for (auto& before_node : before) {
+                    if (before_node != nullptr) {
+                        node->user_defined_before.push_back(before_node);
+                    }
+                }
+                configure_app_generated_before<Sch>(node);
+                m_systems.push_back(node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @param node The node this system will be in.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args, typename... Nods>
+            App& add_system_main(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node,
+                                 std::shared_ptr<SystemNode>& systems_before_this, Nods... nodes) {
+                std::shared_ptr<SystemNode> new_node =
+                    std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
+                                                 std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
+                std::shared_ptr<SystemNode> before[] = {systems_before_this, nodes...};
+                for (auto& before_node : before) {
+                    if (before_node != nullptr) {
+                        new_node->user_defined_before.push_back(before_node);
+                    }
+                }
+                if (node != nullptr) {
+                    *node = new_node;
+                }
+                configure_app_generated_before<Sch>(new_node);
+                m_systems.push_back(new_node);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @param node The node this system will be in.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args>
+            App& add_system_main(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node) {
+                std::shared_ptr<SystemNode> new_node =
+                    std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
+                                                 std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
                 if (node != nullptr) {
                     *node = new_node;
                 }
