@@ -154,7 +154,6 @@ namespace pixel_engine {
 
             template <typename... Args>
             void add_infos() {
-                std::cout << "add_infos" << std::endl;
                 if constexpr (sizeof...(Args) > 0) add_infos_inernal<Args...>();
             }
 
@@ -318,7 +317,7 @@ namespace pixel_engine {
            public:
             System(App* app, void (*func)(Args...)) : BasicSystem(app), func(func) { add_infos<Args...>(); }
             System(App* app, std::function<void(Args...)> func) : BasicSystem(app), func(func) { add_infos<Args...>(); }
-            void run() { app->run_system(func); }
+            void run() { app->run_system_v(func); }
         };
     }  // namespace entity
 }  // namespace pixel_engine

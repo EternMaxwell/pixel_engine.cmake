@@ -9,7 +9,7 @@ namespace pixel_engine {
     namespace render {
         class Window {
            private:
-            GLFWwindow* window;
+            GLFWwindow* window = NULL;
             int preservedWidth, preservedHeight;
             int preservedPosX, preservedPosY;
 

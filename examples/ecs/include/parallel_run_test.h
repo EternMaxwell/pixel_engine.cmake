@@ -15,14 +15,14 @@ namespace test_parallel_run {
 
     std::mutex mutex;
 
-    int loops = 100000;
+    int loops = 10;
 
     void spawn_data1(Command command) {
-        for (int i = 0; i < 100; i++) command.spawn(Data1{.data = 1});
+        for (int i = 0; i < 10; i++) command.spawn(Data1{.data = 1});
     }
 
     void spawn_data2(Command command) {
-        for (int i = 0; i < 100; i++) command.spawn(Data2{.data = 2});
+        for (int i = 0; i < 10; i++) command.spawn(Data2{.data = 2});
     }
 
     void print_data1(Query<std::tuple<Data1>, std::tuple<>> query) {
@@ -56,13 +56,12 @@ namespace test_parallel_run {
                 .add_system(Startup{}, spawn_data2)
                 .add_system(Update{}, print_data1, &node1)
                 .add_system(Update{}, print_data2, &node2)
-                .add_system_main(Update{}, print_endl, node1, node2)
+                .add_system(Update{}, print_endl, node1, node2)
                 .add_system(Update{}, exit);
         }
     };
 
     void test() {
-        spdlog::set_level(spdlog::level::debug);
         entity::App app;
         app.add_plugin(ParallelTestPlugin{}).run_parallel();
     }

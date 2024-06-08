@@ -7,19 +7,24 @@
 
 namespace pixel_engine {
     namespace context {
+
+        void error_callback(int error, const char* description) {
+			std::cerr << "Error: " << description << std::endl;
+		}
+
         class Context {
            public:
             Context() {
                 if (!glfwInit()) {
-#ifndef NDEBUG
                     throw std::runtime_error("Failed to initialize GLFW");
-#endif
                 }
+                glfwSetErrorCallback(error_callback);
             }
 
             void pollEvents() { glfwPollEvents(); }
 
-            ~Context() { glfwTerminate(); }
+            void terminate() { glfwTerminate(); }
+            //~Context() { glfwTerminate(); }
         };
 
     }  // namespace context
