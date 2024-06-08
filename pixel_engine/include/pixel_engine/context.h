@@ -24,7 +24,7 @@ namespace pixel_engine {
             void pollEvents() { glfwPollEvents(); }
 
             void terminate() { glfwTerminate(); }
-            //~Context() { glfwTerminate(); }
+            ~Context() { glfwTerminate(); }
         };
 
     }  // namespace context

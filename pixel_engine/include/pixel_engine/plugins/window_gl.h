@@ -12,19 +12,19 @@ namespace pixel_engine {
             using namespace render;
             using namespace context;
 
-            void insert_context(Command command) { command.insert_resource(Context()); }
-            void insert_window(Command command) { command.insert_resource(Window()); }
+            void insert_context(Command command) { command.insert_resource<Context>(); }
+            void insert_window(Command command) { command.insert_resource<Window>(); }
             void init_window(Resource<Window> window) {
-                std::cout << "init_window" << std::endl;
                 if (window.has_value()) {
+                    std::cout << "init_window" << std::endl;
                     auto& win = window.value();
                     win.defaultWindowHints()
                         ->setWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4)
                         ->setWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5)
                         ->setWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE)
                         ->createWindow(480 * 3, 270 * 3, "Pixel Engine");
+                    std::cout << "init_window done" << std::endl;
                 }
-                std::cout << "init_window done" << std::endl;
             }
             void show_window(Resource<Window> window) {
                 if (window.has_value()) {

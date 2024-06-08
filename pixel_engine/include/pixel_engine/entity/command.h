@@ -171,12 +171,20 @@ namespace pixel_engine {
             /*! @brief Insert a resource.
              * If the resource already exists, nothing will happen.
              * @tparam T The type of the resource.
-             * @param res The resource to be inserted.
+             * @tparam Args The types of the arguments to be passed to the
+             * @param args The arguments to be passed to the constructor of T
              */
+            template <typename T, typename... Args>
+            void insert_resource(Args... args) {
+                if (m_resources->find(typeid(T).hash_code()) == m_resources->end()) {
+                    m_resources->emplace(std::make_pair(typeid(T).hash_code(), std::make_shared<T>(args...)));
+                }
+            }
+
             template <typename T>
             void insert_resource(T res) {
                 if (m_resources->find(typeid(T).hash_code()) == m_resources->end()) {
-                    m_resources->insert({typeid(T).hash_code(), res});
+                    m_resources->emplace(std::make_pair(typeid(T).hash_code(), std::make_shared<T>(res)));
                 }
             }
 

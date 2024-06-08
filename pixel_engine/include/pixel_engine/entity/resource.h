@@ -37,7 +37,7 @@ namespace pixel_engine {
             /*! @brief Get the value of the resource.
              * @return The value of the resource.
              */
-            ResT& value() { return std::any_cast<ResT&>(*m_res); }
+            ResT& value() { return *((std::any_cast<std::shared_ptr<ResT>&>(*m_res)).get()); }
         };
 
         template <typename T, typename U>
