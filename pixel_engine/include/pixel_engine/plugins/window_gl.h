@@ -42,7 +42,7 @@ namespace pixel_engine {
                 WindowHandle window_handle;
                 WindowSize window_size = {480 * 3, 270 * 3};
                 WindowPos window_pos = {0, 0};
-                WindowTitle window_title = {"Pixel Engine"};
+                WindowTitle window_title{"Pixel Engine"};
                 WindowHints window_hints = {.hints = {{GLFW_CONTEXT_VERSION_MAJOR, 4},
                                                       {GLFW_CONTEXT_VERSION_MINOR, 5},
                                                       {GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE},
@@ -165,7 +165,7 @@ namespace pixel_engine {
            private:
             int primary_window_width = 480 * 3;
             int primary_window_height = 270 * 3;
-            std::string primary_window_title = "Pixel Engine";
+            const char* primary_window_title = "Pixel Engine";
 
             std::function<void(Command)> insert_primary_window = [&](Command command) {
                 command.spawn(window_gl::WindowBundle{.window_size = {.width = primary_window_width,
@@ -181,27 +181,28 @@ namespace pixel_engine {
                 primary_window_width = width;
                 primary_window_height = height;
             }
-            void set_primary_window_title(std::string title) { primary_window_title = title; }
+            void set_primary_window_title(const std::string& title) { primary_window_title = title.c_str(); }
             void build(App& app) override {
                 Node init_glfw_node, create_window_node, window_close_node, no_window_exists_node, insert_primary_node,
                     make_context_primary_node, primary_window_close_node, poll_events_node;
                 app.add_system_main(Startup{}, insert_primary_window, &insert_primary_node)
                     .add_system_main(Startup{}, window_gl::init_glfw, &init_glfw_node)
-                    .add_system_main(Startup{}, window_gl::create_window, &start_up_window_create_node, init_glfw_node,
-                                     insert_primary_node)
+                    .add_system_main(Startup{}, window_gl::create_window, &start_up_window_create_node,
+                                     before(init_glfw_node, insert_primary_node))
                     .add_system_main(PreUpdate{}, window_gl::poll_events, &poll_events_node)
-                    .add_system_main(PreUpdate{}, window_gl::update_window_size, poll_events_node)
-                    .add_system_main(PreUpdate{}, window_gl::update_window_pos, poll_events_node)
+                    .add_system_main(PreUpdate{}, window_gl::update_window_size, before(poll_events_node))
+                    .add_system_main(PreUpdate{}, window_gl::update_window_pos, before(poll_events_node))
                     .add_system_main(PreRender{}, window_gl::create_window, &create_window_node)
                     .add_system_main(PostRender{}, window_gl::make_context_primary, &make_context_primary_node)
                     .add_system_main(PostRender{}, window_gl::swap_buffers, &swap_buffer_node,
-                                     make_context_primary_node)
+                                     before(make_context_primary_node))
                     .add_system_main(PostRender{}, window_gl::primary_window_close, &primary_window_close_node,
-                                     make_context_primary_node, swap_buffer_node)
-                    .add_system_main(PostRender{}, window_gl::window_close, &window_close_node, create_window_node,
-                                     swap_buffer_node)
-                    .add_system(PostRender{}, window_gl::no_window_exists, &no_window_exists_node, window_close_node, primary_window_close_node)
-                    .add_system(PostRender{}, window_gl::exit_on_no_window, no_window_exists_node);
+                                     before(make_context_primary_node, swap_buffer_node))
+                    .add_system_main(PostRender{}, window_gl::window_close, &window_close_node,
+                                     before(create_window_node, swap_buffer_node))
+                    .add_system(PostRender{}, window_gl::no_window_exists, &no_window_exists_node,
+                                before{window_close_node, primary_window_close_node})
+                    .add_system(PostRender{}, window_gl::exit_on_no_window, before{no_window_exists_node});
             }
         };
     }  // namespace plugins
