@@ -1,19 +1,18 @@
 ﻿#pragma once
 
-#include "pixel_engine/context.h"
+#include <GLFW/glfw3.h>
+
 #include "pixel_engine/entity.h"
-#include "pixel_engine/render.h"
 
 namespace pixel_engine {
     namespace plugins {
         using namespace entity;
 
         namespace window_gl {
-            using namespace render;
-            using namespace context;
 
             struct AnyWindowClose {};
             struct NoWindowExists {};
+            struct PrimaryWindowClose {};
 
             struct WindowHandle {
                 GLFWwindow* window_handle = NULL;
@@ -80,7 +79,20 @@ namespace pixel_engine {
                 }
             }
 
-            void window_close(Command command, Query<std::tuple<entt::entity, WindowHandle>, std::tuple<>> query,
+            void primary_window_close(
+                Command command, Query<std::tuple<entt::entity, WindowHandle, PrimaryWindow>, std::tuple<>> query) {
+                for (auto [entity, window_handle] : query.iter()) {
+                    if (window_handle.created) {
+                        if (glfwWindowShouldClose(window_handle.window_handle)) {
+                            glfwDestroyWindow(window_handle.window_handle);
+                            command.entity(entity).despawn();
+                        }
+                    }
+                }
+            }
+
+            void window_close(Command command,
+                              Query<std::tuple<entt::entity, WindowHandle>, std::tuple<PrimaryWindow>> query,
                               EventWriter<AnyWindowClose> any_close_event) {
                 for (auto [entity, window_handle] : query.iter()) {
                     if (window_handle.created) {
@@ -103,15 +115,11 @@ namespace pixel_engine {
 
             void no_window_exists(Query<std::tuple<WindowHandle>, std::tuple<>> query,
                                   EventWriter<NoWindowExists> no_window_event) {
-                bool exists = false;
                 for (auto [window_handle] : query.iter()) {
-                    if (window_handle.created) {
-                        exists = true;
-                    }
+                    return;
                 }
-                if (!exists) {
-                    no_window_event.write(NoWindowExists{});
-                }
+                spdlog::info("No window exists");
+                no_window_event.write(NoWindowExists{});
             }
 
             void make_context_primary(Query<std::tuple<WindowHandle, PrimaryWindow>, std::tuple<>> query) {
@@ -129,6 +137,7 @@ namespace pixel_engine {
 
             void exit_on_no_window(EventReader<NoWindowExists> no_window_event, EventWriter<AppExit> exit_event) {
                 for (auto& _ : no_window_event.read()) {
+                    glfwTerminate();
                     exit_event.write(AppExit{});
                 }
             }
@@ -158,19 +167,22 @@ namespace pixel_engine {
             void set_primary_window_title(std::string title) { primary_window_title = title; }
             void build(App& app) override {
                 Node init_glfw_node, create_window_node, window_close_node, exit_on_no_window_node, insert_primary_node,
-                    make_context_primary_node;
+                    make_context_primary_node, primary_window_close_node;
                 app.add_system_main(Startup{}, insert_primary_window, &insert_primary_node)
                     .add_system_main(Startup{}, window_gl::init_glfw, &init_glfw_node)
                     .add_system_main(Startup{}, window_gl::create_window, &start_up_window_create_node, init_glfw_node,
                                      insert_primary_node)
-                    .add_system_main(Update{}, window_gl::poll_events)
-                    .add_system_main(Update{}, window_gl::create_window, &create_window_node)
-                    .add_system_main(Update{}, window_gl::make_context_primary, &make_context_primary_node)
-                    .add_system_main(Update{}, window_gl::swap_buffers, &swap_buffer_node, make_context_primary_node)
-                    .add_system_main(Update{}, window_gl::window_close, &window_close_node, create_window_node,
+                    .add_system_main(PreUpdate{}, window_gl::poll_events)
+                    .add_system_main(PreRender{}, window_gl::create_window, &create_window_node)
+                    .add_system_main(PostRender{}, window_gl::make_context_primary, &make_context_primary_node)
+                    .add_system_main(PostRender{}, window_gl::swap_buffers, &swap_buffer_node,
+                                     make_context_primary_node)
+                    .add_system_main(PostRender{}, window_gl::primary_window_close, &primary_window_close_node,
+                                     make_context_primary_node, swap_buffer_node)
+                    .add_system_main(PostRender{}, window_gl::window_close, &window_close_node, create_window_node,
                                      swap_buffer_node)
-                    .add_system_main(Update{}, window_gl::no_window_exists, window_close_node)
-                    .add_system(Update{}, window_gl::exit_on_no_window);
+                    .add_system(PostRender{}, window_gl::no_window_exists, window_close_node, primary_window_close_node)
+                    .add_system(PostUpdate{}, window_gl::exit_on_no_window);
             }
         };
     }  // namespace plugins

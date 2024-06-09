@@ -550,6 +550,8 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
+             * @param systems_before_this The systems that should run before this system. If they are not in same
+             * scheduler, this will be ignored.
              * @return The App object itself.
              */
             template <typename Sch, typename... Args, typename... Nods>
@@ -572,6 +574,8 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
+             * @param systems_before_this The systems that should run before this system. If they are not in same
+             * scheduler, this will be ignored.
              * @return The App object itself.
              */
             template <typename Sch, typename... Args, typename... Nods>
@@ -595,6 +599,8 @@ namespace pixel_engine {
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
              * @param node The node this system will be in.
+             * @param systems_before_this The systems that should run before this system. If they are not in same
+             * scheduler, this will be ignored.
              * @return The App object itself.
              */
             template <typename Sch, typename... Args, typename... Nods>
@@ -621,6 +627,8 @@ namespace pixel_engine {
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
              * @param node The node this system will be in.
+             * @param systems_before_this The systems that should run before this system. If they are not in same
+             * scheduler, this will be ignored.
              * @return The App object itself.
              */
             template <typename Sch, typename... Args, typename... Nods>
@@ -716,6 +724,8 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
+             * @param systems_before_this The systems that should run before this system. If they are not in same
+             * scheduler, this will be ignored.
              * @return The App object itself.
              */
             template <typename Sch, typename... Args, typename... Nods>
@@ -739,6 +749,8 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
+             * @param systems_before_this The systems that should run before this system. If they are not in same
+             * scheduler, this will be ignored.
              * @return The App object itself.
              */
             template <typename Sch, typename... Args, typename... Nods>
@@ -763,6 +775,8 @@ namespace pixel_engine {
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
              * @param node The node this system will be in.
+             * @param systems_before_this The systems that should run before this system. If they are not in same
+             * scheduler, this will be ignored.
              * @return The App object itself.
              */
             template <typename Sch, typename... Args, typename... Nods>
@@ -790,6 +804,8 @@ namespace pixel_engine {
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
              * @param node The node this system will be in.
+             * @param systems_before_this The systems that should run before this system. If they are not in same
+             * scheduler, this will be ignored.
              * @return The App object itself.
              */
             template <typename Sch, typename... Args, typename... Nods>
@@ -948,6 +964,7 @@ namespace pixel_engine {
                 m_runners[typeid(T).hash_code()]->run();
                 m_runners[typeid(T).hash_code()]->wait();
                 m_runners[typeid(T).hash_code()]->reset();
+                end_commands();
             }
 
             /*! @brief Run the app in parallel.
@@ -960,31 +977,47 @@ namespace pixel_engine {
                 prepare_systems<Startup>();
                 spdlog::debug("Prepare state change systems.");
                 prepare_systems<OnStateChange>();
+                spdlog::debug("Prepare pre-update systems.");
+                prepare_systems<PreUpdate>();
                 spdlog::debug("Prepare update systems.");
                 prepare_systems<Update>();
+                spdlog::debug("Prepare post-update systems.");
+                prepare_systems<PostUpdate>();
+                spdlog::debug("Prepare pre-render systems.");
+                prepare_systems<PreRender>();
                 spdlog::debug("Prepare render systems.");
                 prepare_systems<Render>();
+                spdlog::debug("Prepare post-render systems.");
+                prepare_systems<PostRender>();
                 spdlog::info("Preparation done.");
 
                 spdlog::debug("Run start up systems.");
                 run_systems<Startup>();
-                end_commands();
 
                 do {
                     spdlog::debug("Run state change systems");
                     run_systems<OnStateChange>();
-                    end_commands();
 
                     spdlog::debug("Update states.");
                     update_states();
 
+                    spdlog::debug("Run pre-update systems.");
+                    run_systems<PreUpdate>();
+
                     spdlog::debug("Run update systems.");
                     run_systems<Update>();
-                    end_commands();
+
+                    spdlog::debug("Run post-update systems.");
+                    run_systems<PostUpdate>();
+
+                    spdlog::debug("Run pre-render systems.");
+                    run_systems<PreRender>();
 
                     spdlog::debug("Run render systems.");
                     run_systems<Render>();
-                    end_commands();
+
+                    spdlog::debug("Run post-render systems.");
+                    run_systems<PostRender>();
 
                     spdlog::debug("Tick events and clear out-dated events.");
                     tick_events();

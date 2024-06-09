@@ -28,15 +28,39 @@ namespace pixel_engine {
             }
         };
 
+        class PreUpdate : public Scheduler {
+           public:
+            PreUpdate() : Scheduler() {}
+            bool should_run(App* app) override { return true; }
+        };
+
         class Update : public Scheduler {
            public:
             Update() : Scheduler() {}
             bool should_run(App* app) override { return true; }
         };
 
+        class PostUpdate : public Scheduler {
+           public:
+            PostUpdate() : Scheduler() {}
+            bool should_run(App* app) override { return true; }
+        };
+
+        class PreRender : public Scheduler {
+           public:
+            PreRender() : Scheduler() {}
+            bool should_run(App* app) override { return true; }
+        };
+
         class Render : public Scheduler {
            public:
             Render() : Scheduler() {}
+            bool should_run(App* app) override { return true; }
+        };
+
+        class PostRender : public Scheduler {
+           public:
+            PostRender() : Scheduler() {}
             bool should_run(App* app) override { return true; }
         };
 
