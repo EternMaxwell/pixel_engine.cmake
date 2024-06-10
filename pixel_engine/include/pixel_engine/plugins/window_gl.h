@@ -56,12 +56,13 @@ namespace pixel_engine {
             }
 
             void create_window(
-                Query<std::tuple<WindowHandle, WindowSize, WindowPos, WindowTitle, WindowHints>, std::tuple<>> query) {
-                for (auto [window_handle, window_size, window_pos, window_title, window_hints] : query.iter()) {
+                Query<std::tuple<WindowHandle, const WindowSize, const WindowTitle, const WindowHints>, std::tuple<>>
+                    query) {
+                for (auto [window_handle, window_size, window_title, window_hints] : query.iter()) {
                     if (!window_handle.created) {
                         glfwDefaultWindowHints();
 
-                        for (auto [hint, value] : window_hints.hints) {
+                        for (auto& [hint, value] : window_hints.hints) {
                             glfwWindowHint(hint, value);
                         }
 
@@ -108,7 +109,7 @@ namespace pixel_engine {
             }
 
             void window_close(Command command,
-                              Query<std::tuple<entt::entity,const WindowHandle>, std::tuple<PrimaryWindow>> query,
+                              Query<std::tuple<entt::entity, const WindowHandle>, std::tuple<PrimaryWindow>> query,
                               EventWriter<AnyWindowClose> any_close_event) {
                 for (auto [entity, window_handle] : query.iter()) {
                     if (window_handle.created) {
@@ -139,17 +140,15 @@ namespace pixel_engine {
                 no_window_event.write(NoWindowExists{});
             }
 
-            void make_context_primary(Query<std::tuple<const WindowHandle,const  PrimaryWindow>, std::tuple<>> query) {
+            void make_context_primary(Query<std::tuple<const WindowHandle, const PrimaryWindow>, std::tuple<>> query) {
                 for (auto [window_handle] : query.iter()) {
-                    if (window_handle.created) {
+                    if (window_handle.created && glfwGetCurrentContext() != window_handle.window_handle) {
                         glfwMakeContextCurrent(window_handle.window_handle);
                     }
                 }
             }
 
-            void poll_events() {
-                glfwPollEvents();
-            }
+            void poll_events() { glfwPollEvents(); }
 
             void exit_on_no_window(EventReader<NoWindowExists> no_window_event, EventWriter<AppExit> exit_event) {
                 for (auto& _ : no_window_event.read()) {
