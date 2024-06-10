@@ -9,7 +9,7 @@ namespace test_state {
 
     void is_state_start(entity::Resource<entity::State<State>> state) {
         if (state.has_value()) {
-            if (state.value().is_state(State::Start)) {
+            if (state->is_state(State::Start)) {
                 std::cout << "is_state_start: true" << std::endl;
             } else {
                 std::cout << "is_state_start: false" << std::endl;
@@ -19,7 +19,7 @@ namespace test_state {
 
     void is_state_middle(entity::Resource<entity::State<State>> state) {
         if (state.has_value()) {
-            if (state.value().is_state(State::Middle)) {
+            if (state->is_state(State::Middle)) {
                 std::cout << "is_state_middle: true" << std::endl;
             } else {
                 std::cout << "is_state_middle: false" << std::endl;
@@ -29,7 +29,7 @@ namespace test_state {
 
     void is_state_end(entity::Resource<entity::State<State>> state) {
         if (state.has_value()) {
-            if (state.value().is_state(State::End)) {
+            if (state->is_state(State::End)) {
                 std::cout << "is_state_end: true" << std::endl;
             } else {
                 std::cout << "is_state_end: false" << std::endl;
@@ -37,42 +37,21 @@ namespace test_state {
         }
     }
 
-    bool state_start(entity::Resource<entity::State<State>> state) {
-        if (state.has_value()) {
-            return state.value().is_state(State::Start);
-        }
-        return false;
-    }
-
-    bool state_middle(entity::Resource<entity::State<State>> state) {
-        if (state.has_value()) {
-            return state.value().is_state(State::Middle);
-        }
-        return false;
-    }
-
-    bool state_end(entity::Resource<entity::State<State>> state) {
-        if (state.has_value()) {
-            return state.value().is_state(State::End);
-        }
-        return false;
-    }
-
     void set_state_start(entity::Resource<entity::NextState<State>> state) {
         if (state.has_value()) {
-            state.value().set_state(State::Start);
+            state->set_state(State::Start);
         }
     }
 
     void set_state_middle(entity::Resource<entity::NextState<State>> state) {
         if (state.has_value()) {
-            state.value().set_state(State::Middle);
+            state->set_state(State::Middle);
         }
     }
 
     void set_state_end(entity::Resource<entity::NextState<State>> state) {
         if (state.has_value()) {
-            state.value().set_state(State::End);
+            state->set_state(State::End);
         }
     }
 

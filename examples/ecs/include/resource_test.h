@@ -15,7 +15,7 @@ namespace test_resource {
     void access_resource(entity::Resource<Resource> resource) {
         std::cout << "access_resource" << std::endl;
         if (resource.has_value()) {
-            std::cout << "resource: " << resource.value().data << std::endl;
+            std::cout << "resource: " << resource->data << std::endl;
         } else {
             std::cout << "resource: null" << std::endl;
         }
@@ -42,9 +42,7 @@ namespace test_resource {
 
     void change_resource(entity::Resource<Resource> resource) {
         std::cout << "change_resource" << std::endl;
-        if (resource.has_value()) {
-            resource.value().data = 200;
-        }
+        resource->data = 200;
         std::cout << std::endl;
     }
 

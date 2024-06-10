@@ -423,8 +423,8 @@ namespace pixel_engine {
             auto state_update() {
                 return [&](Resource<State<T>> state, Resource<NextState<T>> state_next) {
                     if (state.has_value() && state_next.has_value()) {
-                        state.value().just_created = false;
-                        state.value().m_state = state_next.value().m_state;
+                        state->just_created = false;
+                        state->m_state = state_next->m_state;
                     }
                 };
             }
