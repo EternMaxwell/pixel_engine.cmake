@@ -45,7 +45,7 @@ namespace pixel_engine {
             template <typename T, typename... Args>
             static void emplace_internal(entt::registry* registry, entt::entity entity, T arg, Args... args) {
                 if constexpr (is_template_of<std::tuple, T>::value) {
-                    emplace_internal_tuple(registry, entity, &arg);
+                    emplace_internal_tuple(registry, entity, arg);
                 } else if constexpr (is_bundle<T>::value()) {
                     pfr::for_each_field(arg, [&](const auto& field) {
                         if (!std::is_same_v<Bundle, decltype(field)>) {
@@ -62,13 +62,13 @@ namespace pixel_engine {
 
             template <typename... Args, size_t... I>
             static void emplace_internal_tuple(entt::registry* registry, entt::entity entity,
-                                               std::tuple<Args...>* tuple, std::index_sequence<I...>) {
-                emplace_internal(registry, entity, std::get<I>(*tuple)...);
+                                               std::tuple<Args...>& tuple, std::index_sequence<I...>) {
+                emplace_internal(registry, entity, std::get<I>(tuple)...);
             }
 
             template <typename... Args>
             static void emplace_internal_tuple(entt::registry* registry, entt::entity entity,
-                                               std::tuple<Args...>* tuple) {
+                                               std::tuple<Args...>& tuple) {
                 emplace_internal_tuple(registry, entity, tuple, std::make_index_sequence<sizeof...(Args)>());
             }
         };
@@ -106,11 +106,36 @@ namespace pixel_engine {
              * @return The child entity id.
              */
             template <typename... Args>
-            auto spawn(Args... args) {
+            auto& spawn(Args... args) {
                 auto child = m_registry->create();
                 entity::internal::emplace_internal(m_registry, child, args...);
                 (*m_parent_tree)[m_entity].insert(child);
                 return child;
+            }
+
+            /*! @brief Emplace new components to the entity.
+             * Note that the components to be added should not be type that is
+             * inherited or a reference.
+             * @brief Accepted types are:
+             * @brief - Any pure struct.
+             * @brief - std::tuple<Args...> where Args... are pure structs.
+             * @brief - A pure struct that contains a Bundle, which means it is
+             * a bundle, and all its fields will be components.
+             * @tparam Args The types of the components to be added to the
+             * entity.
+             * @param args The components to be added to the entity.
+             */
+            template <typename... Args>
+            void emplace(Args&... args) {
+                entity::internal::emplace_internal(m_registry, m_entity, args...);
+            }
+
+            /*! @brief Erase a component from the entity.
+             * @tparam T The type of the component to be erased.
+             */
+            template <typename T>
+            void erase() {
+                m_registry->remove<T>(m_entity);
             }
 
             /*! @brief Despawn the entity.
