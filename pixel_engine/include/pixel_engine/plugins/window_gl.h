@@ -16,8 +16,9 @@ namespace pixel_engine {
 
             struct WindowHandle {
                 GLFWwindow* window_handle = NULL;
-                bool created = false;
             };
+
+            struct WindowCreated {};
 
             struct PrimaryWindow {};
 
@@ -56,78 +57,73 @@ namespace pixel_engine {
             }
 
             void create_window(
-                Query<std::tuple<WindowHandle, const WindowSize, const WindowTitle, const WindowHints>, std::tuple<>>
+                Command command,
+                Query<std::tuple<entt::entity, WindowHandle, const WindowSize, const WindowTitle, const WindowHints>,
+                      std::tuple<WindowCreated>>
                     query) {
-                for (auto [window_handle, window_size, window_title, window_hints] : query.iter()) {
-                    if (!window_handle.created) {
-                        glfwDefaultWindowHints();
+                for (auto [id, window_handle, window_size, window_title, window_hints] : query.iter()) {
+                    glfwDefaultWindowHints();
 
-                        for (auto& [hint, value] : window_hints.hints) {
-                            glfwWindowHint(hint, value);
-                        }
-
-                        window_handle.window_handle = glfwCreateWindow(window_size.width, window_size.height,
-                                                                       window_title.title.c_str(), nullptr, nullptr);
-                        if (!window_handle.window_handle) {
-                            glfwTerminate();
-                            throw std::runtime_error("Failed to create GLFW window");
-                        }
-
-                        window_handle.created = true;
-
-                        glfwShowWindow(window_handle.window_handle);
+                    for (auto& [hint, value] : window_hints.hints) {
+                        glfwWindowHint(hint, value);
                     }
+
+                    window_handle.window_handle = glfwCreateWindow(window_size.width, window_size.height,
+                                                                   window_title.title.c_str(), nullptr, nullptr);
+                    if (!window_handle.window_handle) {
+                        glfwTerminate();
+                        throw std::runtime_error("Failed to create GLFW window");
+                    }
+
+                    command.entity(id).emplace(WindowCreated{});
+
+                    glfwShowWindow(window_handle.window_handle);
                 }
             }
 
-            void update_window_size(Query<std::tuple<WindowHandle, WindowSize>, std::tuple<>> query) {
+            void update_window_size(
+                Query<std::tuple<WindowHandle, WindowSize, const WindowCreated>, std::tuple<>> query) {
                 for (auto [window_handle, window_size] : query.iter()) {
-                    if (window_handle.created) {
-                        glfwGetWindowSize(window_handle.window_handle, &window_size.width, &window_size.height);
-                    }
+                    glfwGetWindowSize(window_handle.window_handle, &window_size.width, &window_size.height);
                 }
             }
 
-            void update_window_pos(Query<std::tuple<WindowHandle, WindowPos>, std::tuple<>> query) {
+            void update_window_pos(
+                Query<std::tuple<WindowHandle, WindowPos, const WindowCreated>, std::tuple<>> query) {
                 for (auto [window_handle, window_pos] : query.iter()) {
-                    if (window_handle.created) {
-                        glfwGetWindowPos(window_handle.window_handle, &window_pos.x, &window_pos.y);
-                    }
+                    glfwGetWindowPos(window_handle.window_handle, &window_pos.x, &window_pos.y);
                 }
             }
 
             void primary_window_close(
-                Command command, Query<std::tuple<entt::entity, WindowHandle, PrimaryWindow>, std::tuple<>> query) {
+                Command command,
+                Query<std::tuple<entt::entity, WindowHandle, PrimaryWindow, const WindowCreated>, std::tuple<>> query) {
                 for (auto [entity, window_handle] : query.iter()) {
-                    if (window_handle.created) {
-                        if (glfwWindowShouldClose(window_handle.window_handle)) {
-                            glfwDestroyWindow(window_handle.window_handle);
-                            command.entity(entity).despawn();
-                        }
+                    if (glfwWindowShouldClose(window_handle.window_handle)) {
+                        glfwDestroyWindow(window_handle.window_handle);
+                        command.entity(entity).despawn();
                     }
                 }
             }
 
-            void window_close(Command command,
-                              Query<std::tuple<entt::entity, const WindowHandle>, std::tuple<PrimaryWindow>> query,
-                              EventWriter<AnyWindowClose> any_close_event) {
+            void window_close(
+                Command command,
+                Query<std::tuple<entt::entity, const WindowHandle, const WindowCreated>, std::tuple<PrimaryWindow>>
+                    query,
+                EventWriter<AnyWindowClose> any_close_event) {
                 for (auto [entity, window_handle] : query.iter()) {
-                    if (window_handle.created) {
-                        if (glfwWindowShouldClose(window_handle.window_handle)) {
-                            glfwDestroyWindow(window_handle.window_handle);
-                            any_close_event.write(AnyWindowClose{});
-                            command.entity(entity).despawn();
-                        }
+                    if (glfwWindowShouldClose(window_handle.window_handle)) {
+                        glfwDestroyWindow(window_handle.window_handle);
+                        any_close_event.write(AnyWindowClose{});
+                        command.entity(entity).despawn();
                     }
                 }
             }
 
-            void swap_buffers(Query<std::tuple<const WindowHandle>, std::tuple<>> query) {
+            void swap_buffers(Query<std::tuple<const WindowHandle, const WindowCreated>, std::tuple<>> query) {
                 for (auto [window_handle] : query.iter()) {
-                    if (window_handle.created) {
-                        glfwSwapBuffers(window_handle.window_handle);
-                        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                    }
+                    glfwSwapBuffers(window_handle.window_handle);
+                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 }
             }
 
@@ -140,9 +136,10 @@ namespace pixel_engine {
                 no_window_event.write(NoWindowExists{});
             }
 
-            void make_context_primary(Query<std::tuple<const WindowHandle, const PrimaryWindow>, std::tuple<>> query) {
+            void make_context_primary(
+                Query<std::tuple<const WindowHandle, const PrimaryWindow, const WindowCreated>, std::tuple<>> query) {
                 for (auto [window_handle] : query.iter()) {
-                    if (window_handle.created && glfwGetCurrentContext() != window_handle.window_handle) {
+                    if (glfwGetCurrentContext() != window_handle.window_handle) {
                         glfwMakeContextCurrent(window_handle.window_handle);
                     }
                 }

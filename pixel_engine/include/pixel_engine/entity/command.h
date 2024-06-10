@@ -126,7 +126,7 @@ namespace pixel_engine {
              * @param args The components to be added to the entity.
              */
             template <typename... Args>
-            void emplace(Args&... args) {
+            void emplace(Args... args) {
                 entity::internal::emplace_internal(m_registry, m_entity, args...);
             }
 
