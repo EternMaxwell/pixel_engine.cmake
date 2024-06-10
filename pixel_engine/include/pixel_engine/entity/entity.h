@@ -53,8 +53,9 @@ namespace pixel_engine {
             const bool in_main_thread;
             std::shared_ptr<Scheduler> scheduler;
             std::shared_ptr<BasicSystem<void>> system;
-            std::vector<std::shared_ptr<SystemNode>> user_defined_before;
-            std::vector<std::shared_ptr<SystemNode>> app_generated_before;
+            std::unordered_set<std::shared_ptr<SystemNode>> user_defined_before;
+            std::unordered_set<std::shared_ptr<SystemNode>> app_generated_before;
+            double avg_reach_time = 1;
 
             SystemNode(std::shared_ptr<Scheduler> scheduler, std::shared_ptr<BasicSystem<void>> system,
                        const bool& in_main = false)
@@ -62,6 +63,26 @@ namespace pixel_engine {
 
             std::tuple<std::shared_ptr<Scheduler>, std::shared_ptr<BasicSystem<void>>> to_tuple() {
                 return std::make_tuple(scheduler, system);
+            }
+            /*! @brief Get the depth of a node, 0 if it is a leaf node.
+             * @return The depth of the node.
+             */
+            size_t user_before_depth() {
+                size_t max_depth = 0;
+                for (auto& before : user_defined_before) {
+                    max_depth = std::max(max_depth, before->user_before_depth() + 1);
+                }
+                return max_depth;
+            }
+            /*! @brief Get the time in milliseconds for the runner to reach this system.
+             * @return The time in milliseconds.
+             */
+            double time_to_reach() {
+                double max_time = 0;
+                for (auto& before : user_defined_before) {
+                    max_time = std::max(max_time, before->time_to_reach() + before->system->get_avg_time());
+                }
+                return max_time;
             }
         };
 
@@ -77,18 +98,29 @@ namespace pixel_engine {
                 tails = other.tails;
             }
             void run();
-            void add_system(std::shared_ptr<SystemNode> node) { tails.insert(node); }
+            void add_system(std::shared_ptr<SystemNode> node) { systems_all.push_back(node); }
             void prepare();
             void reset() { futures.clear(); }
             void wait() { pool.wait(); }
+            void sort_time() {
+                std::sort(systems_all.begin(), systems_all.end(),
+                          [](const auto& a, const auto& b) { return a->time_to_reach() < b->time_to_reach(); });
+            }
+            void sort_depth() {
+                std::sort(systems_all.begin(), systems_all.end(),
+                          [](const auto& a, const auto& b) { return a->user_before_depth() < b->user_before_depth(); });
+            }
+            size_t system_count() { return systems_all.size(); }
 
            private:
             App* app;
             bool ignore_scheduler;
+            bool runned = false;
             std::condition_variable cv;
             std::mutex m;
             std::atomic<bool> any_done = true;
             std::unordered_set<std::shared_ptr<SystemNode>> tails;
+            std::vector<std::shared_ptr<SystemNode>> systems_all;
             std::unordered_map<std::shared_ptr<SystemNode>, std::future<void>> futures;
             BS::thread_pool pool;
             std::shared_ptr<SystemNode> should_run(const std::shared_ptr<SystemNode>& sys);
@@ -98,6 +130,7 @@ namespace pixel_engine {
         };
 
         void SystemRunner::run() {
+            runned = true;
             std::atomic<int> tasks_in = 0;
             while (!all_load()) {
                 auto next = get_next();
@@ -141,11 +174,27 @@ namespace pixel_engine {
         }
 
         void SystemRunner::prepare() {
-            for (auto& sys : tails) {
-                for (auto& before : sys->user_defined_before) {
+            tails.clear();
+            if (!runned) {
+                sort_depth();
+            } else {
+                sort_time();
+            }
+            for (auto& sys : systems_all) {
+                sys->app_generated_before.clear();
+                for (auto& ins : tails) {
+                    if (ins->system->contrary_to(sys->system) &&
+                        (ins->user_defined_before.find(sys) == ins->user_defined_before.end())) {
+                        sys->app_generated_before.insert(ins);
+                    }
+                }
+                tails.insert(sys);
+            }
+            for (auto& sys : systems_all) {
+                for (auto& before : sys->app_generated_before) {
                     tails.erase(before);
                 }
-                for (auto& before : sys->app_generated_before) {
+                for (auto& before : sys->user_defined_before) {
                     tails.erase(before);
                 }
             }
@@ -534,11 +583,13 @@ namespace pixel_engine {
                     if (sys->scheduler != nullptr && dynamic_cast<Sch*>(sys->scheduler.get()) != NULL) {
                         if (sys->system->contrary_to(node->system)) {
                             spdlog::debug("add app generated before.");
-                            node->app_generated_before.push_back(sys);
+                            node->app_generated_before.insert(sys);
                         }
                     }
                 }
             }
+
+            void check_locked(std::shared_ptr<SystemNode>& node) {}
 
             /*! @brief Add a system.
              * @tparam Args The types of the arguments for the system.
@@ -557,19 +608,18 @@ namespace pixel_engine {
                 std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
                     std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
                 for (auto& before_node : befores.nodes) {
-                    if (before_node != nullptr) {
-                        new_node->user_defined_before.push_back(before_node);
+                    if ((before_node != nullptr) && (dynamic_cast<Sch*>(before_node->scheduler.get()) != NULL)) {
+                        new_node->user_defined_before.insert(before_node);
                     }
                 }
                 for (auto& after_node : afters.nodes) {
-                    if (after_node != nullptr) {
-                        after_node->user_defined_before.push_back(new_node);
+                    if ((after_node != nullptr) && (dynamic_cast<Sch*>(after_node->scheduler.get()) != NULL)) {
+                        after_node->user_defined_before.insert(new_node);
                     }
                 }
                 if (node != nullptr) {
                     *node = new_node;
                 }
-                configure_app_generated_before<Sch>(new_node);
                 m_systems.push_back(new_node);
                 return *this;
             }
@@ -682,8 +732,6 @@ namespace pixel_engine {
                 return add_system(scheduler, std::function<void(Args...)>(func), nullptr, befores, afters);
             }
 
-            
-
             /*! @brief Add a system.
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
@@ -696,24 +744,24 @@ namespace pixel_engine {
              */
             template <typename Sch, typename... Args>
             App& add_system_main(Sch scheduler, std::function<void(Args...)> func,
-                            std::shared_ptr<SystemNode>* node = nullptr, before befores = before(),
-                            after afters = after()) {
-                std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
-                    std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
+                                 std::shared_ptr<SystemNode>* node = nullptr, before befores = before(),
+                                 after afters = after()) {
+                std::shared_ptr<SystemNode> new_node =
+                    std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
+                                                 std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
                 for (auto& before_node : befores.nodes) {
                     if (before_node != nullptr) {
-                        new_node->user_defined_before.push_back(before_node);
+                        new_node->user_defined_before.insert(before_node);
                     }
                 }
                 for (auto& after_node : afters.nodes) {
                     if (after_node != nullptr) {
-                        after_node->user_defined_before.push_back(new_node);
+                        after_node->user_defined_before.insert(new_node);
                     }
                 }
                 if (node != nullptr) {
                     *node = new_node;
                 }
-                configure_app_generated_before<Sch>(new_node);
                 m_systems.push_back(new_node);
                 return *this;
             }
@@ -730,7 +778,7 @@ namespace pixel_engine {
              */
             template <typename Sch, typename... Args>
             App& add_system_main(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node = nullptr,
-                            before befores = before(), after afters = after()) {
+                                 before befores = before(), after afters = after()) {
                 return add_system_main(scheduler, std::function<void(Args...)>(func), node, befores, afters);
             }
 
@@ -746,7 +794,7 @@ namespace pixel_engine {
              */
             template <typename Sch, typename... Args>
             App& add_system_main(Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node,
-                            after afters, before befores = before()) {
+                                 after afters, before befores = before()) {
                 return add_system_main(scheduler, func, node, befores, afters);
             }
 
@@ -762,7 +810,7 @@ namespace pixel_engine {
              */
             template <typename Sch, typename... Args>
             App& add_system_main(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node, after afters,
-                            before befores = before()) {
+                                 before befores = before()) {
                 return add_system_main(scheduler, std::function<void(Args...)>(func), node, befores, afters);
             }
 
@@ -777,7 +825,8 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system_main(Sch scheduler, std::function<void(Args...)> func, after afters, before befores = before()) {
+            App& add_system_main(Sch scheduler, std::function<void(Args...)> func, after afters,
+                                 before befores = before()) {
                 return add_system_main(scheduler, func, nullptr, befores, afters);
             }
 
@@ -807,7 +856,8 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system_main(Sch scheduler, std::function<void(Args...)> func, before befores, after afters = after()) {
+            App& add_system_main(Sch scheduler, std::function<void(Args...)> func, before befores,
+                                 after afters = after()) {
                 return add_system_main(scheduler, func, nullptr, befores, afters);
             }
 
@@ -906,19 +956,24 @@ namespace pixel_engine {
             }
 
             template <typename T>
-            void prepare_systems() {
-                SystemRunner runner(this);
+            void load_runner() {
+                auto runner = std::make_shared<SystemRunner>(this);
                 for (auto& node : m_systems) {
                     auto& scheduler = node->scheduler;
                     if (scheduler != nullptr && dynamic_cast<T*>(scheduler.get()) != NULL) {
-                        runner.add_system(node);
+                        runner->add_system(node);
                     }
                 }
-                m_runners.insert(std::make_pair(typeid(T).hash_code(), std::make_shared<SystemRunner>(runner)));
+                m_runners.insert(std::make_pair(typeid(T).hash_code(), runner));
             }
 
             template <typename T>
-            void run_systems() {
+            void prepare_runner() {
+                m_runners[typeid(T).hash_code()]->prepare();
+            }
+
+            template <typename T>
+            void run_runner() {
                 m_runners[typeid(T).hash_code()]->run();
                 m_runners[typeid(T).hash_code()]->wait();
                 m_runners[typeid(T).hash_code()]->reset();
@@ -929,53 +984,64 @@ namespace pixel_engine {
              */
             void run_parallel() {
                 spdlog::info("App started.");
-                spdlog::info("Prepare systems.");
+                spdlog::info("Loading systems runners.");
                 // add start up systems
-                spdlog::debug("Prepare start up systems.");
-                prepare_systems<Startup>();
-                spdlog::debug("Prepare state change systems.");
-                prepare_systems<OnStateChange>();
-                spdlog::debug("Prepare pre-update systems.");
-                prepare_systems<PreUpdate>();
-                spdlog::debug("Prepare update systems.");
-                prepare_systems<Update>();
-                spdlog::debug("Prepare post-update systems.");
-                prepare_systems<PostUpdate>();
-                spdlog::debug("Prepare pre-render systems.");
-                prepare_systems<PreRender>();
-                spdlog::debug("Prepare render systems.");
-                prepare_systems<Render>();
-                spdlog::debug("Prepare post-render systems.");
-                prepare_systems<PostRender>();
-                spdlog::info("Preparation done.");
+                spdlog::debug("Load start up systems.");
+                load_runner<Startup>();
+                spdlog::debug("Load state change systems.");
+                load_runner<OnStateChange>();
+                spdlog::debug("Load pre-update systems.");
+                load_runner<PreUpdate>();
+                spdlog::debug("Load update systems.");
+                load_runner<Update>();
+                spdlog::debug("Load post-update systems.");
+                load_runner<PostUpdate>();
+                spdlog::debug("Load pre-render systems.");
+                load_runner<PreRender>();
+                spdlog::debug("Load render systems.");
+                load_runner<Render>();
+                spdlog::debug("Load post-render systems.");
+                load_runner<PostRender>();
+                spdlog::info("Loading done.");
 
+                prepare_runner<Startup>();
                 spdlog::debug("Run start up systems.");
-                run_systems<Startup>();
+                run_runner<Startup>();
 
                 do {
+                    spdlog::debug("Prepare runners.");
+                    prepare_runner<OnStateChange>();
+                    prepare_runner<PreUpdate>();
+                    prepare_runner<Update>();
+                    prepare_runner<PostUpdate>();
+                    prepare_runner<PreRender>();
+                    prepare_runner<Render>();
+                    prepare_runner<PostRender>();
+                    spdlog::debug("End runners preparation.");
+
                     spdlog::debug("Run state change systems");
-                    run_systems<OnStateChange>();
+                    run_runner<OnStateChange>();
 
                     spdlog::debug("Update states.");
                     update_states();
 
                     spdlog::debug("Run pre-update systems.");
-                    run_systems<PreUpdate>();
+                    run_runner<PreUpdate>();
 
                     spdlog::debug("Run update systems.");
-                    run_systems<Update>();
+                    run_runner<Update>();
 
                     spdlog::debug("Run post-update systems.");
-                    run_systems<PostUpdate>();
+                    run_runner<PostUpdate>();
 
                     spdlog::debug("Run pre-render systems.");
-                    run_systems<PreRender>();
+                    run_runner<PreRender>();
 
                     spdlog::debug("Run render systems.");
-                    run_systems<Render>();
+                    run_runner<Render>();
 
                     spdlog::debug("Run post-render systems.");
-                    run_systems<PostRender>();
+                    run_runner<PostRender>();
 
                     spdlog::debug("Tick events and clear out-dated events.");
                     tick_events();

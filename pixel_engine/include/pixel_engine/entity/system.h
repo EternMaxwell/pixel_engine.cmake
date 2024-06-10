@@ -13,6 +13,7 @@ namespace pixel_engine {
            protected:
             App* app;
             bool has_command = false;
+            double avg_time = 0;  // in milliseconds
             std::vector<
                 std::tuple<std::vector<const type_info*>, std::vector<const type_info*>, std::vector<const type_info*>>>
                 query_types;
@@ -325,7 +326,9 @@ namespace pixel_engine {
                 for (auto type : next_state_types) std::cout << type->name() << " ";
                 std::cout << std::endl;
             }
+            const double get_avg_time() { return avg_time; }
             virtual Ret run() = 0;
+            virtual const char* func_name() { return "unknown"; }
         };
 
         template <typename... Args>
@@ -336,7 +339,15 @@ namespace pixel_engine {
            public:
             System(App* app, void (*func)(Args...)) : BasicSystem(app), func(func) { add_infos<Args...>(); }
             System(App* app, std::function<void(Args...)> func) : BasicSystem(app), func(func) { add_infos<Args...>(); }
-            void run() { app->run_system_v(func); }
+            void run() {
+                auto start_time = std::chrono::high_resolution_clock::now();
+                app->run_system_v(func);
+                auto end_time = std::chrono::high_resolution_clock::now();
+                auto delta =
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count() / 1000000.0;
+                avg_time = delta * 0.1 + avg_time * 0.9;
+            }
+            const char* func_name() override { return typeid(func).name(); }
         };
     }  // namespace entity
 }  // namespace pixel_engine
