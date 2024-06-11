@@ -16,6 +16,7 @@ namespace pixel_engine {
 
             struct WindowHandle {
                 GLFWwindow* window_handle = NULL;
+                bool vsync = true;
             };
 
             struct WindowCreated {};
@@ -43,7 +44,7 @@ namespace pixel_engine {
                 WindowHandle window_handle;
                 WindowSize window_size = {480 * 3, 270 * 3};
                 WindowPos window_pos = {0, 0};
-                WindowTitle window_title{"Pixel Engine"};
+                WindowTitle window_title = {"Pixel Engine"};
                 WindowHints window_hints = {.hints = {{GLFW_CONTEXT_VERSION_MAJOR, 4},
                                                       {GLFW_CONTEXT_VERSION_MINOR, 5},
                                                       {GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE},
@@ -142,6 +143,7 @@ namespace pixel_engine {
                     if (glfwGetCurrentContext() != window_handle.window_handle) {
                         glfwMakeContextCurrent(window_handle.window_handle);
                     }
+                    glfwSwapInterval(window_handle.vsync ? 1 : 0);
                 }
             }
 

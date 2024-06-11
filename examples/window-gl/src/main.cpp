@@ -1,6 +1,4 @@
-﻿#include <pixel_engine/entity.h>
-#include <pixel_engine/plugins/window_gl.h>
-#include <pixel_engine/prelude.h>
+﻿#include <pixel_engine/prelude.h>
 
 int main() {
     using namespace pixel_engine;
