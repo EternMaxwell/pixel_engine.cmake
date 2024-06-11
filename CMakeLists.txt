@@ -21,6 +21,7 @@ find_package (OpenGL REQUIRED)
 
 #sub directories
 add_subdirectory (libs/entt)
+add_subdirectory (libs/glad)
 add_subdirectory (libs/glfw)
 add_subdirectory (libs/spdlog)
 add_subdirectory (libs/fmt)

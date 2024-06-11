@@ -15,6 +15,7 @@ target_include_directories(pixel_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inclu
 #link glfw vulkan ... etc
 target_link_libraries (pixel_engine glfw)
 target_link_libraries (pixel_engine OpenGL::GL)
+target_link_libraries (pixel_engine glad)
 target_link_libraries (pixel_engine Vulkan::Vulkan)
 target_link_libraries (pixel_engine EnTT::EnTT)
 target_link_libraries (pixel_engine spdlog::spdlog)

@@ -1,6 +1,8 @@
 ﻿#pragma once
 
+#define GLAD_GL_IMPLEMENTATION
 #include <GLFW/glfw3.h>
+#include <glad/gl.h>
 
 #include "pixel_engine/entity.h"
 
@@ -142,6 +144,7 @@ namespace pixel_engine {
                 for (auto [window_handle] : query.iter()) {
                     if (glfwGetCurrentContext() != window_handle.window_handle) {
                         glfwMakeContextCurrent(window_handle.window_handle);
+                        gladLoadGL(glfwGetProcAddress);
                     }
                     glfwSwapInterval(window_handle.vsync ? 1 : 0);
                 }
@@ -187,6 +190,7 @@ namespace pixel_engine {
                     .add_system_main(Startup{}, window_gl::init_glfw, &init_glfw_node)
                     .add_system_main(Startup{}, window_gl::create_window, &start_up_window_create_node,
                                      before(init_glfw_node, insert_primary_node))
+                    .add_system_main(Startup{}, window_gl::make_context_primary, before(create_window_node))
                     .add_system_main(PreUpdate{}, window_gl::poll_events, &poll_events_node)
                     .add_system_main(PreUpdate{}, window_gl::update_window_size, before(poll_events_node))
                     .add_system_main(PreUpdate{}, window_gl::update_window_pos, before(poll_events_node))

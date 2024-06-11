@@ -1,10 +1,16 @@
 ﻿#pragma once
 
 #include "pixel_engine/entity.h"
+#include "pixel_engine/plugins/asset_server_gl.h"
+#include "pixel_engine/plugins/render_gl.h"
 #include "pixel_engine/plugins/window_gl.h"
 
 namespace pixel_engine {
     namespace prelude {
+        namespace winGL = plugins::window_gl;
+        namespace assetGL = plugins::asset_server_gl;
+        namespace renderGL = plugins::render_gl;
+
         using App = entity::App;
         using LoopPlugin = entity::LoopPlugin;
         using WindowGLPlugin = plugins::WindowGLPlugin;
