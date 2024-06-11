@@ -56,7 +56,7 @@ namespace test_parallel_run {
                 .add_system(Startup{}, spawn_data2)
                 .add_system(Update{}, print_data1, &node1)
                 .add_system(Update{}, print_data2, &node2)
-                .add_system(Update{}, print_endl, before{node1, node2})
+                .add_system(Update{}, print_endl, after{node1, node2})
                 .add_system(Update{}, exit);
         }
     };

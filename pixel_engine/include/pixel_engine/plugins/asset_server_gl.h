@@ -1,7 +1,9 @@
 ﻿#pragma once
 
 #include <glad/gl.h>
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+
 #include <fstream>
 
 #include "pixel_engine/entity.h"
@@ -13,14 +15,13 @@ namespace pixel_engine {
 
             class AssetServerGL {
                private:
-                App* m_app;
                 std::string m_base_path = "./";
 
                public:
-                AssetServerGL(App* app, std::string base_path = "./") : m_app(app), m_base_path(base_path) {}
+                AssetServerGL(std::string base_path = "./") : m_base_path(base_path) {}
 
                 std::vector<char> load_shader_source(const std::string& path) {
-                    std::ifstream file(m_base_path + path, std::ios::binary);
+                    std::ifstream file(m_base_path + path);
                     if (!file.is_open()) {
                         throw std::runtime_error("Failed to open file: " + path);
                     }
@@ -43,13 +44,23 @@ namespace pixel_engine {
                     if (!success) {
                         char info_log[512];
                         glGetShaderInfoLog(shader, 512, NULL, info_log);
-                        throw std::runtime_error("Failed to compile shader: " + std::string(info_log));
+                        throw std::runtime_error("Failed to link program: " + std::string(info_log));
                     }
                     return shader;
                 }
             };
+
+            void insert_asset_server(Command command) { command.insert_resource(AssetServerGL{}); }
         }  // namespace asset_server_gl
 
-        class AssetServerGLPlugin : public entity::Plugin {};
+        class AssetServerGLPlugin : public entity::Plugin {
+           public:
+            Node insert_asset_server_node;
+
+            void build(App& app) override {
+                using namespace asset_server_gl;
+                app.add_system(Startup{}, insert_asset_server, &insert_asset_server_node);
+            }
+        };
     }  // namespace plugins
 }  // namespace pixel_engine

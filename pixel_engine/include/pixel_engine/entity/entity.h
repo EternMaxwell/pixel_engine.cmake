@@ -602,9 +602,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -614,12 +614,12 @@ namespace pixel_engine {
                             after afters = after()) {
                 std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
                     std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
-                for (auto& before_node : befores.nodes) {
+                for (auto& before_node : afters.nodes) {
                     if ((before_node != nullptr) && (dynamic_cast<Sch*>(before_node->scheduler.get()) != NULL)) {
                         new_node->user_defined_before.insert(before_node);
                     }
                 }
-                for (auto& after_node : afters.nodes) {
+                for (auto& after_node : befores.nodes) {
                     if ((after_node != nullptr) && (dynamic_cast<Sch*>(after_node->scheduler.get()) != NULL)) {
                         after_node->user_defined_before.insert(new_node);
                     }
@@ -636,9 +636,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -652,9 +652,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -668,9 +668,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -684,9 +684,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -699,9 +699,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -714,9 +714,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -729,9 +729,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -744,9 +744,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -757,12 +757,12 @@ namespace pixel_engine {
                 std::shared_ptr<SystemNode> new_node =
                     std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
                                                  std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
-                for (auto& before_node : befores.nodes) {
+                for (auto& before_node : afters.nodes) {
                     if (before_node != nullptr) {
                         new_node->user_defined_before.insert(before_node);
                     }
                 }
-                for (auto& after_node : afters.nodes) {
+                for (auto& after_node : befores.nodes) {
                     if (after_node != nullptr) {
                         after_node->user_defined_before.insert(new_node);
                     }
@@ -779,9 +779,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -795,9 +795,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -811,9 +811,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -827,9 +827,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -843,9 +843,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -858,9 +858,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
@@ -874,9 +874,9 @@ namespace pixel_engine {
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
              * @param func The system to be run.
-             * @param befores The systems that should run before this system. If they are not in same
+             * @param befores The systems that should run after this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run after this system. If they are not in same
+             * @param afters The systems that should run before this system. If they are not in same
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */

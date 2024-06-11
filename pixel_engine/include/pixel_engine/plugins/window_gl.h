@@ -1,8 +1,8 @@
 ﻿#pragma once
 
-#define GLAD_GL_IMPLEMENTATION
-#include <GLFW/glfw3.h>
 #include <glad/gl.h>
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
 
 #include "pixel_engine/entity.h"
 
@@ -81,6 +81,8 @@ namespace pixel_engine {
                     command.entity(id).emplace(WindowCreated{});
 
                     glfwShowWindow(window_handle.window_handle);
+                    glfwMakeContextCurrent(window_handle.window_handle);
+                    gladLoadGL(glfwGetProcAddress);
                 }
             }
 
@@ -169,7 +171,8 @@ namespace pixel_engine {
             const char* primary_window_title = "Pixel Engine";
 
             std::function<void(Command)> insert_primary_window = [&](Command command) {
-                command.spawn(window_gl::WindowBundle{.window_size = {.width = primary_window_width,
+                command.spawn(window_gl::WindowBundle{.window_handle = {.vsync = false},
+                                                      .window_size = {.width = primary_window_width,
                                                                       .height = primary_window_height},
                                                       .window_title = {.title = primary_window_title}},
                               window_gl::PrimaryWindow{});
@@ -189,22 +192,22 @@ namespace pixel_engine {
                 app.add_system_main(Startup{}, insert_primary_window, &insert_primary_node)
                     .add_system_main(Startup{}, window_gl::init_glfw, &init_glfw_node)
                     .add_system_main(Startup{}, window_gl::create_window, &start_up_window_create_node,
-                                     before(init_glfw_node, insert_primary_node))
-                    .add_system_main(Startup{}, window_gl::make_context_primary, before(create_window_node))
+                                     after(init_glfw_node, insert_primary_node))
+                    .add_system_main(Startup{}, window_gl::make_context_primary, after(create_window_node))
                     .add_system_main(PreUpdate{}, window_gl::poll_events, &poll_events_node)
-                    .add_system_main(PreUpdate{}, window_gl::update_window_size, before(poll_events_node))
-                    .add_system_main(PreUpdate{}, window_gl::update_window_pos, before(poll_events_node))
+                    .add_system_main(PreUpdate{}, window_gl::update_window_size, after(poll_events_node))
+                    .add_system_main(PreUpdate{}, window_gl::update_window_pos, after(poll_events_node))
                     .add_system_main(PreRender{}, window_gl::create_window, &create_window_node)
                     .add_system_main(PostRender{}, window_gl::make_context_primary, &make_context_primary_node)
                     .add_system_main(PostRender{}, window_gl::swap_buffers, &swap_buffer_node,
-                                     before(make_context_primary_node))
+                                     after(make_context_primary_node))
                     .add_system_main(PostRender{}, window_gl::primary_window_close, &primary_window_close_node,
-                                     before(make_context_primary_node, swap_buffer_node))
+                                     after(make_context_primary_node, swap_buffer_node))
                     .add_system_main(PostRender{}, window_gl::window_close, &window_close_node,
-                                     before(create_window_node, swap_buffer_node))
+                                     after(create_window_node, swap_buffer_node))
                     .add_system(PostRender{}, window_gl::no_window_exists, &no_window_exists_node,
-                                before{window_close_node, primary_window_close_node})
-                    .add_system(PostRender{}, window_gl::exit_on_no_window, before{no_window_exists_node});
+                                after{window_close_node, primary_window_close_node})
+                    .add_system(PostRender{}, window_gl::exit_on_no_window, after{no_window_exists_node});
             }
         };
     }  // namespace plugins
