@@ -6,8 +6,6 @@ int main() {
     using namespace pixel_engine;
     using namespace prelude;
 
-    spdlog::set_level(spdlog::level::debug);
-
     App app;
     app.add_plugin(LoopPlugin{}).add_plugin(WindowGLPlugin{}).run_parallel();
 

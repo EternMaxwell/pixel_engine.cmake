@@ -589,7 +589,14 @@ namespace pixel_engine {
                 }
             }
 
-            void check_locked(std::shared_ptr<SystemNode>& node) {}
+            void check_locked(std::shared_ptr<SystemNode> node, std::shared_ptr<SystemNode>& node2) {
+                for (auto& before : node->user_defined_before) {
+                    if (before == node2) {
+                        throw std::runtime_error("System locked.");
+                    }
+                    check_locked(before, node2);
+                }
+            }
 
             /*! @brief Add a system.
              * @tparam Args The types of the arguments for the system.
@@ -620,6 +627,7 @@ namespace pixel_engine {
                 if (node != nullptr) {
                     *node = new_node;
                 }
+                check_locked(new_node, new_node);
                 m_systems.push_back(new_node);
                 return *this;
             }
@@ -762,6 +770,7 @@ namespace pixel_engine {
                 if (node != nullptr) {
                     *node = new_node;
                 }
+                check_locked(new_node, new_node);
                 m_systems.push_back(new_node);
                 return *this;
             }
