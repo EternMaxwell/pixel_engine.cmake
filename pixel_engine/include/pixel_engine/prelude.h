@@ -15,6 +15,7 @@ namespace pixel_engine {
         using Plugin = entity::Plugin;
         using LoopPlugin = entity::LoopPlugin;
         using WindowGLPlugin = plugins::WindowGLPlugin;
+        using SystemNode = std::shared_ptr<entity::SystemNode>;
         using Command = entity::Command;
         template <typename T>
         using Resource = entity::Resource<T>;

@@ -1,6 +1,10 @@
 ﻿#pragma once
 
+#ifdef NDEBUG
 #include <glad/gl.h>
+#else
+#include <glad/glad.h>
+#endif
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 

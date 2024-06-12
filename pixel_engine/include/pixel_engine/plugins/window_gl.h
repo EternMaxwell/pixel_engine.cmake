@@ -1,6 +1,10 @@
 ﻿#pragma once
 
+#ifdef NDEBUG
 #include <glad/gl.h>
+#else
+#include <glad/glad.h>
+#endif
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -82,7 +86,20 @@ namespace pixel_engine {
 
                     glfwShowWindow(window_handle.window_handle);
                     glfwMakeContextCurrent(window_handle.window_handle);
+#ifndef NDEBUG
+                    gladLoadGL();
+                    glad_set_post_callback([](const char* name, void* funcptr, int len_args, ...) {
+                        GLenum error_code;
+                        error_code = glad_glGetError();
+
+                        if (error_code != GL_NO_ERROR) {
+                            fprintf(stderr, "ERROR %d in %s\n", error_code, name);
+                            throw std::runtime_error("GLAD error");
+                        }
+                    });
+#else
                     gladLoadGL(glfwGetProcAddress);
+#endif
                 }
             }
 
@@ -102,10 +119,13 @@ namespace pixel_engine {
 
             void primary_window_close(
                 Command command,
-                Query<std::tuple<entt::entity, WindowHandle, PrimaryWindow, const WindowCreated>, std::tuple<>> query) {
+                Query<std::tuple<entt::entity, WindowHandle, PrimaryWindow, const WindowCreated>, std::tuple<>> query,
+                EventWriter<AnyWindowClose> any_close_event) {
                 for (auto [entity, window_handle] : query.iter()) {
                     if (glfwWindowShouldClose(window_handle.window_handle)) {
                         glfwDestroyWindow(window_handle.window_handle);
+                        window_handle.window_handle = NULL;
+                        any_close_event.write(AnyWindowClose{});
                         command.entity(entity).despawn();
                     }
                 }
@@ -113,12 +133,12 @@ namespace pixel_engine {
 
             void window_close(
                 Command command,
-                Query<std::tuple<entt::entity, const WindowHandle, const WindowCreated>, std::tuple<PrimaryWindow>>
-                    query,
+                Query<std::tuple<entt::entity, WindowHandle, const WindowCreated>, std::tuple<PrimaryWindow>> query,
                 EventWriter<AnyWindowClose> any_close_event) {
                 for (auto [entity, window_handle] : query.iter()) {
                     if (glfwWindowShouldClose(window_handle.window_handle)) {
                         glfwDestroyWindow(window_handle.window_handle);
+                        window_handle.window_handle = NULL;
                         any_close_event.write(AnyWindowClose{});
                         command.entity(entity).despawn();
                     }
@@ -135,7 +155,7 @@ namespace pixel_engine {
             void no_window_exists(Query<std::tuple<const WindowHandle>, std::tuple<>> query,
                                   EventWriter<NoWindowExists> no_window_event) {
                 for (auto [window_handle] : query.iter()) {
-                    return;
+                    if (window_handle.window_handle) return;
                 }
                 spdlog::info("No window exists");
                 no_window_event.write(NoWindowExists{});
@@ -146,7 +166,11 @@ namespace pixel_engine {
                 for (auto [window_handle] : query.iter()) {
                     if (glfwGetCurrentContext() != window_handle.window_handle) {
                         glfwMakeContextCurrent(window_handle.window_handle);
+#ifndef NDEBUG
+                        gladLoadGL();
+#else
                         gladLoadGL(glfwGetProcAddress);
+#endif
                     }
                     glfwSwapInterval(window_handle.vsync ? 1 : 0);
                 }
