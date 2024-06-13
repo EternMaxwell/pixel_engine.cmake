@@ -65,11 +65,25 @@ namespace pixel_engine {
                     }
                     unsigned int texture;
                     glCreateTextures(GL_TEXTURE_2D, 1, &texture);
-                    glTextureStorage2D(texture, 1, GL_RGB8, width, height);
-                    glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+                    glTextureStorage2D(texture, 1, GL_RGBA8, width, height);
+                    if (channels == 3) {
+                        glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+                    } else if (channels == 4) {
+                        glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+                    }
                     glGenerateMipmap(GL_TEXTURE_2D);
                     stbi_image_free(data);
                     return texture;
+                }
+
+                int create_sampler(int wrap_s, int wrap_t, int min_filter, int mag_filter) {
+                    unsigned int sampler;
+                    glCreateSamplers(1, &sampler);
+                    glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, wrap_s);
+                    glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, wrap_t);
+                    glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, min_filter);
+                    glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, mag_filter);
+                    return sampler;
                 }
             };
 

@@ -48,8 +48,8 @@ namespace pixel_engine {
             };
 
             struct Image {
-                unsigned int texture = 0;
-                unsigned int sampler = 0;
+                int texture = 0;
+                int sampler = 0;
             };
 
             struct Images {
