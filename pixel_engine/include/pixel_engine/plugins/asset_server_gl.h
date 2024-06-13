@@ -8,6 +8,9 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 #include <fstream>
 
 #include "pixel_engine/entity.h"
@@ -51,6 +54,22 @@ namespace pixel_engine {
                         throw std::runtime_error("Failed to link program: " + std::string(info_log));
                     }
                     return shader;
+                }
+
+                int load_image_2d(const std::string& path) {
+                    stbi_set_flip_vertically_on_load(true);
+                    int width, height, channels;
+                    stbi_uc* data = stbi_load((m_base_path + path).c_str(), &width, &height, &channels, 0);
+                    if (!data) {
+                        throw std::runtime_error("Failed to load image: " + path);
+                    }
+                    unsigned int texture;
+                    glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+                    glTextureStorage2D(texture, 1, GL_RGB8, width, height);
+                    glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+                    glGenerateMipmap(GL_TEXTURE_2D);
+                    stbi_image_free(data);
+                    return texture;
                 }
             };
 

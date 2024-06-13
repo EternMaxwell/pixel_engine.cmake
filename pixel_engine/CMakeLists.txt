@@ -11,6 +11,7 @@ target_include_directories(pixel_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inclu
 
 #include glfw vulkan ... etc
 #target_include_directories(pixel_engine PUBLIC )
+target_include_directories(pixel_engine PUBLIC ../libs/stb)
 
 #link glfw vulkan ... etc
 target_link_libraries (pixel_engine glfw)
