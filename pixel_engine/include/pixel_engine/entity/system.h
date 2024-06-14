@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <unordered_set>
+
 #include "pixel_engine/entity/command.h"
 #include "pixel_engine/entity/query.h"
 #include "pixel_engine/entity/resource.h"
@@ -349,5 +351,37 @@ namespace pixel_engine {
             }
             const char* func_name() override { return typeid(func).name(); }
         };
+
+        struct condition {
+           public:
+            bool if_run(App* app) { return true; }
+        };
+
+        template <typename T>
+        struct condition_state : public condition {
+           private:
+            T m_state;
+            App* m_app;
+            std::function<bool(Resource<State<T>>)> m_func = [&](Resource<State<T>> state) {
+                return state->is_state(m_state);
+            };
+
+           public:
+            condition_state(T state) : m_state(state) {}
+            bool if_run(App* app) override {
+                m_app = app;
+                return m_app->run_system_v(m_func);
+            }
+        };
+
+        template <typename T>
+        std::shared_ptr<condition> in_state(T state) {
+            return std::make_shared<condition_state<T>>(state);
+        }
+
+        template <typename... Args>
+        std::unordered_set<std::shared_ptr<condition>> run_if(Args... args) {
+            return {args...};
+        }
     }  // namespace entity
 }  // namespace pixel_engine
