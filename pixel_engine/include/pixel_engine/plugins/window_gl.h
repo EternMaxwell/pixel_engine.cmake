@@ -61,8 +61,8 @@ namespace pixel_engine {
 
             void create_window(
                 Command command,
-                Query<std::tuple<entt::entity, WindowHandle, const WindowSize, const WindowTitle, const WindowHints>,
-                      std::tuple<WindowCreated>>
+                Query<Get<entt::entity, WindowHandle, const WindowSize, const WindowTitle, const WindowHints>,
+                      Without<WindowCreated>>
                     query) {
                 for (auto [id, window_handle, window_size, window_title, window_hints] : query.iter()) {
                     glfwDefaultWindowHints();
@@ -97,14 +97,14 @@ namespace pixel_engine {
             }
 
             void update_window_size(
-                Query<std::tuple<WindowHandle, WindowSize, const WindowCreated>, std::tuple<>> query) {
+                Query<Get<WindowHandle, WindowSize, const WindowCreated>, Without<>> query) {
                 for (auto [window_handle, window_size] : query.iter()) {
                     glfwGetWindowSize(window_handle.window_handle, &window_size.width, &window_size.height);
                 }
             }
 
             void update_window_pos(
-                Query<std::tuple<WindowHandle, WindowPos, const WindowCreated>, std::tuple<>> query) {
+                Query<Get<WindowHandle, WindowPos, const WindowCreated>, Without<>> query) {
                 for (auto [window_handle, window_pos] : query.iter()) {
                     glfwGetWindowPos(window_handle.window_handle, &window_pos.x, &window_pos.y);
                 }
@@ -112,7 +112,7 @@ namespace pixel_engine {
 
             void primary_window_close(
                 Command command,
-                Query<std::tuple<entt::entity, WindowHandle, PrimaryWindow, const WindowCreated>, std::tuple<>> query,
+                Query<Get<entt::entity, WindowHandle, PrimaryWindow, const WindowCreated>, Without<>> query,
                 EventWriter<AnyWindowClose> any_close_event) {
                 for (auto [entity, window_handle] : query.iter()) {
                     if (glfwWindowShouldClose(window_handle.window_handle)) {
@@ -126,7 +126,7 @@ namespace pixel_engine {
 
             void window_close(
                 Command command,
-                Query<std::tuple<entt::entity, WindowHandle, const WindowCreated>, std::tuple<PrimaryWindow>> query,
+                Query<Get<entt::entity, WindowHandle, const WindowCreated>, Without<PrimaryWindow>> query,
                 EventWriter<AnyWindowClose> any_close_event) {
                 for (auto [entity, window_handle] : query.iter()) {
                     if (glfwWindowShouldClose(window_handle.window_handle)) {
@@ -138,14 +138,14 @@ namespace pixel_engine {
                 }
             }
 
-            void swap_buffers(Query<std::tuple<const WindowHandle, const WindowCreated>, std::tuple<>> query) {
+            void swap_buffers(Query<Get<const WindowHandle, const WindowCreated>, Without<>> query) {
                 for (auto [window_handle] : query.iter()) {
                     glfwSwapBuffers(window_handle.window_handle);
                     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 }
             }
 
-            void no_window_exists(Query<std::tuple<const WindowHandle>, std::tuple<>> query,
+            void no_window_exists(Query<Get<const WindowHandle>, Without<>> query,
                                   EventWriter<NoWindowExists> no_window_event) {
                 for (auto [window_handle] : query.iter()) {
                     if (window_handle.window_handle) return;
@@ -155,7 +155,7 @@ namespace pixel_engine {
             }
 
             void make_context_primary(
-                Query<std::tuple<const WindowHandle, const PrimaryWindow, const WindowCreated>, std::tuple<>> query) {
+                Query<Get<const WindowHandle, const PrimaryWindow, const WindowCreated>, Without<>> query) {
                 for (auto [window_handle] : query.iter()) {
                     if (glfwGetCurrentContext() != window_handle.window_handle) {
                         glfwMakeContextCurrent(window_handle.window_handle);

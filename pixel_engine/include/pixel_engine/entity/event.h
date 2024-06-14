@@ -85,30 +85,5 @@ namespace pixel_engine {
              */
             void clear() { m_events->clear(); }
         };
-
-        template <typename T, typename U>
-        struct event_access_contrary {
-            const static bool value = true;
-        };
-
-        template <typename T, typename U>
-        struct event_access_contrary<EventWriter<T>, EventWriter<U>> {
-            const static bool value = std::is_same_v<T, U>;
-        };
-
-        template <typename T, typename U>
-        struct event_access_contrary<EventReader<T>, EventReader<U>> {
-            const static bool value = false;
-        };
-
-        template <typename T, typename U>
-        struct event_access_contrary<EventReader<T>, EventWriter<U>> {
-            const static bool value = std::is_same_v<T, U>;
-        };
-
-        template <typename T, typename U>
-        struct event_access_contrary<EventWriter<T>, EventReader<U>> {
-            const static bool value = std::is_same_v<T, U>;
-        };
     }  // namespace entity
 }  // namespace pixel_engine

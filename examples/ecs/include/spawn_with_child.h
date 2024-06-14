@@ -7,6 +7,7 @@
 
 namespace test_with_child {
     using namespace pixel_engine;
+    using namespace entity;
 
     struct Health {
         float life;
@@ -26,7 +27,7 @@ namespace test_with_child {
         std::cout << std::endl;
     }
 
-    void create_child(entity::Command command, entity::Query<std::tuple<entt::entity, WithChild>, std::tuple<>> query) {
+    void create_child(entity::Command command, entity::Query<Get<entt::entity, WithChild>, Without<>> query) {
         std::cout << "create_child" << std::endl;
         for (auto [entity] : query.iter()) {
             command.entity(entity).spawn(Health{.life = 50.0f});
@@ -34,7 +35,7 @@ namespace test_with_child {
         std::cout << std::endl;
     }
 
-    void print(entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+    void print(entity::Query<Get<entt::entity, Health>, Without<>> query) {
         std::cout << "print" << std::endl;
         for (auto [entity, health] : query.iter()) {
             std::string id = std::format("{:#05x}", static_cast<int>(entity));
@@ -43,7 +44,7 @@ namespace test_with_child {
         std::cout << std::endl;
     }
 
-    void print_count(entity::Query<std::tuple<Health>, std::tuple<>> query) {
+    void print_count(entity::Query<Get<Health>, Without<>> query) {
         std::cout << "print_count" << std::endl;
         int count = 0;
         for (auto [health] : query.iter()) {
@@ -54,7 +55,7 @@ namespace test_with_child {
     }
 
     void despawn_recurese(entity::Command command,
-                          entity::Query<std::tuple<entt::entity, WithChild>, std::tuple<>> query) {
+                          entity::Query<Get<entt::entity, WithChild>, Without<>> query) {
         std::cout << "despawn" << std::endl;
         for (auto [entity] : query.iter()) {
             command.entity(entity).despawn_recurse();

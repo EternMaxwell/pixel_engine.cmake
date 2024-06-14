@@ -11,11 +11,19 @@ namespace pixel_engine {
         namespace assetGL = plugins::asset_server_gl;
         namespace renderGL = plugins::render_gl;
 
+        // app
         using App = entity::App;
-        using Plugin = entity::Plugin;
-        using LoopPlugin = entity::LoopPlugin;
-        using WindowGLPlugin = plugins::WindowGLPlugin;
+
+        // system node
         using SystemNode = std::shared_ptr<entity::SystemNode>;
+
+        // query types
+        template <typename... T>
+        using Get = entity::Get<T...>;
+        template <typename... T>
+        using Without = entity::Without<T...>;
+
+        // system arguments
         using Command = entity::Command;
         template <typename T>
         using Resource = entity::Resource<T>;
@@ -30,9 +38,11 @@ namespace pixel_engine {
         template <typename T>
         using NextState = entity::NextState<T>;
 
+        // sequential run
         using after = entity::after;
         using before = entity::before;
 
+        // schedulers
         using Startup = entity::Startup;
         template <typename T>
         using OnEnter = entity::OnEnter<T>;
@@ -44,5 +54,10 @@ namespace pixel_engine {
         using PreRender = entity::PreRender;
         using Render = entity::Render;
         using PostRender = entity::PostRender;
+
+        // plugins
+        using Plugin = entity::Plugin;
+        using LoopPlugin = entity::LoopPlugin;
+        using WindowGLPlugin = plugins::WindowGLPlugin;
     }  // namespace prelude
 }  // namespace pixel_engine

@@ -7,6 +7,7 @@
 
 namespace test_spawn_despawn {
     using namespace pixel_engine;
+    using namespace entity;
 
     struct Health {
         float life;
@@ -40,7 +41,7 @@ namespace test_spawn_despawn {
         std::cout << std::endl;
     }
 
-    void print(entity::Query<std::tuple<entt::entity, Health, Position>, std::tuple<>> query) {
+    void print(entity::Query<Get<entt::entity, Health, Position>, Without<>> query) {
         std::cout << "print" << std::endl;
         for (auto [entity, health, position] : query.iter()) {
             std::string id = std::format("{:#05x}", static_cast<int>(entity));
@@ -50,7 +51,7 @@ namespace test_spawn_despawn {
         std::cout << std::endl;
     }
 
-    void print_count(entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+    void print_count(entity::Query<Get<entt::entity, Health>, Without<>> query) {
         std::cout << "print_count" << std::endl;
         int count = 0;
         for (auto [entity, health] : query.iter()) {
@@ -61,7 +62,7 @@ namespace test_spawn_despawn {
     }
 
     void change_component_data(entity::Command command,
-                               entity::Query<std::tuple<Health>, std::tuple<>> query) {
+                               entity::Query<Get<Health>, Without<>> query) {
         std::cout << "change_component_data" << std::endl;
         for (auto [health] : query.iter()) {
             health.life = 200.0f;
@@ -69,7 +70,7 @@ namespace test_spawn_despawn {
         std::cout << std::endl;
     }
 
-    void despawn(entity::Command command, entity::Query<std::tuple<entt::entity, Health>, std::tuple<>> query) {
+    void despawn(entity::Command command, entity::Query<Get<entt::entity, Health>, Without<>> query) {
         std::cout << "despawn" << std::endl;
         for (auto [entity, health] : query.iter()) {
             command.entity(entity).despawn();

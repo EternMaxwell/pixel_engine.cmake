@@ -294,46 +294,6 @@ namespace pixel_engine {
             return true;
         }
 
-        template <typename T, typename U>
-        struct contrary {
-            const static bool value = false;
-        };
-
-        template <typename T, typename U>
-        struct contrary<Resource<T>, Resource<U>> {
-            const static bool value = resource_access_contrary<Resource<T>, Resource<U>>::value;
-        };
-
-        template <typename T, typename U>
-        struct contrary<EventReader<T>, EventReader<U>> {
-            const static bool value = event_access_contrary<EventReader<T>, EventReader<U>>::value;
-        };
-
-        template <typename T, typename U>
-        struct contrary<EventWriter<T>, EventWriter<U>> {
-            const static bool value = event_access_contrary<EventWriter<T>, EventWriter<U>>::value;
-        };
-
-        template <typename T, typename U>
-        struct contrary<EventReader<T>, EventWriter<U>> {
-            const static bool value = event_access_contrary<EventReader<T>, EventWriter<U>>::value;
-        };
-
-        template <typename T, typename U>
-        struct contrary<EventWriter<T>, EventReader<U>> {
-            const static bool value = event_access_contrary<EventWriter<T>, EventReader<U>>::value;
-        };
-
-        template <typename... T, typename... U>
-        struct contrary<Query<T...>, Query<U...>> {
-            const static bool value = queries_contrary<Query<T...>, Query<U...>>::value();
-        };
-
-        template <>
-        struct contrary<Command, Command> {
-            const static bool value = true;
-        };
-
         struct before {
             friend class App;
 

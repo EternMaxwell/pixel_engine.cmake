@@ -43,10 +43,10 @@ namespace pipeline_test {
             TestPipeline{});
     }
 
-    void draw(Query<std::tuple<Pipeline, const TestPipeline, const ProgramLinked, Buffers>, std::tuple<>> query,
-              Query<std::tuple<const plugins::window_gl::WindowHandle, const plugins::window_gl::PrimaryWindow,
+    void draw(Query<Get<Pipeline, const TestPipeline, const ProgramLinked, Buffers>, Without<>> query,
+              Query<Get<const plugins::window_gl::WindowHandle, const plugins::window_gl::PrimaryWindow,
                                const plugins::window_gl::WindowSize>,
-                    std::tuple<>>
+                    Without<>>
                   window_query) {
         for (auto [window_handle, window_size] : window_query.iter()) {
             for (auto [pipeline, buffers] : query.iter()) {

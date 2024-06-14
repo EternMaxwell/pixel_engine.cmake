@@ -143,11 +143,11 @@ namespace pixel_engine {
             using namespace plugins::window_gl;
 
             template <typename T, typename U>
-            std::function<void(Query<std::tuple<Pipeline, Buffers, Images, T, ProgramLinked>, std::tuple<>>,
-                               Query<std::tuple<WindowHandle, WindowCreated, WindowSize, U>, std::tuple<>>)>
+            std::function<void(Query<Get<Pipeline, Buffers, Images, T, ProgramLinked>, Without<>>,
+                               Query<Get<WindowHandle, WindowCreated, WindowSize, U>, Without<>>)>
                 bind_pipeline =
-                    [](Query<std::tuple<Pipeline, Buffers, Images, T, ProgramLinked>, std::tuple<>> query,
-                       Query<std::tuple<WindowHandle, WindowCreated, WindowSize, U>, std::tuple<>> window_query) {
+                    [](Query<Get<Pipeline, Buffers, Images, T, ProgramLinked>, Without<>> query,
+                       Query<Get<WindowHandle, WindowCreated, WindowSize, U>, Without<>> window_query) {
                         for (auto [window_handle, window_size] : window_query.iter()) {
                             for (auto [pipeline, buffers, images] : query.iter()) {
                                 glUseProgram(pipeline.program);
@@ -184,7 +184,7 @@ namespace pixel_engine {
 
             void create_pipelines(
                 Command command,
-                Query<std::tuple<entt::entity, Pipeline, Shaders, Attribs>, std::tuple<ProgramLinked>> query) {
+                Query<Get<entt::entity, Pipeline, Shaders, Attribs>, Without<ProgramLinked>> query) {
                 for (auto [id, pipeline, shaders, attribs] : query.iter()) {
                     spdlog::debug("Creating new pipeline");
                     pipeline.program = glCreateProgram();

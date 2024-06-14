@@ -51,7 +51,7 @@ namespace pixel_engine {
             struct infos_adder {};
 
             template <typename... Includes, typename... Excludes>
-            struct infos_adder<Query<std::tuple<Includes...>, std::tuple<Excludes...>>> {
+            struct infos_adder<Query<Get<Includes...>, Without<Excludes...>>> {
                 static void add(std::vector<std::tuple<std::vector<const type_info*>, std::vector<const type_info*>,
                                                        std::vector<const type_info*>>>
                                     query_types,
