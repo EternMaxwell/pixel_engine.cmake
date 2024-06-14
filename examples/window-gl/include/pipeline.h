@@ -30,15 +30,15 @@ namespace pipeline_test {
         command.spawn(
             PipelineBundle{
                 .shaders{
-                    .vertex_shader = asset_server->load_shader("./assets/shaders/shader.vert", GL_VERTEX_SHADER),
-                    .fragment_shader = asset_server->load_shader("./assets/shaders/shader.frag", GL_FRAGMENT_SHADER)},
+                    .vertex_shader = asset_server->load_shader("../assets/shaders/shader.vert", GL_VERTEX_SHADER),
+                    .fragment_shader = asset_server->load_shader("../assets/shaders/shader.frag", GL_FRAGMENT_SHADER)},
                 .attribs{
                     .attribs = {VertexAttrib{0, 3, GL_FLOAT, false, sizeof(Vertex), offsetof(Vertex, position)},
                                 VertexAttrib{1, 3, GL_FLOAT, false, sizeof(Vertex), offsetof(Vertex, color)},
                                 VertexAttrib{2, 2, GL_FLOAT, false, sizeof(Vertex), offsetof(Vertex, tex_coords)}}},
                 .buffers{.uniform_buffers = {{.buffer = uniform_buffer}}},
                 .images{.images = {Image{
-                            .texture = asset_server->load_image_2d("./assets/textures/test.png"),
+                            .texture = asset_server->load_image_2d("../assets/textures/test.png"),
                             .sampler = asset_server->create_sampler(GL_REPEAT, GL_REPEAT, GL_NEAREST, GL_NEAREST)}}}},
             TestPipeline{});
     }

@@ -16,3 +16,5 @@ target_link_libraries (${PROJNAME} glfw)
 target_link_libraries (${PROJNAME} Vulkan::Vulkan)
 target_link_libraries (${PROJNAME} OpenGL::GL)
 target_link_libraries (${PROJNAME} pixel_engine)
+
+SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)
