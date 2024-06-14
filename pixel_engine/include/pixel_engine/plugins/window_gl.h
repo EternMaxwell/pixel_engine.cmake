@@ -1,10 +1,6 @@
 ﻿#pragma once
 
-#ifdef NDEBUG
-#include <glad/gl.h>
-#else
 #include <glad/glad.h>
-#endif
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -86,7 +82,7 @@ namespace pixel_engine {
 
                     glfwShowWindow(window_handle.window_handle);
                     glfwMakeContextCurrent(window_handle.window_handle);
-#ifndef NDEBUG
+
                     gladLoadGL();
                     glad_set_post_callback([](const char* name, void* funcptr, int len_args, ...) {
                         GLenum error_code;
@@ -97,9 +93,6 @@ namespace pixel_engine {
                             throw std::runtime_error("GLAD error");
                         }
                     });
-#else
-                    gladLoadGL(glfwGetProcAddress);
-#endif
                 }
             }
 
@@ -166,11 +159,8 @@ namespace pixel_engine {
                 for (auto [window_handle] : query.iter()) {
                     if (glfwGetCurrentContext() != window_handle.window_handle) {
                         glfwMakeContextCurrent(window_handle.window_handle);
-#ifndef NDEBUG
+
                         gladLoadGL();
-#else
-                        gladLoadGL(glfwGetProcAddress);
-#endif
                     }
                     glfwSwapInterval(window_handle.vsync ? 1 : 0);
                 }
