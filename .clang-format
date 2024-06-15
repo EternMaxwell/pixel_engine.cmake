@@ -4,3 +4,7 @@
  PointerAlignment: Left
  NamespaceIndentation: All
  ColumnLimit: 120
+ AllowAllArgumentsOnNextLine: true
+ AllowShortBlocksOnASingleLine: Empty
+ AlignAfterOpenBracket: AlwaysBreak
+ 

@@ -1,9 +1,11 @@
 ﻿#pragma once
 
 #include "pixel_engine/entity.h"
+#include "pixel_engine/components/components.h"
 #include "pixel_engine/plugins/asset_server_gl.h"
 #include "pixel_engine/plugins/render_gl.h"
 #include "pixel_engine/plugins/window_gl.h"
+#include "pixel_engine/plugins/sprite_render_gl.h"
 
 namespace pixel_engine {
     namespace prelude {
