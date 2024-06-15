@@ -719,12 +719,12 @@ namespace pixel_engine {
                                                  std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
                 new_node->conditions = conditions;
                 for (auto& before_node : afters.nodes) {
-                    if (before_node != nullptr) {
+                    if ((before_node != nullptr) && (dynamic_cast<Sch*>(before_node->scheduler.get()) != NULL)) {
                         new_node->user_defined_before.insert(before_node);
                     }
                 }
                 for (auto& after_node : befores.nodes) {
-                    if (after_node != nullptr) {
+                    if ((after_node != nullptr) && (dynamic_cast<Sch*>(after_node->scheduler.get()) != NULL)) {
                         after_node->user_defined_before.insert(new_node);
                     }
                 }
