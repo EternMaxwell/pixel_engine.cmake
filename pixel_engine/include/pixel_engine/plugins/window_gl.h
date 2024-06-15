@@ -82,17 +82,6 @@ namespace pixel_engine {
 
                     glfwShowWindow(window_handle.window_handle);
                     glfwMakeContextCurrent(window_handle.window_handle);
-
-                    gladLoadGL();
-                    glad_set_post_callback([](const char* name, void* funcptr, int len_args, ...) {
-                        GLenum error_code;
-                        error_code = glad_glGetError();
-
-                        if (error_code != GL_NO_ERROR) {
-                            fprintf(stderr, "ERROR %d in %s\n", error_code, name);
-                            throw std::runtime_error("GLAD error");
-                        }
-                    });
                 }
             }
 
@@ -141,7 +130,6 @@ namespace pixel_engine {
             void swap_buffers(Query<Get<const WindowHandle, const WindowCreated>, Without<>> query) {
                 for (auto [window_handle] : query.iter()) {
                     glfwSwapBuffers(window_handle.window_handle);
-                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 }
             }
 
@@ -159,8 +147,6 @@ namespace pixel_engine {
                 for (auto [window_handle] : query.iter()) {
                     if (glfwGetCurrentContext() != window_handle.window_handle) {
                         glfwMakeContextCurrent(window_handle.window_handle);
-
-                        gladLoadGL();
                     }
                     glfwSwapInterval(window_handle.vsync ? 1 : 0);
                 }

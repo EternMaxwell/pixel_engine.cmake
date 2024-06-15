@@ -145,46 +145,58 @@ namespace pixel_engine {
             template <typename T, typename U>
             std::function<void(Query<Get<Pipeline, Buffers, Images, T, ProgramLinked>, Without<>>,
                                Query<Get<WindowHandle, WindowCreated, WindowSize, U>, Without<>>)>
-                bind_pipeline =
-                    [](Query<Get<Pipeline, Buffers, Images, T, ProgramLinked>, Without<>> query,
-                       Query<Get<WindowHandle, WindowCreated, WindowSize, U>, Without<>> window_query) {
-                        for (auto [window_handle, window_size] : window_query.iter()) {
-                            for (auto [pipeline, buffers, images] : query.iter()) {
-                                glUseProgram(pipeline.program);
-                                glBindBuffer(GL_ARRAY_BUFFER, pipeline.vertex_buffer.buffer);
-                                glBindVertexArray(pipeline.vertex_array);
-                                glNamedBufferData(pipeline.vertex_buffer.buffer, pipeline.vertex_buffer.data.size(),
-                                                  pipeline.vertex_buffer.data.data(), GL_DYNAMIC_DRAW);
-                                int index = 0;
-                                for (auto& image : images.images) {
-                                    glBindTextureUnit(index, image.texture);
-                                    glBindSampler(index, image.sampler);
-                                    index++;
-                                }
-                                index = 0;
-                                for (auto& buffer : buffers.uniform_buffers) {
-                                    glBindBufferBase(GL_UNIFORM_BUFFER, index, buffer.buffer);
-                                    glNamedBufferData(buffer.buffer, buffer.data.size(), buffer.data.data(),
-                                                      GL_DYNAMIC_DRAW);
-                                    index++;
-                                }
-                                index = 0;
-                                for (auto& buffer : buffers.storage_buffers) {
-                                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, index, buffer.buffer);
-                                    glNamedBufferData(buffer.buffer, buffer.data.size(), buffer.data.data(),
-                                                      GL_DYNAMIC_DRAW);
-                                    index++;
-                                }
-                                glViewport(0, 0, window_size.width, window_size.height);
-                                glDrawArrays(GL_TRIANGLES, 0, pipeline.vertex_count);
-                                return;
+                bind_pipeline = [](Query<Get<Pipeline, Buffers, Images, T, ProgramLinked>, Without<>> query,
+                                   Query<Get<WindowHandle, WindowCreated, WindowSize, U>, Without<>> window_query) {
+                    for (auto [window_handle, window_size] : window_query.iter()) {
+                        for (auto [pipeline, buffers, images] : query.iter()) {
+                            glUseProgram(pipeline.program);
+                            glBindBuffer(GL_ARRAY_BUFFER, pipeline.vertex_buffer.buffer);
+                            glBindVertexArray(pipeline.vertex_array);
+                            glNamedBufferData(pipeline.vertex_buffer.buffer, pipeline.vertex_buffer.data.size(),
+                                              pipeline.vertex_buffer.data.data(), GL_DYNAMIC_DRAW);
+                            int index = 0;
+                            for (auto& image : images.images) {
+                                glBindTextureUnit(index, image.texture);
+                                glBindSampler(index, image.sampler);
+                                index++;
                             }
+                            index = 0;
+                            for (auto& buffer : buffers.uniform_buffers) {
+                                glBindBufferBase(GL_UNIFORM_BUFFER, index, buffer.buffer);
+                                glNamedBufferData(buffer.buffer, buffer.data.size(), buffer.data.data(),
+                                                  GL_DYNAMIC_DRAW);
+                                index++;
+                            }
+                            index = 0;
+                            for (auto& buffer : buffers.storage_buffers) {
+                                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, index, buffer.buffer);
+                                glNamedBufferData(buffer.buffer, buffer.data.size(), buffer.data.data(),
+                                                  GL_DYNAMIC_DRAW);
+                                index++;
+                            }
+                            glViewport(0, 0, window_size.width, window_size.height);
+                            glDrawArrays(GL_TRIANGLES, 0, pipeline.vertex_count);
+                            return;
                         }
-                    };
+                    }
+                };
 
-            void create_pipelines(
-                Command command,
-                Query<Get<entt::entity, Pipeline, Shaders, Attribs>, Without<ProgramLinked>> query) {
+            void clear_color(Query<Get<WindowHandle, WindowCreated>, Without<>> query) {
+                for (auto [window_handle] : query.iter()) {
+                    glfwMakeContextCurrent(window_handle.window_handle);
+                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                }
+            }
+
+            void context_creation(Query<Get<WindowHandle, WindowCreated>, Without<>> query) {
+                for (auto [window_handle] : query.iter()) {
+                    glfwMakeContextCurrent(window_handle.window_handle);
+                    gladLoadGL();
+                }
+            }
+
+            void create_pipelines(Command command,
+                                  Query<Get<entt::entity, Pipeline, Shaders, Attribs>, Without<ProgramLinked>> query) {
                 for (auto [id, pipeline, shaders, attribs] : query.iter()) {
                     spdlog::debug("Creating new pipeline");
                     pipeline.program = glCreateProgram();
@@ -229,10 +241,14 @@ namespace pixel_engine {
         class RenderGLPlugin : public entity::Plugin {
            public:
             Node create_pipelines_node;
+            Node context_creation_node;
 
             void build(App& app) override {
                 using namespace render_gl;
-                app.add_system_main(PreRender{}, create_pipelines, &create_pipelines_node);
+                app.add_system_main(Startup{}, context_creation, &context_creation_node,
+                                    after(app.get_plugin<WindowGLPlugin>()->start_up_window_create_node))
+                    .add_system_main(PreRender{}, create_pipelines, &create_pipelines_node)
+                    .add_system_main(PreRender{}, clear_color);
             }
         };
     }  // namespace plugins

@@ -45,7 +45,7 @@ namespace pipeline_test {
 
     void draw(Query<Get<Pipeline, const TestPipeline, const ProgramLinked, Buffers>, Without<>> query,
               Query<Get<const plugins::window_gl::WindowHandle, const plugins::window_gl::PrimaryWindow,
-                               const plugins::window_gl::WindowSize>,
+                        const plugins::window_gl::WindowSize>,
                     Without<>>
                   window_query) {
         for (auto [window_handle, window_size] : window_query.iter()) {
@@ -76,7 +76,7 @@ namespace pipeline_test {
             SystemNode draw_node;
 
             app.add_system_main(Startup{}, create_pipeline,
-                                after(app.get_plugin<WindowGLPlugin>()->start_up_window_create_node))
+                                after(app.get_plugin<plugins::RenderGLPlugin>()->context_creation_node))
                 .add_system(Render{}, draw, &draw_node)
                 .add_system_main(Render{}, bind_pipeline<TestPipeline, PrimaryWindow>, after(draw_node));
         }
