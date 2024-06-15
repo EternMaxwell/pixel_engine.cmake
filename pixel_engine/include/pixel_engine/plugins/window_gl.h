@@ -181,13 +181,14 @@ namespace pixel_engine {
            public:
             Node start_up_window_create_node;
             Node swap_buffer_node;
+            Node create_window_node;
             void set_primary_window_size(int width, int height) {
                 primary_window_width = width;
                 primary_window_height = height;
             }
             void set_primary_window_title(const std::string& title) { primary_window_title = title.c_str(); }
             void build(App& app) override {
-                Node init_glfw_node, create_window_node, window_close_node, no_window_exists_node, insert_primary_node,
+                Node init_glfw_node, window_close_node, no_window_exists_node, insert_primary_node,
                     make_context_primary_node, primary_window_close_node, poll_events_node;
                 app.add_system_main(Startup{}, insert_primary_window, &insert_primary_node)
                     .add_system_main(Startup{}, window_gl::init_glfw, &init_glfw_node)
