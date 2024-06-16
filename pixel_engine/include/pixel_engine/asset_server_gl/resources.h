@@ -1,9 +1,5 @@
 ﻿#pragma once
 
-#include <glad/glad.h>
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -12,10 +8,8 @@
 #include "pixel_engine/entity.h"
 
 namespace pixel_engine {
-    namespace plugins {
-        using namespace entity;
-        namespace asset_server_gl {
-
+    namespace asset_server_gl {
+        namespace resources {
             class AssetServerGL {
                private:
                 std::string m_base_path = "./";
@@ -82,25 +76,6 @@ namespace pixel_engine {
                     return sampler;
                 }
             };
-        }  // namespace asset_server_gl
-
-        class AssetServerGLPlugin : public entity::Plugin {
-           private:
-            std::string m_base_path = "./";
-            std::function<void(Command)> insert_asset_server = [&](Command command) {
-                using namespace asset_server_gl;
-                command.insert_resource(AssetServerGL(m_base_path));
-            };
-
-           public:
-            Node insert_asset_server_node;
-
-            void set_base_path(const std::string& base_path) { m_base_path = base_path; }
-
-            void build(App& app) override {
-                using namespace asset_server_gl;
-                app.add_system(Startup{}, insert_asset_server, &insert_asset_server_node);
-            }
-        };
-    }  // namespace plugins
+        }  // namespace resources
+    }      // namespace asset_server_gl
 }  // namespace pixel_engine

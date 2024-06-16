@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <GLFW/glfw3.h>
+
 #include "pixel_engine/entity.h"
 
 namespace pixel_engine {

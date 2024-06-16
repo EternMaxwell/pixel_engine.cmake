@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include <pixel_engine/plugins/asset_server_gl.h>
 #include <pixel_engine/prelude.h>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -9,7 +8,7 @@
 namespace pipeline_test {
     using namespace pixel_engine;
     using namespace prelude;
-    using namespace plugins::asset_server_gl;
+    using namespace asset_server_gl::resources;
     using namespace window::components;
     using namespace render_gl::systems;
     using namespace render_gl::components;

@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <GLFW/glfw3.h>
+
 #include "components.h"
 #include "events.h"
 
@@ -118,5 +120,5 @@ namespace pixel_engine {
                 }
             }
         }  // namespace systems
-    }  // namespace window
+    }      // namespace window
 }  // namespace pixel_engine
