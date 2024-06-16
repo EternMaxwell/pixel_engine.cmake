@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include <pixel_engine/plugins/asset_server_gl.h>
-#include <pixel_engine/plugins/render_gl.h>
 #include <pixel_engine/prelude.h>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -10,9 +9,10 @@
 namespace pipeline_test {
     using namespace pixel_engine;
     using namespace prelude;
-    using namespace plugins::render_gl;
     using namespace plugins::asset_server_gl;
     using namespace window::components;
+    using namespace render_gl::systems;
+    using namespace render_gl::components;
 
     struct TestPipeline {};
 
@@ -69,11 +69,7 @@ namespace pipeline_test {
             Without<>>
             camera_query,
         Query<Get<Pipeline, const TestPipeline, const ProgramLinked, Buffers>, Without<>> query,
-        Query<
-            Get<const WindowHandle, const PrimaryWindow,
-                const WindowSize>,
-            Without<>>
-            window_query) {
+        Query<Get<const WindowHandle, const PrimaryWindow, const WindowSize>, Without<>> window_query) {
         for (auto [tranform, proj] : camera_query.iter()) {
             for (auto [window_handle, window_size] : window_query.iter()) {
                 for (auto [pipeline, buffers] : query.iter()) {
@@ -107,7 +103,8 @@ namespace pipeline_test {
 
             app.add_system(Startup{}, insert_camera)
                 .add_system_main(
-                    Startup{}, create_pipeline, after(app.get_plugin<plugins::RenderGLPlugin>()->context_creation_node))
+                    Startup{}, create_pipeline,
+                    after(app.get_plugin<render_gl::RenderGLPlugin>()->context_creation_node))
                 .add_system(PreRender{}, camera_ortho_to_primary_window)
                 .add_system(Render{}, draw, &draw_node)
                 .add_system_main(Render{}, bind_pipeline<TestPipeline, PrimaryWindow>, after(draw_node));
