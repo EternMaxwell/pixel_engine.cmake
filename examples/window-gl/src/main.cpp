@@ -14,7 +14,7 @@ int main() {
 
     App app;
     app.add_plugin(LoopPlugin{})
-        .add_plugin(WindowGLPlugin{})
+        .add_plugin(WindowPlugin{})
         .add_plugin(AssetServerGLPlugin{})
         .add_plugin(RenderGLPlugin{})
         .add_plugin(PipelineTestPlugin{})

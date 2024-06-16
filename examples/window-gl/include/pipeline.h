@@ -12,6 +12,7 @@ namespace pipeline_test {
     using namespace prelude;
     using namespace plugins::render_gl;
     using namespace plugins::asset_server_gl;
+    using namespace window::components;
 
     struct TestPipeline {};
 
@@ -69,8 +70,8 @@ namespace pipeline_test {
             camera_query,
         Query<Get<Pipeline, const TestPipeline, const ProgramLinked, Buffers>, Without<>> query,
         Query<
-            Get<const plugins::window_gl::WindowHandle, const plugins::window_gl::PrimaryWindow,
-                const plugins::window_gl::WindowSize>,
+            Get<const WindowHandle, const PrimaryWindow,
+                const WindowSize>,
             Without<>>
             window_query) {
         for (auto [tranform, proj] : camera_query.iter()) {

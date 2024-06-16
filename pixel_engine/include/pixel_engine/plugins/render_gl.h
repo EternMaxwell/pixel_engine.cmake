@@ -5,7 +5,7 @@
 #include <GLFW/glfw3.h>
 
 #include "pixel_engine/entity.h"
-#include "pixel_engine/plugins/window_gl.h"
+#include "pixel_engine/window/window.h"
 
 namespace pixel_engine {
     namespace plugins {
@@ -140,11 +140,12 @@ namespace pixel_engine {
 
             struct ProgramLinked {};
 
-            using namespace plugins::window_gl;
+            using namespace window::components;
 
             template <typename T, typename U>
-            std::function<void(Query<Get<Pipeline, Buffers, Images, T, ProgramLinked>, Without<>>,
-                               Query<Get<WindowHandle, WindowCreated, WindowSize, U>, Without<>>)>
+            std::function<void(
+                Query<Get<Pipeline, Buffers, Images, T, ProgramLinked>, Without<>>,
+                Query<Get<WindowHandle, WindowCreated, WindowSize, U>, Without<>>)>
                 bind_pipeline = [](Query<Get<Pipeline, Buffers, Images, T, ProgramLinked>, Without<>> query,
                                    Query<Get<WindowHandle, WindowCreated, WindowSize, U>, Without<>> window_query) {
                     for (auto [window_handle, window_size] : window_query.iter()) {
@@ -152,8 +153,9 @@ namespace pixel_engine {
                             glUseProgram(pipeline.program);
                             glBindBuffer(GL_ARRAY_BUFFER, pipeline.vertex_buffer.buffer);
                             glBindVertexArray(pipeline.vertex_array);
-                            glNamedBufferData(pipeline.vertex_buffer.buffer, pipeline.vertex_buffer.data.size(),
-                                              pipeline.vertex_buffer.data.data(), GL_DYNAMIC_DRAW);
+                            glNamedBufferData(
+                                pipeline.vertex_buffer.buffer, pipeline.vertex_buffer.data.size(),
+                                pipeline.vertex_buffer.data.data(), GL_DYNAMIC_DRAW);
                             int index = 0;
                             for (auto& image : images.images) {
                                 glBindTextureUnit(index, image.texture);
@@ -163,15 +165,15 @@ namespace pixel_engine {
                             index = 0;
                             for (auto& buffer : buffers.uniform_buffers) {
                                 glBindBufferBase(GL_UNIFORM_BUFFER, index, buffer.buffer);
-                                glNamedBufferData(buffer.buffer, buffer.data.size(), buffer.data.data(),
-                                                  GL_DYNAMIC_DRAW);
+                                glNamedBufferData(
+                                    buffer.buffer, buffer.data.size(), buffer.data.data(), GL_DYNAMIC_DRAW);
                                 index++;
                             }
                             index = 0;
                             for (auto& buffer : buffers.storage_buffers) {
                                 glBindBufferBase(GL_SHADER_STORAGE_BUFFER, index, buffer.buffer);
-                                glNamedBufferData(buffer.buffer, buffer.data.size(), buffer.data.data(),
-                                                  GL_DYNAMIC_DRAW);
+                                glNamedBufferData(
+                                    buffer.buffer, buffer.data.size(), buffer.data.data(), GL_DYNAMIC_DRAW);
                                 index++;
                             }
                             glViewport(0, 0, window_size.width, window_size.height);
@@ -195,8 +197,8 @@ namespace pixel_engine {
                 }
             }
 
-            void create_pipelines(Command command,
-                                  Query<Get<entt::entity, Pipeline, Shaders, Attribs>, Without<ProgramLinked>> query) {
+            void create_pipelines(
+                Command command, Query<Get<entt::entity, Pipeline, Shaders, Attribs>, Without<ProgramLinked>> query) {
                 for (auto [id, pipeline, shaders, attribs] : query.iter()) {
                     spdlog::debug("Creating new pipeline");
                     pipeline.program = glCreateProgram();
@@ -221,8 +223,9 @@ namespace pixel_engine {
                     }
                     for (auto& attrib : attribs.attribs) {
                         glEnableVertexAttribArray(attrib.location);
-                        glVertexAttribPointer(attrib.location, attrib.size, attrib.type, attrib.normalized,
-                                              attrib.stride, (void*)attrib.offset);
+                        glVertexAttribPointer(
+                            attrib.location, attrib.size, attrib.type, attrib.normalized, attrib.stride,
+                            (void*)attrib.offset);
                     }
                     glLinkProgram(pipeline.program);
                     int success;
@@ -245,8 +248,10 @@ namespace pixel_engine {
 
             void build(App& app) override {
                 using namespace render_gl;
-                app.add_system_main(Startup{}, context_creation, &context_creation_node,
-                                    after(app.get_plugin<WindowGLPlugin>()->start_up_window_create_node))
+                using namespace window;
+                app.add_system_main(
+                       Startup{}, context_creation, &context_creation_node,
+                       after(app.get_plugin<WindowPlugin>()->start_up_window_create_node))
                     .add_system_main(PreRender{}, create_pipelines, &create_pipelines_node)
                     .add_system_main(PreRender{}, clear_color);
             }
