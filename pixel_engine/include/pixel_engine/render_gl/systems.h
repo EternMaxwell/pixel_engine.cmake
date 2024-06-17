@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <glad/glad.h>
+
 #include "components.h"
 #include "pixel_engine/entity.h"
 #include "pixel_engine/window/window.h"
@@ -56,6 +58,14 @@ namespace pixel_engine {
                 for (auto [window_handle] : query.iter()) {
                     glfwMakeContextCurrent(window_handle.window_handle);
                     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                }
+            }
+
+            void update_viewport(Query<Get<WindowHandle, WindowCreated, WindowSize>, Without<>> query) {
+                for (auto [window_handle, window_size] : query.iter()) {
+                    glfwMakeContextCurrent(window_handle.window_handle);
+                    gladLoadGL();
+                    glViewport(0, 0, window_size.width, window_size.height);
                 }
             }
 

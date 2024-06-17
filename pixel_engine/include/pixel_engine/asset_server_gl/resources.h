@@ -30,6 +30,21 @@ namespace pixel_engine {
                     return buffer;
                 }
 
+                int loat_shader(const std::vector<char>& source, int type) {
+                    const char* source_ptr = source.data();
+                    int shader = glCreateShader(type);
+                    glShaderSource(shader, 1, &source_ptr, NULL);
+                    glCompileShader(shader);
+                    int success;
+                    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+                    if (!success) {
+                        char info_log[512];
+                        glGetShaderInfoLog(shader, 512, NULL, info_log);
+                        throw std::runtime_error("Failed to link program: " + std::string(info_log));
+                    }
+                    return shader;
+                }
+
                 int load_shader(const std::string& path, int type) {
                     std::vector<char> source = load_shader_source(path);
                     const char* source_ptr = source.data();

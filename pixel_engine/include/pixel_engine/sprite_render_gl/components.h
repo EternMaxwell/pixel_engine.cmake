@@ -11,6 +11,7 @@ namespace pixel_engine {
 
             struct Sprite {
                 int texture = 0;
+                int sampler = 0;
                 float center[2] = {0.5f, 0.5f};
                 float size[2] = {1.0f, 1.0f};
                 float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -20,6 +21,14 @@ namespace pixel_engine {
                 Bundle bundle;
                 Sprite sprite;
                 Transform transform;
+            };
+
+            struct SpritePipeline {};
+
+            struct Vertex {
+                float position[3];
+                float color[3];
+                float tex_coords[2];
             };
         }  // namespace components
     }      // namespace sprite_render_gl

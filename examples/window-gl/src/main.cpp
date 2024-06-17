@@ -10,14 +10,14 @@ int main() {
     using namespace pixel_engine;
     using namespace prelude;
     using namespace pipeline_test;
-    using namespace plugins;
 
     App app;
     app.add_plugin(LoopPlugin{})
         .add_plugin(WindowPlugin{})
         .add_plugin(AssetServerGLPlugin{})
         .add_plugin(RenderGLPlugin{})
-        .add_plugin(PipelineTestPlugin{})
+        .add_plugin(sprite_render_gl::SpriteRenderGLPlugin{})
+        .add_plugin(TestPlugin{})
         .run_parallel();
 
     return 0;

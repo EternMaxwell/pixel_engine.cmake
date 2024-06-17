@@ -20,7 +20,8 @@ namespace pixel_engine {
                        Startup{}, context_creation, &context_creation_node,
                        after(app.get_plugin<WindowPlugin>()->start_up_window_create_node))
                     .add_system_main(PreRender{}, create_pipelines, &create_pipelines_node)
-                    .add_system_main(PreRender{}, clear_color);
+                    .add_system_main(PreRender{}, clear_color)
+                    .add_system_main(PreRender{}, update_viewport);
             }
         };
     }  // namespace render_gl
