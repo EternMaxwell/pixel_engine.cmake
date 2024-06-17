@@ -13,3 +13,6 @@
 [submodule "libs/pfr"]
 	path = libs/pfr
 	url = git@github.com:apolukhin/pfr_non_boost.git
+[submodule "libs/freetype"]
+	path = libs/freetype
+	url = git@github.com:freetype/freetype.git
