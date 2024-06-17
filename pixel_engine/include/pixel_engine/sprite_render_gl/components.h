@@ -27,7 +27,7 @@ namespace pixel_engine {
 
             struct Vertex {
                 float position[3];
-                float color[3];
+                float color[4];
                 float tex_coords[2];
             };
         }  // namespace components

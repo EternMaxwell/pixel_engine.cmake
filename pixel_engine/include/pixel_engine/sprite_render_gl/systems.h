@@ -31,7 +31,7 @@ namespace pixel_engine {
                         .attribs{
                             .attribs{
                                 VertexAttrib{0, 3, GL_FLOAT, false, sizeof(Vertex), offsetof(Vertex, position)},
-                                VertexAttrib{1, 3, GL_FLOAT, false, sizeof(Vertex), offsetof(Vertex, color)},
+                                VertexAttrib{1, 4, GL_FLOAT, false, sizeof(Vertex), offsetof(Vertex, color)},
                                 VertexAttrib{2, 2, GL_FLOAT, false, sizeof(Vertex), offsetof(Vertex, tex_coords)},
                             },
                         },
@@ -56,10 +56,18 @@ namespace pixel_engine {
                     for (auto [camera_transform, projection] : camera_query.iter()) {
                         for (auto [sprite, transform] : sprite_query.iter()) {
                             Vertex vertices[] = {
-                                {{-sprite.size[0] / 2, -sprite.size[1] / 2, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-                                {{sprite.size[0] / 2, -sprite.size[1] / 2, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-                                {{sprite.size[0] / 2, sprite.size[1] / 2, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-                                {{-sprite.size[0] / 2, sprite.size[1] / 2, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+                                {{-sprite.size[0] / 2, -sprite.size[1] / 2, 0.0f},
+                                 {sprite.color[0], sprite.color[1], sprite.color[2], sprite.color[3]},
+                                 {0.0f, 0.0f}},
+                                {{sprite.size[0] / 2, -sprite.size[1] / 2, 0.0f},
+                                 {sprite.color[0], sprite.color[1], sprite.color[2], sprite.color[3]},
+                                 {1.0f, 0.0f}},
+                                {{sprite.size[0] / 2, sprite.size[1] / 2, 0.0f},
+                                 {sprite.color[0], sprite.color[1], sprite.color[2], sprite.color[3]},
+                                 {1.0f, 1.0f}},
+                                {{-sprite.size[0] / 2, sprite.size[1] / 2, 0.0f},
+                                 {sprite.color[0], sprite.color[1], sprite.color[2], sprite.color[3]},
+                                 {0.0f, 1.0f}},
                             };
                             glNamedBufferData(
                                 pipeline.vertex_buffer.buffer, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
