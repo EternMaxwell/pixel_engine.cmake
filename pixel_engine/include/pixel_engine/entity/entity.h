@@ -91,18 +91,21 @@ namespace pixel_engine {
 
         struct SystemRunner {
            public:
-            SystemRunner(App* app) : app(app), ignore_scheduler(false), pool(4) {}
-            SystemRunner(App* app, bool ignore_scheduler) : app(app), ignore_scheduler(ignore_scheduler), pool(4) {}
-            SystemRunner(const SystemRunner& other) : pool(4) {
+            SystemRunner(App* app, std::shared_ptr<BS::thread_pool> pool)
+                : app(app), ignore_scheduler(false), pool(pool) {}
+            SystemRunner(App* app, std::shared_ptr<BS::thread_pool> pool, bool ignore_scheduler)
+                : app(app), ignore_scheduler(ignore_scheduler), pool(pool) {}
+            SystemRunner(const SystemRunner& other) {
                 app = other.app;
                 ignore_scheduler = other.ignore_scheduler;
                 tails = other.tails;
+                pool = other.pool;
             }
             void run();
             void add_system(std::shared_ptr<SystemNode> node) { systems_all.push_back(node); }
             void prepare();
             void reset() { futures.clear(); }
-            void wait() { pool.wait(); }
+            void wait() { pool->wait(); }
             void sort_time() {
                 std::sort(systems_all.begin(), systems_all.end(),
                           [](const auto& a, const auto& b) { return a->time_to_reach() < b->time_to_reach(); });
@@ -123,7 +126,7 @@ namespace pixel_engine {
             std::unordered_set<std::shared_ptr<SystemNode>> tails;
             std::vector<std::shared_ptr<SystemNode>> systems_all;
             std::unordered_map<std::shared_ptr<SystemNode>, std::future<void>> futures;
-            BS::thread_pool pool;
+            std::shared_ptr<BS::thread_pool> pool;
             std::shared_ptr<SystemNode> should_run(const std::shared_ptr<SystemNode>& sys);
             std::shared_ptr<SystemNode> get_next();
             bool done();
@@ -139,11 +142,11 @@ namespace pixel_engine {
                     if (!next->in_main_thread) {
                         {
                             std::unique_lock<std::mutex> lk(m);
-                            cv.wait(lk, [&] { return tasks_in <= pool.get_thread_count(); });
+                            cv.wait(lk, [&] { return tasks_in <= pool->get_thread_count(); });
                         }
                         tasks_in++;
                         if (ignore_scheduler) {
-                            futures[next] = pool.submit_task([&, next] {
+                            futures[next] = pool->submit_task([&, next] {
                                 bool condition_pass = true;
                                 for (auto& condition : next->conditions) {
                                     if (!condition->if_run(app)) {
@@ -162,7 +165,7 @@ namespace pixel_engine {
                             });
                         } else {
                             App* app = this->app;
-                            futures[next] = pool.submit_task([&, app, next] {
+                            futures[next] = pool->submit_task([&, app, next] {
                                 if (next->scheduler->should_run(app)) {
                                     bool condition_pass = true;
                                     for (auto& condition : next->conditions) {
@@ -332,6 +335,7 @@ namespace pixel_engine {
             std::vector<std::shared_ptr<SystemNode>> m_systems;
             std::unordered_map<size_t, std::shared_ptr<Plugin>> m_plugins;
             std::unordered_map<size_t, std::shared_ptr<SystemRunner>> m_runners;
+            std::shared_ptr<BS::thread_pool> m_pool = std::make_shared<BS::thread_pool>(4);
 
             void enable_loop() { m_loop_enabled = true; }
             void disable_loop() { m_loop_enabled = false; }
@@ -938,7 +942,7 @@ namespace pixel_engine {
 
             template <typename T>
             void load_runner() {
-                auto runner = std::make_shared<SystemRunner>(this);
+                auto runner = std::make_shared<SystemRunner>(this, m_pool);
                 for (auto& node : m_systems) {
                     auto& scheduler = node->scheduler;
                     if (scheduler != nullptr && dynamic_cast<T*>(scheduler.get()) != NULL) {
