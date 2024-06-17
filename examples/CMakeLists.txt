@@ -4,3 +4,4 @@ project("examples")
 
 add_subdirectory(window-gl)
 add_subdirectory(ecs)
+add_subdirectory(font-gl)
