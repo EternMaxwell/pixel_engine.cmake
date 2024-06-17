@@ -64,7 +64,6 @@ namespace pixel_engine {
             void update_viewport(Query<Get<WindowHandle, WindowCreated, WindowSize>, Without<>> query) {
                 for (auto [window_handle, window_size] : query.iter()) {
                     glfwMakeContextCurrent(window_handle.window_handle);
-                    gladLoadGL();
                     glViewport(0, 0, window_size.width, window_size.height);
                 }
             }
