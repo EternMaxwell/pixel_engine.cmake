@@ -15,6 +15,7 @@ namespace pixel_engine {
            protected:
             App* app;
             bool has_command = false;
+            bool has_query = false;
             double avg_time = 0;  // in milliseconds
             std::vector<
                 std::tuple<std::vector<const type_info*>, std::vector<const type_info*>, std::vector<const type_info*>>>
@@ -52,15 +53,13 @@ namespace pixel_engine {
 
             template <typename... Includes, typename... Excludes>
             struct infos_adder<Query<Get<Includes...>, Without<Excludes...>>> {
-                static void add(std::vector<std::tuple<std::vector<const type_info*>, std::vector<const type_info*>,
-                                                       std::vector<const type_info*>>>
-                                    query_types,
-                                std::vector<const type_info*>& resource_types,
-                                std::vector<const type_info*>& resource_const,
-                                std::vector<const type_info*>& event_read_types,
-                                std::vector<const type_info*>& event_write_types,
-                                std::vector<const type_info*>& state_types,
-                                std::vector<const type_info*>& next_state_types) {
+                static void add(
+                    std::vector<std::tuple<
+                        std::vector<const type_info*>, std::vector<const type_info*>, std::vector<const type_info*>>>
+                        query_types,
+                    std::vector<const type_info*>& resource_types, std::vector<const type_info*>& resource_const,
+                    std::vector<const type_info*>& event_read_types, std::vector<const type_info*>& event_write_types,
+                    std::vector<const type_info*>& state_types, std::vector<const type_info*>& next_state_types) {
                     std::vector<const type_info*> query_include_types, query_exclude_types, query_include_const;
                     (non_const_infos_adder<Includes>::add(query_include_types), ...);
                     (info_add<Excludes>::add(query_exclude_types), ...);
@@ -72,15 +71,13 @@ namespace pixel_engine {
 
             template <typename T>
             struct infos_adder<Resource<T>> {
-                static void add(std::vector<std::tuple<std::vector<const type_info*>, std::vector<const type_info*>,
-                                                       std::vector<const type_info*>>>
-                                    query_types,
-                                std::vector<const type_info*>& resource_types,
-                                std::vector<const type_info*>& resource_const,
-                                std::vector<const type_info*>& event_read_types,
-                                std::vector<const type_info*>& event_write_types,
-                                std::vector<const type_info*>& state_types,
-                                std::vector<const type_info*>& next_state_types) {
+                static void add(
+                    std::vector<std::tuple<
+                        std::vector<const type_info*>, std::vector<const type_info*>, std::vector<const type_info*>>>
+                        query_types,
+                    std::vector<const type_info*>& resource_types, std::vector<const type_info*>& resource_const,
+                    std::vector<const type_info*>& event_read_types, std::vector<const type_info*>& event_write_types,
+                    std::vector<const type_info*>& state_types, std::vector<const type_info*>& next_state_types) {
                     if constexpr (std::is_const_v<T>)
                         info_add<T>().add(resource_const);
                     else
@@ -90,60 +87,52 @@ namespace pixel_engine {
 
             template <typename T>
             struct infos_adder<EventReader<T>> {
-                static void add(std::vector<std::tuple<std::vector<const type_info*>, std::vector<const type_info*>,
-                                                       std::vector<const type_info*>>>
-                                    query_types,
-                                std::vector<const type_info*>& resource_types,
-                                std::vector<const type_info*>& resource_const,
-                                std::vector<const type_info*>& event_read_types,
-                                std::vector<const type_info*>& event_write_types,
-                                std::vector<const type_info*>& state_types,
-                                std::vector<const type_info*>& next_state_types) {
+                static void add(
+                    std::vector<std::tuple<
+                        std::vector<const type_info*>, std::vector<const type_info*>, std::vector<const type_info*>>>
+                        query_types,
+                    std::vector<const type_info*>& resource_types, std::vector<const type_info*>& resource_const,
+                    std::vector<const type_info*>& event_read_types, std::vector<const type_info*>& event_write_types,
+                    std::vector<const type_info*>& state_types, std::vector<const type_info*>& next_state_types) {
                     info_add<T>().add(event_read_types);
                 }
             };
 
             template <typename T>
             struct infos_adder<EventWriter<T>> {
-                static void add(std::vector<std::tuple<std::vector<const type_info*>, std::vector<const type_info*>,
-                                                       std::vector<const type_info*>>>
-                                    query_types,
-                                std::vector<const type_info*>& resource_types,
-                                std::vector<const type_info*>& resource_const,
-                                std::vector<const type_info*>& event_read_types,
-                                std::vector<const type_info*>& event_write_types,
-                                std::vector<const type_info*>& state_types,
-                                std::vector<const type_info*>& next_state_types) {
+                static void add(
+                    std::vector<std::tuple<
+                        std::vector<const type_info*>, std::vector<const type_info*>, std::vector<const type_info*>>>
+                        query_types,
+                    std::vector<const type_info*>& resource_types, std::vector<const type_info*>& resource_const,
+                    std::vector<const type_info*>& event_read_types, std::vector<const type_info*>& event_write_types,
+                    std::vector<const type_info*>& state_types, std::vector<const type_info*>& next_state_types) {
                     info_add<T>().add(event_write_types);
                 }
             };
 
             template <typename T>
             struct infos_adder<State<T>> {
-                static void add(std::vector<std::tuple<std::vector<const type_info*>, std::vector<const type_info*>,
-                                                       std::vector<const type_info*>>>
-                                    query_types,
-                                std::vector<const type_info*>& resource_types,
-                                std::vector<const type_info*>& resource_const,
-                                std::vector<const type_info*>& event_read_types,
-                                std::vector<const type_info*>& event_write_types,
-                                std::vector<const type_info*>& state_types,
-                                std::vector<const type_info*>& next_state_types) {
+                static void add(
+                    std::vector<std::tuple<
+                        std::vector<const type_info*>, std::vector<const type_info*>, std::vector<const type_info*>>>
+                        query_types,
+                    std::vector<const type_info*>& resource_types, std::vector<const type_info*>& resource_const,
+                    std::vector<const type_info*>& event_read_types, std::vector<const type_info*>& event_write_types,
+                    std::vector<const type_info*>& state_types, std::vector<const type_info*>& next_state_types) {
                     info_add<T>().add(state_types);
                 }
             };
 
             template <typename T>
             struct infos_adder<NextState<T>> {
-                static void add(std::vector<std::tuple<std::vector<const type_info*>, std::vector<const type_info*>,
-                                                       std::vector<const type_info*>>>
-                                    query_types,
-                                std::vector<const type_info*>& resource_types,
-                                std::vector<const type_info*>& resource_const,
-                                std::vector<const type_info*>& event_read_types,
-                                std::vector<const type_info*>& event_write_types,
-                                std::vector<const type_info*>& state_types,
-                                std::vector<const type_info*>& next_state_types) {
+                static void add(
+                    std::vector<std::tuple<
+                        std::vector<const type_info*>, std::vector<const type_info*>, std::vector<const type_info*>>>
+                        query_types,
+                    std::vector<const type_info*>& resource_types, std::vector<const type_info*>& resource_const,
+                    std::vector<const type_info*>& event_read_types, std::vector<const type_info*>& event_write_types,
+                    std::vector<const type_info*>& state_types, std::vector<const type_info*>& next_state_types) {
                     info_add<T>().add(next_state_types);
                 }
             };
@@ -152,11 +141,17 @@ namespace pixel_engine {
             void add_infos_inernal() {
                 if constexpr (std::is_same_v<Arg, Command>) {
                     has_command = true;
+                } else if constexpr (is_template_of<Query, Arg>::value) {
+                    has_query = true;
+                    infos_adder<Arg>().add(
+                        query_types, resource_types, resource_const, event_read_types, event_write_types, state_types,
+                        next_state_types);
                 } else {
-                    infos_adder<Arg>().add(query_types, resource_types, resource_const, event_read_types,
-                                           event_write_types, state_types, next_state_types);
-                    if constexpr (sizeof...(Args) > 0) add_infos<Args...>();
+                    infos_adder<Arg>().add(
+                        query_types, resource_types, resource_const, event_read_types, event_write_types, state_types,
+                        next_state_types);
                 }
+                if constexpr (sizeof...(Args) > 0) add_infos<Args...>();
             }
 
             template <typename... Args>
@@ -201,13 +196,15 @@ namespace pixel_engine {
                         }
                         if (query_contrary) {
                             for (auto type : query_exclude_types) {
-                                if (std::find(other_query_include_types.begin(), other_query_include_types.end(),
-                                              type) != other_query_include_types.end()) {
+                                if (std::find(
+                                        other_query_include_types.begin(), other_query_include_types.end(), type) !=
+                                    other_query_include_types.end()) {
                                     query_contrary = false;
                                     break;
                                 }
-                                if (std::find(other_query_include_const.begin(), other_query_include_const.end(),
-                                              type) != other_query_include_const.end()) {
+                                if (std::find(
+                                        other_query_include_const.begin(), other_query_include_const.end(), type) !=
+                                    other_query_include_const.end()) {
                                     query_contrary = false;
                                     break;
                                 }
