@@ -14,12 +14,13 @@ namespace font_gl_test {
     void create_text(Command command, Resource<AssetServerGL> asset_server, Resource<FT2Library> library) {
         command.spawn(TextBundle{
             .text = Text{
-                .text = u8"hello, font.",
+                .text = U"hello, font.",
                 .size = 0,
                 .pixels = 64,
                 .antialias = false,
                 .center{0.5f, 0.5f},
-                .font_face = asset_server->load_font(library->library, "../assets/fonts/HachicroUndertaleBattleFontRegular-L3zlg.ttf"),
+                .font_face = asset_server->load_font(
+                    library->library, "../assets/fonts/HachicroUndertaleBattleFontRegular-L3zlg.ttf"),
             }});
     }
 

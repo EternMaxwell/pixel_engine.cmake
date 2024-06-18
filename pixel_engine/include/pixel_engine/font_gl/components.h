@@ -24,7 +24,7 @@ namespace pixel_engine {
              */
             struct Text {
                 /*! @brief Text to render, in unicode encoding. */
-                std::u8string text;
+                std::u32string text;
                 /*! @brief Size to draw of the text. */
                 float size = 0;
                 /*! @brief Size in pixel of the text. Also height of one line. */
