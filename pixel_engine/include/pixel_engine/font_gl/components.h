@@ -17,6 +17,7 @@ namespace pixel_engine {
              *  @brief text : Text to render, in unicode encoding.
              *  @brief size : Size to draw of the text.
              *  @brief pixels : Size in pixel of the text.
+             *  @brief antialias : Antialiasing of the text.
              *  @brief color : Color of the text.
              *  @brief center : Center of the text.
              *  @brief font_face : Font face, should be loaded through asset server.
@@ -28,6 +29,8 @@ namespace pixel_engine {
                 float size = 0.1f;
                 /*! @brief Size in pixel of the text. */
                 int pixels = 16;
+                /*! @brief Antialiasing of the text. */
+                bool antialias = true;
                 /*! @brief Color of the text. */
                 float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
                 float center[2] = {0.0f, 0.0f};

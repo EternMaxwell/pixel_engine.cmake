@@ -15,8 +15,9 @@ namespace font_gl_test {
         command.spawn(TextBundle{
             .text = Text{
                 .text = u8"hello, font.",
-                .size = .2,
-                .pixels = 128,
+                .size = .1,
+                .pixels = 64,
+                .antialias = false,
                 .center{0.5f, 0.5f},
                 .font_face = asset_server->load_font(library->library, "../assets/fonts/HachicroUndertaleBattleFontRegular-L3zlg.ttf"),
             }});

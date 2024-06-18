@@ -72,6 +72,8 @@ namespace pixel_engine {
                 for (auto [window_handle] : query.iter()) {
                     glfwMakeContextCurrent(window_handle.window_handle);
                     gladLoadGL();
+                    glEnable(GL_DEPTH_TEST);
+                    glEnable(GL_BLEND);
                 }
             }
 

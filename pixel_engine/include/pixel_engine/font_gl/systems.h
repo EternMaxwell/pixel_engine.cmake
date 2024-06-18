@@ -87,16 +87,18 @@ namespace pixel_engine {
                             int image_width, image_height;
                             glGetTextureLevelParameteriv(images.images[0].texture, 0, GL_TEXTURE_WIDTH, &image_width);
                             glGetTextureLevelParameteriv(images.images[0].texture, 0, GL_TEXTURE_HEIGHT, &image_height);
-                            int x = 0, y = image_height - 1;
-                            int max_x = 0, min_y = image_height - 1;
-                            glClearTexImage(images.images[0].texture, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+                            int x = 0, y = image_height;
+                            int max_x = 0, min_y = image_height;
+                            // glClearTexImage(images.images[0].texture, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
                             for (auto c : text.text) {
                                 int glygh_index = FT_Get_Char_Index(text.font_face, c);
                                 int err = FT_Load_Glyph(text.font_face, glygh_index, FT_LOAD_DEFAULT);
                                 if (err) {
                                     continue;
                                 }
-                                err = FT_Render_Glyph(text.font_face->glyph, FT_RENDER_MODE_NORMAL);
+                                err = FT_Render_Glyph(
+                                    text.font_face->glyph,
+                                    text.antialias ? FT_RENDER_MODE_NORMAL : FT_RENDER_MODE_MONO);
                                 if (err) {
                                     continue;
                                 }
@@ -105,7 +107,12 @@ namespace pixel_engine {
                                 float* buffer = new float[bitmap.width * bitmap.rows];
                                 for (int iy = 0; iy < bitmap.rows; iy++) {
                                     for (int ix = 0; ix < bitmap.width; ix++) {
-                                        buffer[ix + iy * bitmap.width] = bitmap.buffer[ix + iy * bitmap.width] / 255.0f;
+                                        buffer[ix + iy * bitmap.width] =
+                                            text.antialias
+                                                ? bitmap.buffer[ix + iy * bitmap.pitch] / 255.0f
+                                                : ((bitmap.buffer[(ix / 8 + iy * bitmap.pitch)] & (128 >> (ix & 7)))
+                                                       ? 1
+                                                       : 0);
                                     }
                                 }
                                 int full_width = x + bitmap.width;
@@ -140,7 +147,7 @@ namespace pixel_engine {
                             float height = text.size;
                             float s1 = 0;
                             float t1 = 1;
-                            float s2 = (max_x + 1) / 4096.0f;
+                            float s2 = max_x / 4096.0f;
                             float t2 = min_y / 512.0f;
                             float width = height * ratio;
                             float posx = -text.center[0] * width;
