@@ -80,7 +80,7 @@ namespace pixel_engine {
              * @brief 0 if no image assigned. Assign image by asset server is recommended.
              */
             struct Image {
-                int texture = 0;
+                unsigned int texture = 0;
                 int sampler = 0;
             };
 

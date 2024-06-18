@@ -1,7 +1,9 @@
 ﻿#pragma once
 
 #define STB_IMAGE_IMPLEMENTATION
+#include <ft2build.h>
 #include <stb_image.h>
+#include FT_FREETYPE_H
 
 #include <fstream>
 
@@ -13,9 +15,10 @@ namespace pixel_engine {
             class AssetServerGL {
                private:
                 std::string m_base_path = "./";
+                std::unordered_map<std::string, FT_Face> m_font_faces;
 
                public:
-                AssetServerGL(const std::string& base_path = "./") : m_base_path(base_path) {}
+                AssetServerGL(const std::string& base_path = "./") : m_base_path(base_path.c_str()) {}
 
                 std::vector<char> load_shader_source(const std::string& path) {
                     std::ifstream file(m_base_path + path);
@@ -89,6 +92,19 @@ namespace pixel_engine {
                     glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, min_filter);
                     glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, mag_filter);
                     return sampler;
+                }
+
+                FT_Face load_font(const FT_Library& library, const std::string& path) {
+                    if (m_font_faces.find(path) != m_font_faces.end()) {
+                        return m_font_faces[path];
+                    }
+                    FT_Face face;
+                    FT_Error error = FT_New_Face(library, (m_base_path + path).c_str(), 0, &face);
+                    if (error) {
+                        throw std::runtime_error("Failed to load font: " + path);
+                    }
+                    m_font_faces[path] = face;
+                    return face;
                 }
             };
         }  // namespace resources

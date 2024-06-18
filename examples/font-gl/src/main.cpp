@@ -11,5 +11,6 @@ int main() {
         .add_plugin(AssetServerGLPlugin{})
         .add_plugin(RenderGLPlugin{})
         .add_plugin(font_gl::FontGLPlugin{})
+        .add_plugin(TestPlugin{})
         .run_parallel();
 }

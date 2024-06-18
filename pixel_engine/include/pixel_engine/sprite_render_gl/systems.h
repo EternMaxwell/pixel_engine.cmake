@@ -117,8 +117,8 @@ namespace pixel_engine {
                                 }
                                 index++;
                             }
+                            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
                         }
-                        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
                         return;
                     }
                 }

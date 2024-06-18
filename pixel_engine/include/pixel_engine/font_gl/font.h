@@ -2,6 +2,7 @@
 
 #include "components.h"
 #include "pixel_engine/entity.h"
+#include "pixel_engine/render_gl/render_gl.h"
 #include "resources.h"
 #include "systems.h"
 
@@ -14,7 +15,15 @@ namespace pixel_engine {
 
         class FontGLPlugin : public Plugin {
            public:
-            void build(App& app) { app.add_system(Startup{}, insert_ft2_library); }
+            SystemNode library_insert_node;
+
+            void build(App& app) {
+                app.add_system(Startup{}, insert_ft2_library, &library_insert_node)
+                    .add_system_main(
+                        Startup{}, create_pipeline,
+                        after(app.get_plugin<render_gl::RenderGLPlugin>()->context_creation_node))
+                    .add_system_main(Render{}, draw);
+            }
         };
     }  // namespace font_gl
 }  // namespace pixel_engine
