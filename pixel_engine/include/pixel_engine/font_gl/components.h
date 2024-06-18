@@ -15,24 +15,25 @@ namespace pixel_engine {
             using namespace core_components;
             /*! @brief Text component. Will be rendered if has Transform component.
              *  @brief text : Text to render, in unicode encoding.
-             *  @brief size : Size to draw of the text.
+             *  @brief size : Size to draw of the text. Also height of one line.
              *  @brief pixels : Size in pixel of the text.
              *  @brief antialias : Antialiasing of the text.
              *  @brief color : Color of the text.
-             *  @brief center : Center of the text.
+             *  @brief center : Center of the text. (0,0) is the left bottom.
              *  @brief font_face : Font face, should be loaded through asset server.
              */
             struct Text {
                 /*! @brief Text to render, in unicode encoding. */
                 std::u8string text;
                 /*! @brief Size to draw of the text. */
-                float size = 0.1f;
-                /*! @brief Size in pixel of the text. */
+                float size = 0;
+                /*! @brief Size in pixel of the text. Also height of one line. */
                 int pixels = 16;
                 /*! @brief Antialiasing of the text. */
                 bool antialias = true;
                 /*! @brief Color of the text. */
                 float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+                /*! @brief Center of the text. (0,0) is the left bottom. */
                 float center[2] = {0.0f, 0.0f};
                 /*! @brief Font face, should be loaded through asset server.*/
                 FT_Face font_face;

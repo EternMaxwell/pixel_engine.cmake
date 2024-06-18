@@ -15,7 +15,7 @@ namespace font_gl_test {
         command.spawn(TextBundle{
             .text = Text{
                 .text = u8"hello, font.",
-                .size = .1,
+                .size = 0,
                 .pixels = 64,
                 .antialias = false,
                 .center{0.5f, 0.5f},
