@@ -11,7 +11,12 @@ namespace test_queue_test {
        private:
         std::function<void(Resource<TaskQueue>)> test_fun = [&](Resource<TaskQueue> task_queue) {
             auto& pool = task_queue->get_pool();
-            pool->detach_task([]() { std::cout << "Hello, World!" << std::endl; });
+            pool->detach_task([]() {
+                for (int i = 0; i < 10; i++) std::cout << "Hello, 1!\n";
+            });
+            pool->detach_task([]() {
+                for (int i = 0; i < 10; i++) std::cout << "Hello, 2!\n";
+            });
             pool->wait();
         };
 
