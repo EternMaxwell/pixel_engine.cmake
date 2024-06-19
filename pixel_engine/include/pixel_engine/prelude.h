@@ -6,6 +6,7 @@
 #include "pixel_engine/font_gl/font.h"
 #include "pixel_engine/render_gl/render_gl.h"
 #include "pixel_engine/sprite_render_gl/sprite_render.h"
+#include "pixel_engine/task_queue/task_queue.h"
 #include "pixel_engine/window/window.h"
 
 namespace pixel_engine {
