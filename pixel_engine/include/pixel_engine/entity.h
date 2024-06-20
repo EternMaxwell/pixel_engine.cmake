@@ -27,6 +27,8 @@ namespace pixel_engine {
         template <typename... T>
         using Get = entity::Get<T...>;
         template <typename... T>
+        using With = entity::With<T...>;
+        template <typename... T>
         using Without = entity::Without<T...>;
 
         // system arguments

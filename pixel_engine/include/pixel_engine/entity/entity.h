@@ -58,8 +58,9 @@ namespace pixel_engine {
             std::unordered_set<std::shared_ptr<SystemNode>> app_generated_before;
             double avg_reach_time = 1;
 
-            SystemNode(std::shared_ptr<Scheduler> scheduler, std::shared_ptr<BasicSystem<void>> system,
-                       const bool& in_main = false)
+            SystemNode(
+                std::shared_ptr<Scheduler> scheduler, std::shared_ptr<BasicSystem<void>> system,
+                const bool& in_main = false)
                 : scheduler(scheduler), system(system), in_main_thread(in_main) {}
 
             std::tuple<std::shared_ptr<Scheduler>, std::shared_ptr<BasicSystem<void>>> to_tuple() {
@@ -107,12 +108,14 @@ namespace pixel_engine {
             void reset() { futures.clear(); }
             void wait() { pool->wait(); }
             void sort_time() {
-                std::sort(systems_all.begin(), systems_all.end(),
-                          [](const auto& a, const auto& b) { return a->time_to_reach() < b->time_to_reach(); });
+                std::sort(systems_all.begin(), systems_all.end(), [](const auto& a, const auto& b) {
+                    return a->time_to_reach() < b->time_to_reach();
+                });
             }
             void sort_depth() {
-                std::sort(systems_all.begin(), systems_all.end(),
-                          [](const auto& a, const auto& b) { return a->user_before_depth() < b->user_before_depth(); });
+                std::sort(systems_all.begin(), systems_all.end(), [](const auto& a, const auto& b) {
+                    return a->user_before_depth() < b->user_before_depth();
+                });
             }
             size_t system_count() { return systems_all.size(); }
 
@@ -400,10 +403,11 @@ namespace pixel_engine {
              */
             template <typename T, typename... Args>
             std::tuple<T, Args...> get_values_internal() {
-                static_assert(std::same_as<T, Command> || is_template_of<Query, T>::value ||
-                                  is_template_of<Resource, T>::value || is_template_of<EventReader, T>::value ||
-                                  is_template_of<EventWriter, T>::value,
-                              "an illegal argument type is used in systems.");
+                static_assert(
+                    std::same_as<T, Command> || is_template_of<query::Query, T>::value ||
+                        is_template_of<query::Query2, T>::value || is_template_of<Resource, T>::value ||
+                        is_template_of<EventReader, T>::value || is_template_of<EventWriter, T>::value,
+                    "an illegal argument type is used in systems.");
                 if constexpr (std::same_as<T, Command>) {
                     m_existing_commands.push_back(command());
                     if constexpr (sizeof...(Args) > 0) {
@@ -411,7 +415,14 @@ namespace pixel_engine {
                     } else {
                         return std::make_tuple(m_existing_commands.back());
                     }
-                } else if constexpr (is_template_of<Query, T>::value) {
+                } else if constexpr (is_template_of<query::Query, T>::value) {
+                    T query(m_registry);
+                    if constexpr (sizeof...(Args) > 0) {
+                        return std::tuple_cat(std::make_tuple(query), get_values<Args...>());
+                    } else {
+                        return std::make_tuple(query);
+                    }
+                } else if constexpr (is_template_of<query::Query2, T>::value) {
                     T query(m_registry);
                     if constexpr (sizeof...(Args) > 0) {
                         return std::tuple_cat(std::make_tuple(query), get_values<Args...>());
@@ -566,9 +577,10 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system(Sch scheduler, std::function<void(Args...)> func,
-                            std::shared_ptr<SystemNode>* node = nullptr, before befores = before(),
-                            after afters = after(), std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+            App& add_system(
+                Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node = nullptr,
+                before befores = before(), after afters = after(),
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
                 std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
                     std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
                 new_node->conditions = conditions;
@@ -601,8 +613,9 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node = nullptr,
-                            before befores = before(), after afters = after()) {
+            App& add_system(
+                Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node = nullptr,
+                before befores = before(), after afters = after()) {
                 return add_system(scheduler, std::function<void(Args...)>(func), node, befores, afters);
             }
 
@@ -617,9 +630,9 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system(Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node,
-                            after afters, before befores = before(),
-                            std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+            App& add_system(
+                Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node, after afters,
+                before befores = before(), std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
                 return add_system(scheduler, func, node, befores, afters, conditions);
             }
 
@@ -634,8 +647,9 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node, after afters,
-                            before befores = before(), std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+            App& add_system(
+                Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node, after afters,
+                before befores = before(), std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
                 return add_system(scheduler, std::function<void(Args...)>(func), node, befores, afters, conditions);
             }
 
@@ -650,8 +664,9 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system(Sch scheduler, std::function<void(Args...)> func, after afters, before befores = before(),
-                            std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+            App& add_system(
+                Sch scheduler, std::function<void(Args...)> func, after afters, before befores = before(),
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
                 return add_system(scheduler, func, nullptr, befores, afters, conditions);
             }
 
@@ -666,8 +681,9 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system(Sch scheduler, void (*func)(Args...), after afters, before befores = before(),
-                            std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+            App& add_system(
+                Sch scheduler, void (*func)(Args...), after afters, before befores = before(),
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
                 return add_system(scheduler, std::function<void(Args...)>(func), nullptr, befores, afters, conditions);
             }
 
@@ -682,8 +698,9 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system(Sch scheduler, std::function<void(Args...)> func, before befores, after afters = after(),
-                            std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+            App& add_system(
+                Sch scheduler, std::function<void(Args...)> func, before befores, after afters = after(),
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
                 return add_system(scheduler, func, nullptr, befores, afters, conditions);
             }
 
@@ -698,8 +715,9 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system(Sch scheduler, void (*func)(Args...), before befores, after afters = after(),
-                            std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+            App& add_system(
+                Sch scheduler, void (*func)(Args...), before befores, after afters = after(),
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
                 return add_system(scheduler, std::function<void(Args...)>(func), nullptr, befores, afters, conditions);
             }
 
@@ -714,13 +732,13 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system_main(Sch scheduler, std::function<void(Args...)> func,
-                                 std::shared_ptr<SystemNode>* node = nullptr, before befores = before(),
-                                 after afters = after(),
-                                 std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                std::shared_ptr<SystemNode> new_node =
-                    std::make_shared<SystemNode>(std::make_shared<Sch>(scheduler),
-                                                 std::make_shared<System<Args...>>(System<Args...>(this, func)), true);
+            App& add_system_main(
+                Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node = nullptr,
+                before befores = before(), after afters = after(),
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+                std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
+                    std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)),
+                    true);
                 new_node->conditions = conditions;
                 for (auto& before_node : afters.nodes) {
                     if ((before_node != nullptr) && (dynamic_cast<Sch*>(before_node->scheduler.get()) != NULL)) {
@@ -751,11 +769,12 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system_main(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node = nullptr,
-                                 before befores = before(), after afters = after(),
-                                 std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system_main(scheduler, std::function<void(Args...)>(func), node, befores, afters,
-                                       conditions);
+            App& add_system_main(
+                Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node = nullptr,
+                before befores = before(), after afters = after(),
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+                return add_system_main(
+                    scheduler, std::function<void(Args...)>(func), node, befores, afters, conditions);
             }
 
             /*! @brief Add a system.
@@ -769,9 +788,9 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system_main(Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node,
-                                 after afters, before befores = before(),
-                                 std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+            App& add_system_main(
+                Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node, after afters,
+                before befores = before(), std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
                 return add_system_main(scheduler, func, node, befores, afters, conditions);
             }
 
@@ -786,11 +805,11 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system_main(Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node, after afters,
-                                 before befores = before(),
-                                 std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system_main(scheduler, std::function<void(Args...)>(func), node, befores, afters,
-                                       conditions);
+            App& add_system_main(
+                Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node, after afters,
+                before befores = before(), std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+                return add_system_main(
+                    scheduler, std::function<void(Args...)>(func), node, befores, afters, conditions);
             }
 
             /*! @brief Add a system.
@@ -804,9 +823,9 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system_main(Sch scheduler, std::function<void(Args...)> func, after afters,
-                                 before befores = before(),
-                                 std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+            App& add_system_main(
+                Sch scheduler, std::function<void(Args...)> func, after afters, before befores = before(),
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
                 return add_system_main(scheduler, func, nullptr, befores, afters, conditions);
             }
 
@@ -821,10 +840,11 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system_main(Sch scheduler, void (*func)(Args...), after afters, before befores = before(),
-                                 std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system_main(scheduler, std::function<void(Args...)>(func), nullptr, befores, afters,
-                                       conditions);
+            App& add_system_main(
+                Sch scheduler, void (*func)(Args...), after afters, before befores = before(),
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+                return add_system_main(
+                    scheduler, std::function<void(Args...)>(func), nullptr, befores, afters, conditions);
             }
 
             /*! @brief Add a system.
@@ -838,9 +858,9 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system_main(Sch scheduler, std::function<void(Args...)> func, before befores,
-                                 after afters = after(),
-                                 std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+            App& add_system_main(
+                Sch scheduler, std::function<void(Args...)> func, before befores, after afters = after(),
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
                 return add_system_main(scheduler, func, nullptr, befores, afters, conditions);
             }
 
@@ -855,10 +875,11 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system_main(Sch scheduler, void (*func)(Args...), before befores, after afters = after(),
-                                 std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system_main(scheduler, std::function<void(Args...)>(func), nullptr, befores, afters,
-                                       conditions);
+            App& add_system_main(
+                Sch scheduler, void (*func)(Args...), before befores, after afters = after(),
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+                return add_system_main(
+                    scheduler, std::function<void(Args...)>(func), nullptr, befores, afters, conditions);
             }
 
             /*! @brief Add a plugin.
