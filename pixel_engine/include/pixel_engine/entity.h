@@ -35,8 +35,8 @@ namespace pixel_engine {
         using Command = entity::Command;
         template <typename T>
         using Resource = entity::Resource<T>;
-        template <typename In, typename Ex = Without<>>
-        using Query = entity::Query<In, Ex>;
+        template <typename In, typename Ws = With<>, typename Ex = Without<>>
+        using Query = entity::Query<In, Ws, Ex>;
         template <typename T>
         using EventReader = entity::EventReader<T>;
         template <typename T>

@@ -25,8 +25,8 @@ namespace font_gl_test {
     }
 
     void camera_ortho_to_primary_window(
-        Query<Get<Camera2d, OrthoProjection>, Without<>> query,
-        Query<Get<WindowSize, PrimaryWindow>, Without<>> projection_query) {
+        Query<Get<OrthoProjection>, With<Camera2d>> query,
+        Query<Get<WindowSize>, With<PrimaryWindow>> projection_query) {
         for (auto [proj] : query.iter()) {
             for (auto [size] : projection_query.iter()) {
                 float ratio = (float)size.width / size.height;

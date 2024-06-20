@@ -51,26 +51,8 @@ namespace pixel_engine {
             template <typename T>
             struct infos_adder {};
 
-            template <typename... Includes, typename... Excludes>
-            struct infos_adder<Query<Get<Includes...>, Without<Excludes...>>> {
-                static void add(
-                    std::vector<std::tuple<
-                        std::vector<const type_info*>, std::vector<const type_info*>, std::vector<const type_info*>>>
-                        query_types,
-                    std::vector<const type_info*>& resource_types, std::vector<const type_info*>& resource_const,
-                    std::vector<const type_info*>& event_read_types, std::vector<const type_info*>& event_write_types,
-                    std::vector<const type_info*>& state_types, std::vector<const type_info*>& next_state_types) {
-                    std::vector<const type_info*> query_include_types, query_exclude_types, query_include_const;
-                    (non_const_infos_adder<Includes>::add(query_include_types), ...);
-                    (info_add<Excludes>::add(query_exclude_types), ...);
-                    (const_infos_adder<Includes>::add(query_include_const), ...);
-                    query_types.push_back(
-                        std::make_tuple(query_include_types, query_include_const, query_exclude_types));
-                }
-            };
-
             template <typename... Includes, typename... Withs, typename... Excludes>
-            struct infos_adder<Query2<Get<Includes...>, With<Withs...>, Without<Excludes...>>> {
+            struct infos_adder<Query<Get<Includes...>, With<Withs...>, Without<Excludes...>>> {
                 static void add(
                     std::vector<std::tuple<
                         std::vector<const type_info*>, std::vector<const type_info*>, std::vector<const type_info*>>>

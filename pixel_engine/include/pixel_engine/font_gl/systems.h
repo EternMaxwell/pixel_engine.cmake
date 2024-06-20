@@ -69,11 +69,11 @@ namespace pixel_engine {
 
             void draw(
                 Query<Get<const Text, const Transform>> text_query,
-                Query<Get<const Camera2d, const OrthoProjection>, Without<>> camera_query,
+                Query<Get<const OrthoProjection>, With<Camera2d>, Without<>> camera_query,
                 Query<
-                    Get<const window::WindowSize, const window::PrimaryWindow, const window::WindowCreated>, Without<>>
+                    Get<const window::WindowSize>, With<window::PrimaryWindow, window::WindowCreated>, Without<>>
                     window_query,
-                Query<Get<Pipeline, Buffers, Images, const TextPipeline, const ProgramLinked>, Without<>>
+                Query<Get<Pipeline, Buffers, Images>, With<TextPipeline, ProgramLinked>, Without<>>
                     pipeline_query) {
                 for (auto [pipeline, buffers, images] : pipeline_query.iter()) {
                     for (auto [ortho_proj] : camera_query.iter()) {

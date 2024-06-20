@@ -405,8 +405,8 @@ namespace pixel_engine {
             std::tuple<T, Args...> get_values_internal() {
                 static_assert(
                     std::same_as<T, Command> || is_template_of<query::Query, T>::value ||
-                        is_template_of<query::Query2, T>::value || is_template_of<Resource, T>::value ||
-                        is_template_of<EventReader, T>::value || is_template_of<EventWriter, T>::value,
+                        is_template_of<Resource, T>::value || is_template_of<EventReader, T>::value ||
+                        is_template_of<EventWriter, T>::value,
                     "an illegal argument type is used in systems.");
                 if constexpr (std::same_as<T, Command>) {
                     m_existing_commands.push_back(command());
@@ -416,13 +416,6 @@ namespace pixel_engine {
                         return std::make_tuple(m_existing_commands.back());
                     }
                 } else if constexpr (is_template_of<query::Query, T>::value) {
-                    T query(m_registry);
-                    if constexpr (sizeof...(Args) > 0) {
-                        return std::tuple_cat(std::make_tuple(query), get_values<Args...>());
-                    } else {
-                        return std::make_tuple(query);
-                    }
-                } else if constexpr (is_template_of<query::Query2, T>::value) {
                     T query(m_registry);
                     if constexpr (sizeof...(Args) > 0) {
                         return std::tuple_cat(std::make_tuple(query), get_values<Args...>());

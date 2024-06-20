@@ -21,7 +21,7 @@ namespace pixel_engine {
             void create_window(
                 Command command,
                 Query<
-                    Get<entt::entity, WindowHandle, const WindowSize, const WindowTitle, const WindowHints>,
+                    Get<entt::entity, WindowHandle, const WindowSize, const WindowTitle, const WindowHints>, With<>,
                     Without<WindowCreated>>
                     query) {
                 for (auto [id, window_handle, window_size, window_title, window_hints] : query.iter()) {
@@ -45,13 +45,13 @@ namespace pixel_engine {
                 }
             }
 
-            void update_window_size(Query<Get<WindowHandle, WindowSize, const WindowCreated>, Without<>> query) {
+            void update_window_size(Query<Get<WindowHandle, WindowSize>, With<WindowCreated>, Without<>> query) {
                 for (auto [window_handle, window_size] : query.iter()) {
                     glfwGetWindowSize(window_handle.window_handle, &window_size.width, &window_size.height);
                 }
             }
 
-            void update_window_pos(Query<Get<WindowHandle, WindowPos, const WindowCreated>, Without<>> query) {
+            void update_window_pos(Query<Get<WindowHandle, WindowPos>, With<WindowCreated>, Without<>> query) {
                 for (auto [window_handle, window_pos] : query.iter()) {
                     glfwGetWindowPos(window_handle.window_handle, &window_pos.x, &window_pos.y);
                 }
@@ -59,7 +59,7 @@ namespace pixel_engine {
 
             void primary_window_close(
                 Command command,
-                Query<Get<entt::entity, WindowHandle, PrimaryWindow, const WindowCreated>, Without<>> query,
+                Query<Get<entt::entity, WindowHandle>, With<WindowCreated, PrimaryWindow>, Without<>> query,
                 EventWriter<AnyWindowClose> any_close_event) {
                 for (auto [entity, window_handle] : query.iter()) {
                     if (glfwWindowShouldClose(window_handle.window_handle)) {
@@ -73,7 +73,7 @@ namespace pixel_engine {
 
             void window_close(
                 Command command,
-                Query<Get<entt::entity, WindowHandle, const WindowCreated>, Without<PrimaryWindow>> query,
+                Query<Get<entt::entity, WindowHandle>, With<WindowCreated>, Without<PrimaryWindow>> query,
                 EventWriter<AnyWindowClose> any_close_event) {
                 for (auto [entity, window_handle] : query.iter()) {
                     if (glfwWindowShouldClose(window_handle.window_handle)) {
@@ -85,14 +85,14 @@ namespace pixel_engine {
                 }
             }
 
-            void swap_buffers(Query<Get<const WindowHandle, const WindowCreated>, Without<>> query) {
+            void swap_buffers(Query<Get<const WindowHandle>, With<WindowCreated>, Without<>> query) {
                 for (auto [window_handle] : query.iter()) {
                     glfwSwapBuffers(window_handle.window_handle);
                 }
             }
 
             void no_window_exists(
-                Query<Get<const WindowHandle>, Without<>> query, EventWriter<NoWindowExists> no_window_event) {
+                Query<Get<const WindowHandle>, With<>, Without<>> query, EventWriter<NoWindowExists> no_window_event) {
                 for (auto [window_handle] : query.iter()) {
                     if (window_handle.window_handle) return;
                 }
@@ -101,7 +101,7 @@ namespace pixel_engine {
             }
 
             void make_context_primary(
-                Query<Get<const WindowHandle, const PrimaryWindow, const WindowCreated>, Without<>> query) {
+                Query<Get<const WindowHandle>, With<PrimaryWindow, WindowCreated>, Without<>> query) {
                 for (auto [window_handle] : query.iter()) {
                     if (glfwGetCurrentContext() != window_handle.window_handle) {
                         glfwMakeContextCurrent(window_handle.window_handle);

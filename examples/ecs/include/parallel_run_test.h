@@ -25,14 +25,14 @@ namespace test_parallel_run {
         for (int i = 0; i < 10; i++) command.spawn(Data2{.data = 2});
     }
 
-    void print_data1(Query<Get<Data1>, Without<>> query) {
+    void print_data1(Query<Get<Data1>, With<>, Without<>> query) {
         for (auto [data] : query.iter()) {
             std::cout << "Data1: " << data.data++ << std::endl;
         }
         std::cout << "Data1: End" << std::endl;
     }
 
-    void print_data2(Query<Get<Data2>, Without<>> query) {
+    void print_data2(Query<Get<Data2>, With<>, Without<>> query) {
         for (auto [data] : query.iter()) {
             std::cout << "Data2: " << data.data++ << std::endl;
         }

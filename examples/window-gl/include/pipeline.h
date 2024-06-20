@@ -42,7 +42,7 @@ namespace pipeline_test {
         });
     }
 
-    void move_sprite(Query<Get<sprite_render_gl::components::Transform>, Without<>> sprite_query) {
+    void move_sprite(Query<Get<sprite_render_gl::components::Transform>> sprite_query) {
         for (auto [transform] : sprite_query.iter()) {
             transform.translation.x += 0.000001f;
             transform.translation.y += 0.000001f;
@@ -50,8 +50,8 @@ namespace pipeline_test {
     }
 
     void camera_ortho_to_primary_window(
-        Query<Get<core_components::Camera2d, core_components::OrthoProjection>, Without<>> camera_query,
-        Query<Get<const WindowSize, const PrimaryWindow>, Without<>> window_query) {
+        Query<Get<core_components::OrthoProjection>, With<core_components::Camera2d>, Without<>> camera_query,
+        Query<Get<const WindowSize>, With<PrimaryWindow>, Without<>> window_query) {
         for (auto [projection] : camera_query.iter()) {
             for (auto [window_size] : window_query.iter()) {
                 float ratio = (float)window_size.width / (float)window_size.height;

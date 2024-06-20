@@ -48,9 +48,9 @@ namespace pixel_engine {
             }
 
             void draw(
-                Query<Get<const Sprite, const Transform>, Without<>> sprite_query,
-                Query<Get<const Camera2d, const Transform, const OrthoProjection>, Without<>> camera_query,
-                Query<Get<const Pipeline, Buffers, Images, const SpritePipeline, const ProgramLinked>, Without<>>
+                Query<Get<const Sprite, const Transform>> sprite_query,
+                Query<Get<const Transform, const OrthoProjection>, With<Camera2d>, Without<>> camera_query,
+                Query<Get<const Pipeline, Buffers, Images>, With<SpritePipeline, ProgramLinked>, Without<>>
                     pipeline_query) {
                 for (auto [pipeline, buffers, images] : pipeline_query.iter()) {
                     for (auto [camera_transform, projection] : camera_query.iter()) {

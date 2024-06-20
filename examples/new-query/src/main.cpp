@@ -35,7 +35,7 @@ void spawn(Command command) {
     std::cout << std::endl;
 }
 
-void print(entity::query::Query2<Get<entt::entity, Health, Position>, With<Tag>, Without<>> query) {
+void print(entity::query::Query<Get<entt::entity, Health, Position>, With<Tag>, Without<>> query) {
     std::cout << "print" << std::endl;
     for (auto [entity, health, position] : query.iter()) {
         std::string id = std::format("{:#05x}", static_cast<int>(entity));
@@ -45,7 +45,7 @@ void print(entity::query::Query2<Get<entt::entity, Health, Position>, With<Tag>,
     std::cout << std::endl;
 }
 
-void change(entity::query::Query2<Get<Health, Position>, With<Tag>, Without<>> query) {
+void change(entity::query::Query<Get<Health, Position>, With<Tag>, Without<>> query) {
     std::cout << "change" << std::endl;
     for (auto [health, position] : query.iter()) {
         health.life -= 1.0f;
