@@ -56,7 +56,7 @@ namespace pixel_engine {
             std::unordered_set<std::shared_ptr<condition>> conditions;
             std::unordered_set<std::shared_ptr<SystemNode>> user_defined_before;
             std::unordered_set<std::shared_ptr<SystemNode>> app_generated_before;
-            double avg_reach_time = 1;
+            double avg_reach_time = 0;
 
             SystemNode(
                 std::shared_ptr<Scheduler> scheduler, std::shared_ptr<BasicSystem<void>> system,
@@ -300,6 +300,18 @@ namespace pixel_engine {
             return true;
         }
 
+        template <typename T, typename Tuple>
+        struct tuple_contain;
+
+        template <typename T>
+        struct tuple_contain<T, std::tuple<>> : std::false_type {};
+
+        template <typename T, typename U, typename... Ts>
+        struct tuple_contain<T, std::tuple<U, Ts...>> : tuple_contain<T, std::tuple<Ts...>> {};
+
+        template <typename T, typename... Ts>
+        struct tuple_contain<T, std::tuple<T, Ts...>> : std::true_type {};
+
         struct before {
             friend class App;
 
@@ -333,6 +345,7 @@ namespace pixel_engine {
             std::unordered_map<entt::entity, std::set<entt::entity>> m_entity_relation_tree;
             std::unordered_map<size_t, std::any> m_resources;
             std::unordered_map<size_t, std::deque<Event>> m_events;
+            std::unordered_map<size_t, std::vector<int>> m_system_sets;
             std::vector<Command> m_existing_commands;
             std::vector<std::unique_ptr<BasicSystem<void>>> m_state_update;
             std::vector<std::shared_ptr<SystemNode>> m_systems;
@@ -342,6 +355,18 @@ namespace pixel_engine {
 
             void enable_loop() { m_loop_enabled = true; }
             void disable_loop() { m_loop_enabled = false; }
+
+            template <typename T, typename... Args>
+            T tuple_get(std::tuple<Args...> tuple) {
+                if constexpr (tuple_contain<T, std::tuple<Args...>>::value) {
+                    return std::get<T>(tuple);
+                } else {
+                    if constexpr (std::is_same_v<T, std::shared_ptr<SystemNode>*>) {
+                        return nullptr;
+                    }
+                    return T();
+                }
+            }
 
             template <typename T>
             struct get_resource {};
@@ -559,6 +584,21 @@ namespace pixel_engine {
                 }
             }
 
+            /*! @brief Configure system sets. This means the sequence of the args is the sequence of the sets. And this
+             * affects how systems are run.
+             *  @tparam T The type of the system set.
+             *  @param arg The system set.
+             *  @param args The rest of the system sets.
+             *  @return The App object itself.
+             */
+            template <typename T, std::enable_if_t<std::is_enum_v<T>>, typename... Args>
+            App& configure_sets(T arg, Args... args) {
+                T arr[] = {arg, args...};
+                for (auto& a : arr) {
+                    m_system_sets[typeid(T).hash_code()].push_back(a);
+                }
+            }
+
             /*! @brief Add a system.
              * @tparam Args The types of the arguments for the system.
              * @param scheduler The scheduler for the system.
@@ -570,7 +610,7 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system(
+            App& add_system_inner(
                 Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node = nullptr,
                 before befores = before(), after afters = after(),
                 std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
@@ -605,11 +645,36 @@ namespace pixel_engine {
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
-            template <typename Sch, typename... Args>
-            App& add_system(
-                Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node = nullptr,
-                before befores = before(), after afters = after()) {
-                return add_system(scheduler, std::function<void(Args...)>(func), node, befores, afters);
+            template <typename Sch, typename... Args, typename... Ts>
+            App& add_system(Sch scheduler, void (*func)(Args...), Ts... args) {
+                auto args_tuple = std::tuple<Ts...>(args...);
+                auto tuple = std::make_tuple(
+                    scheduler, std::function<void(Args...)>(func), tuple_get<std::shared_ptr<SystemNode>*>(args_tuple),
+                    tuple_get<before>(args_tuple), tuple_get<after>(args_tuple),
+                    tuple_get<std::unordered_set<std::shared_ptr<condition>>>(args_tuple));
+                std::apply([this](auto... args) { add_system_inner(args...); }, tuple);
+                return *this;
+            }
+
+            /*! @brief Add a system.
+             * @tparam Args The types of the arguments for the system.
+             * @param scheduler The scheduler for the system.
+             * @param func The system to be run.
+             * @param befores The systems that should run after this system. If they are not in same
+             * scheduler, this will be ignored when preparing runners.
+             * @param afters The systems that should run before this system. If they are not in same
+             * scheduler, this will be ignored when preparing runners.
+             * @return The App object itself.
+             */
+            template <typename Sch, typename... Args, typename... Ts>
+            App& add_system(Sch scheduler, std::function<void(Args...)> func, Ts... args) {
+                auto args_tuple = std::tuple<Ts...>(args...);
+                auto tuple = std::make_tuple(
+                    scheduler, func, tuple_get<std::shared_ptr<SystemNode>*>(args_tuple), tuple_get<before>(args_tuple),
+                    tuple_get<after>(args_tuple),
+                    tuple_get<std::unordered_set<std::shared_ptr<condition>>>(args_tuple));
+                std::apply([this](auto... args) { add_system_inner(args...); }, tuple);
+                return *this;
             }
 
             /*! @brief Add a system.
@@ -623,109 +688,7 @@ namespace pixel_engine {
              * @return The App object itself.
              */
             template <typename Sch, typename... Args>
-            App& add_system(
-                Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node, after afters,
-                before befores = before(), std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system(scheduler, func, node, befores, afters, conditions);
-            }
-
-            /*! @brief Add a system.
-             * @tparam Args The types of the arguments for the system.
-             * @param scheduler The scheduler for the system.
-             * @param func The system to be run.
-             * @param befores The systems that should run after this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run before this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @return The App object itself.
-             */
-            template <typename Sch, typename... Args>
-            App& add_system(
-                Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node, after afters,
-                before befores = before(), std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system(scheduler, std::function<void(Args...)>(func), node, befores, afters, conditions);
-            }
-
-            /*! @brief Add a system.
-             * @tparam Args The types of the arguments for the system.
-             * @param scheduler The scheduler for the system.
-             * @param func The system to be run.
-             * @param befores The systems that should run after this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run before this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @return The App object itself.
-             */
-            template <typename Sch, typename... Args>
-            App& add_system(
-                Sch scheduler, std::function<void(Args...)> func, after afters, before befores = before(),
-                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system(scheduler, func, nullptr, befores, afters, conditions);
-            }
-
-            /*! @brief Add a system.
-             * @tparam Args The types of the arguments for the system.
-             * @param scheduler The scheduler for the system.
-             * @param func The system to be run.
-             * @param befores The systems that should run after this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run before this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @return The App object itself.
-             */
-            template <typename Sch, typename... Args>
-            App& add_system(
-                Sch scheduler, void (*func)(Args...), after afters, before befores = before(),
-                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system(scheduler, std::function<void(Args...)>(func), nullptr, befores, afters, conditions);
-            }
-
-            /*! @brief Add a system.
-             * @tparam Args The types of the arguments for the system.
-             * @param scheduler The scheduler for the system.
-             * @param func The system to be run.
-             * @param befores The systems that should run after this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run before this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @return The App object itself.
-             */
-            template <typename Sch, typename... Args>
-            App& add_system(
-                Sch scheduler, std::function<void(Args...)> func, before befores, after afters = after(),
-                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system(scheduler, func, nullptr, befores, afters, conditions);
-            }
-
-            /*! @brief Add a system.
-             * @tparam Args The types of the arguments for the system.
-             * @param scheduler The scheduler for the system.
-             * @param func The system to be run.
-             * @param befores The systems that should run after this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run before this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @return The App object itself.
-             */
-            template <typename Sch, typename... Args>
-            App& add_system(
-                Sch scheduler, void (*func)(Args...), before befores, after afters = after(),
-                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system(scheduler, std::function<void(Args...)>(func), nullptr, befores, afters, conditions);
-            }
-
-            /*! @brief Add a system.
-             * @tparam Args The types of the arguments for the system.
-             * @param scheduler The scheduler for the system.
-             * @param func The system to be run.
-             * @param befores The systems that should run after this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run before this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @return The App object itself.
-             */
-            template <typename Sch, typename... Args>
-            App& add_system_main(
+            App& add_system_main_inner(
                 Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node = nullptr,
                 before befores = before(), after afters = after(),
                 std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
@@ -761,13 +724,15 @@ namespace pixel_engine {
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
-            template <typename Sch, typename... Args>
-            App& add_system_main(
-                Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node = nullptr,
-                before befores = before(), after afters = after(),
-                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system_main(
-                    scheduler, std::function<void(Args...)>(func), node, befores, afters, conditions);
+            template <typename Sch, typename... Args, typename... Ts>
+            App& add_system_main(Sch scheduler, void (*func)(Args...), Ts... args) {
+                auto args_tuple = std::tuple<Ts...>(args...);
+                auto tuple = std::make_tuple(
+                    scheduler, std::function<void(Args...)>(func), tuple_get<std::shared_ptr<SystemNode>*>(args_tuple),
+                    tuple_get<before>(args_tuple), tuple_get<after>(args_tuple),
+                    tuple_get<std::unordered_set<std::shared_ptr<condition>>>(args_tuple));
+                std::apply([this](auto... args) { add_system_main_inner(args...); }, tuple);
+                return *this;
             }
 
             /*! @brief Add a system.
@@ -780,99 +745,15 @@ namespace pixel_engine {
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
-            template <typename Sch, typename... Args>
-            App& add_system_main(
-                Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node, after afters,
-                before befores = before(), std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system_main(scheduler, func, node, befores, afters, conditions);
-            }
-
-            /*! @brief Add a system.
-             * @tparam Args The types of the arguments for the system.
-             * @param scheduler The scheduler for the system.
-             * @param func The system to be run.
-             * @param befores The systems that should run after this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run before this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @return The App object itself.
-             */
-            template <typename Sch, typename... Args>
-            App& add_system_main(
-                Sch scheduler, void (*func)(Args...), std::shared_ptr<SystemNode>* node, after afters,
-                before befores = before(), std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system_main(
-                    scheduler, std::function<void(Args...)>(func), node, befores, afters, conditions);
-            }
-
-            /*! @brief Add a system.
-             * @tparam Args The types of the arguments for the system.
-             * @param scheduler The scheduler for the system.
-             * @param func The system to be run.
-             * @param befores The systems that should run after this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run before this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @return The App object itself.
-             */
-            template <typename Sch, typename... Args>
-            App& add_system_main(
-                Sch scheduler, std::function<void(Args...)> func, after afters, before befores = before(),
-                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system_main(scheduler, func, nullptr, befores, afters, conditions);
-            }
-
-            /*! @brief Add a system.
-             * @tparam Args The types of the arguments for the system.
-             * @param scheduler The scheduler for the system.
-             * @param func The system to be run.
-             * @param befores The systems that should run after this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run before this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @return The App object itself.
-             */
-            template <typename Sch, typename... Args>
-            App& add_system_main(
-                Sch scheduler, void (*func)(Args...), after afters, before befores = before(),
-                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system_main(
-                    scheduler, std::function<void(Args...)>(func), nullptr, befores, afters, conditions);
-            }
-
-            /*! @brief Add a system.
-             * @tparam Args The types of the arguments for the system.
-             * @param scheduler The scheduler for the system.
-             * @param func The system to be run.
-             * @param befores The systems that should run after this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run before this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @return The App object itself.
-             */
-            template <typename Sch, typename... Args>
-            App& add_system_main(
-                Sch scheduler, std::function<void(Args...)> func, before befores, after afters = after(),
-                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system_main(scheduler, func, nullptr, befores, afters, conditions);
-            }
-
-            /*! @brief Add a system.
-             * @tparam Args The types of the arguments for the system.
-             * @param scheduler The scheduler for the system.
-             * @param func The system to be run.
-             * @param befores The systems that should run after this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @param afters The systems that should run before this system. If they are not in same
-             * scheduler, this will be ignored when preparing runners.
-             * @return The App object itself.
-             */
-            template <typename Sch, typename... Args>
-            App& add_system_main(
-                Sch scheduler, void (*func)(Args...), before befores, after afters = after(),
-                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
-                return add_system_main(
-                    scheduler, std::function<void(Args...)>(func), nullptr, befores, afters, conditions);
+            template <typename Sch, typename... Args, typename... Ts>
+            App& add_system_main(Sch scheduler, std::function<void(Args...)> func, Ts... args) {
+                auto args_tuple = std::tuple<Ts...>(args...);
+                auto tuple = std::make_tuple(
+                    scheduler, func, tuple_get<std::shared_ptr<SystemNode>*>(args_tuple), tuple_get<before>(args_tuple),
+                    tuple_get<after>(args_tuple),
+                    tuple_get<std::unordered_set<std::shared_ptr<condition>>>(args_tuple));
+                std::apply([this](auto... args) { add_system_main_inner(args...); }, tuple);
+                return *this;
             }
 
             /*! @brief Add a plugin.
