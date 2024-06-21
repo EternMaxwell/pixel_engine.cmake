@@ -48,7 +48,7 @@ namespace pixel_engine {
                     emplace_internal_tuple(registry, entity, arg);
                 } else if constexpr (is_bundle<T>::value()) {
                     pfr::for_each_field(arg, [&](const auto& field) {
-                        if (!std::is_same_v<Bundle, decltype(field)>) {
+                        if constexpr (!std::is_same_v<Bundle, decltype(field)>) {
                             emplace_internal(registry, entity, field);
                         }
                     });

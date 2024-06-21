@@ -28,6 +28,15 @@ namespace pipeline_test {
         command.spawn(core_components::Camera2dBundle{});
     }
 
+    void create_pixels(Command command) {
+        command.spawn(pixel_render_gl::PixelGroupBundle{.pixels{
+            .pixels = {
+                {.position = {0.0f, 0.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f, 1.0f}},
+                {.position = {1.0f, 0.0f, 0.0f}, .color = {0.0f, 1.0f, 0.0f, 1.0f}},
+                {.position = {0.0f, 1.0f, 0.0f}, .color = {0.0f, 0.0f, 1.0f, 1.0f}},
+            }}});
+    }
+
     void create_sprite(Command command, Resource<AssetServerGL> asset_server) {
         using namespace sprite_render_gl::components;
 
@@ -42,7 +51,7 @@ namespace pipeline_test {
         });
     }
 
-    void move_sprite(Query<Get<sprite_render_gl::components::Transform>> sprite_query) {
+    void move_sprite(Query<Get<core_components::Transform>, With<sprite_render_gl::Sprite>> sprite_query) {
         for (auto [transform] : sprite_query.iter()) {
             transform.translation.x += 0.000001f;
             transform.translation.y += 0.000001f;
@@ -73,6 +82,7 @@ namespace pipeline_test {
                     after(
                         app.get_plugin<render_gl::RenderGLPlugin>()->context_creation_node,
                         app.get_plugin<AssetServerGLPlugin>()->insert_asset_server_node))
+                .add_system(Startup{}, create_pixels)
                 .add_system(Update{}, camera_ortho_to_primary_window)
                 .add_system(Update{}, move_sprite);
         }

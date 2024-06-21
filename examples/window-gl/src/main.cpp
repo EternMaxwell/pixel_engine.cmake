@@ -17,6 +17,7 @@ int main() {
         .add_plugin(AssetServerGLPlugin{})
         .add_plugin(RenderGLPlugin{})
         .add_plugin(sprite_render_gl::SpriteRenderGLPlugin{})
+        .add_plugin(pixel_render_gl::PixelRenderGLPlugin{})
         .add_plugin(TestPlugin{})
         .run_parallel();
 

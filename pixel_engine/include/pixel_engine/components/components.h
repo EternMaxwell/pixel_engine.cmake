@@ -1,8 +1,8 @@
 ﻿#pragma once
 
 #include <glm/ext/matrix_clip_space.hpp>
-#include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <glm/vec3.hpp>
 
 #include "pixel_engine/entity.h"
@@ -11,23 +11,20 @@ namespace pixel_engine {
     namespace core_components {
         struct Transform {
             glm::vec3 translation = glm::vec3(0.0f);
-            glm::vec3 rotation = glm::vec3(0.0f);
+            glm::quat quaternion = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
             glm::vec3 scale = glm::vec3(1.0f);
 
             void translate(const glm::vec3& translation) { this->translation += translation; }
-            void rotate(const glm::vec3& rotation) { this->rotation += rotation; }
-            void rotate_x(float angle) { this->rotation.x += angle; }
-            void rotate_y(float angle) { this->rotation.y += angle; }
-            void rotate_z(float angle) { this->rotation.z += angle; }
+            void rotate(const glm::vec3& axis, float angle) { quaternion = glm::rotate(quaternion, angle, axis); }
+            void rotate_x(float angle) { quaternion = glm::rotate(quaternion, angle, glm::vec3(1.0f, 0.0f, 0.0f)); }
+            void rotate_y(float angle) { quaternion = glm::rotate(quaternion, angle, glm::vec3(0.0f, 1.0f, 0.0f)); }
+            void rotate_z(float angle) { quaternion = glm::rotate(quaternion, angle, glm::vec3(0.0f, 0.0f, 1.0f)); }
             void scale_by(const glm::vec3& scale) { this->scale *= scale; }
             void scale_x(float scale) { this->scale.x *= scale; }
             void scale_y(float scale) { this->scale.y *= scale; }
             void scale_z(float scale) { this->scale.z *= scale; }
             void get_matrix(glm::mat4* matrix) const {
-                *matrix = glm::translate(glm::mat4(1.0f), translation) *
-                          glm::rotate(glm::mat4(1.0f), rotation.x, glm::vec3(1.0f, 0.0f, 0.0f)) *
-                          glm::rotate(glm::mat4(1.0f), rotation.y, glm::vec3(0.0f, 1.0f, 0.0f)) *
-                          glm::rotate(glm::mat4(1.0f), rotation.z, glm::vec3(0.0f, 0.0f, 1.0f)) *
+                *matrix = glm::translate(glm::mat4(1.0f), translation) * glm::mat4_cast(quaternion) *
                           glm::scale(glm::mat4(1.0f), scale);
             }
         };
