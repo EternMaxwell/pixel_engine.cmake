@@ -11,6 +11,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 if (MSVC)
   add_compile_options(/bigobj)
+else ()
+  add_compile_options(-Wa,-mbig-obj)
 endif ()
 
 #prepare third-party
