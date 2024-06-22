@@ -7,6 +7,11 @@ namespace pixel_engine {
         using namespace prelude;
         using namespace resources;
 
+        enum class TaskQueueSets {
+            insert_task_queue,
+            after_insertion,
+        };
+
         class TaskQueuePlugin : public Plugin {
            private:
             int num_threads = 4;
@@ -19,7 +24,10 @@ namespace pixel_engine {
             TaskQueuePlugin() {}
             TaskQueuePlugin(int num_threads) : num_threads(num_threads) {}
 
-            void build(App& app) { app.add_system(Startup{}, insert_task_queue); }
+            void build(App& app) {
+                app.configure_sets(TaskQueueSets::insert_task_queue, TaskQueueSets::after_insertion)
+                    .add_system(Startup{}, insert_task_queue, in_set(TaskQueueSets::insert_task_queue));
+            }
         };
     }  // namespace task_queue
 }  // namespace pixel_engine

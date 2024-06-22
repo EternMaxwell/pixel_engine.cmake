@@ -79,9 +79,7 @@ namespace pipeline_test {
             app.add_system(Startup{}, insert_camera)
                 .add_system_main(
                     Startup{}, create_sprite,
-                    after(
-                        app.get_plugin<render_gl::RenderGLPlugin>()->context_creation_node,
-                        app.get_plugin<AssetServerGLPlugin>()->insert_asset_server_node))
+                    in_set(font_gl::FontGLSets::after_insertion, asset_server_gl::AssetServerGLSets::after_insertion))
                 .add_system(Startup{}, create_pixels)
                 .add_system(Update{}, camera_ortho_to_primary_window)
                 .add_system(Update{}, move_sprite);

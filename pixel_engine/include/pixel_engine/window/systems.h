@@ -42,6 +42,7 @@ namespace pixel_engine {
 
                     glfwShowWindow(window_handle.window_handle);
                     glfwMakeContextCurrent(window_handle.window_handle);
+                    glfwSwapInterval(window_handle.vsync ? 1 : 0);
                 }
             }
 
@@ -88,6 +89,7 @@ namespace pixel_engine {
             void swap_buffers(Query<Get<const WindowHandle>, With<WindowCreated>, Without<>> query) {
                 for (auto [window_handle] : query.iter()) {
                     glfwSwapBuffers(window_handle.window_handle);
+                    glfwSwapInterval(window_handle.vsync ? 1 : 0);
                 }
             }
 
@@ -98,16 +100,6 @@ namespace pixel_engine {
                 }
                 spdlog::info("No window exists");
                 no_window_event.write(NoWindowExists{});
-            }
-
-            void make_context_primary(
-                Query<Get<const WindowHandle>, With<PrimaryWindow, WindowCreated>, Without<>> query) {
-                for (auto [window_handle] : query.iter()) {
-                    if (glfwGetCurrentContext() != window_handle.window_handle) {
-                        glfwMakeContextCurrent(window_handle.window_handle);
-                    }
-                    glfwSwapInterval(window_handle.vsync ? 1 : 0);
-                }
             }
 
             void poll_events() { glfwPollEvents(); }

@@ -49,6 +49,8 @@ namespace pixel_engine {
         // sequential run
         using after = entity::after;
         using before = entity::before;
+        template <typename... Args>
+        using in_set = entity::in_set<Args...>;
 
         // schedulers
         using Startup = entity::Startup;

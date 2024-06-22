@@ -9,6 +9,10 @@ project ("pixel_engine.cmake")
 
 set(CMAKE_CXX_STANDARD 20)
 
+if (MSVC)
+  add_compile_options(/bigobj)
+endif ()
+
 #prepare third-party
 find_package (Vulkan REQUIRED)
 

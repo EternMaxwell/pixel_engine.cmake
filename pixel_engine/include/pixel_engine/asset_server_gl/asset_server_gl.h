@@ -8,6 +8,11 @@ namespace pixel_engine {
     namespace asset_server_gl {
         using namespace prelude;
 
+        enum class AssetServerGLSets {
+            insert_asset_server,
+            after_insertion,
+        };
+
         class AssetServerGLPlugin : public entity::Plugin {
            private:
             std::string m_base_path = "./";
@@ -17,13 +22,12 @@ namespace pixel_engine {
             };
 
            public:
-            SystemNode insert_asset_server_node;
-
             void set_base_path(const std::string& base_path) { m_base_path = base_path; }
 
             void build(App& app) override {
                 using namespace asset_server_gl;
-                app.add_system(Startup{}, insert_asset_server, &insert_asset_server_node);
+                app.configure_sets(AssetServerGLSets::insert_asset_server, AssetServerGLSets::after_insertion)
+                    .add_system(Startup{}, insert_asset_server, in_set(AssetServerGLSets::insert_asset_server));
             }
         };
     }  // namespace asset_server_gl

@@ -51,7 +51,6 @@ namespace pixel_engine {
                 for (auto [pipeline, buffers, images] : pipeline_query.iter()) {
                     for (auto [cam_trans, ortho_proj] : camera_query.iter()) {
                         for (auto [pixels, size, transform] : pixels_query.iter()) {
-                            std::cout << "Drawing pixels" << std::endl;
                             glUseProgram(pipeline.program);
                             glBindBuffer(GL_ARRAY_BUFFER, pipeline.vertex_buffer.buffer);
                             glBindVertexArray(pipeline.vertex_array);

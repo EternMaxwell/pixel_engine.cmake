@@ -55,12 +55,12 @@ namespace test_parallel_run {
         void build(entity::App& app) override {
             Node node1, node2;
             app.add_plugin(LoopPlugin{})
-                .configure_sets(Stage::data, Stage::endl)
                 .add_system(Startup{}, spawn_data1)
                 .add_system(Startup{}, spawn_data2)
                 .add_system(Update{}, print_data1, entity::in_set(Stage::data))
                 .add_system(Update{}, print_data2, entity::in_set(Stage::data))
                 .add_system(Update{}, print_endl, entity::in_set(Stage::endl))
+                .configure_sets(Stage::data, Stage::endl)
                 .add_system(Update{}, exit);
         }
     };

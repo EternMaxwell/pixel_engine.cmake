@@ -585,6 +585,40 @@ namespace pixel_engine {
                 }
             }
 
+            template <typename T, typename... Args>
+            void configure_system_sets(std::shared_ptr<SystemNode> node, in_set<T, Args...> in_sets) {
+                T& set_of_T = std::any_cast<T&>(in_sets.sets[typeid(T).hash_code()]);
+                if (m_system_sets.find(typeid(T).hash_code()) != m_system_sets.end()) {
+                    bool before = true;
+                    for (auto& set_any : m_system_sets[typeid(T).hash_code()]) {
+                        T& set = std::any_cast<T&>(set_any);
+                        if (set == set_of_T) {
+                            before = false;
+                            break;
+                        }
+                        for (auto& systems : m_in_set_systems[typeid(T).hash_code()]) {
+                            if (systems->sets.find(typeid(T).hash_code()) != systems->sets.end()) {
+                                T& sys_set = std::any_cast<T&>(systems->sets[typeid(T).hash_code()]);
+                                if (sys_set == set && dynamic_cast<decltype(node->scheduler.get())>(systems->scheduler.get()) != NULL) {
+                                    if (before) {
+                                        node->user_defined_before.insert(systems);
+                                    } else {
+                                        systems->user_defined_before.insert(node);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                m_in_set_systems[typeid(T).hash_code()].push_back(node);
+                node->sets[typeid(T).hash_code()] = set_of_T;
+                if constexpr (sizeof...(Args) > 0) {
+                    configure_system_sets(node, in_set<Args...>(in_sets.sets));
+                }
+            }
+
+            void configure_system_sets(std::shared_ptr<SystemNode> node, in_set<> in_sets) {}
+
            public:
             App() {}
 
@@ -640,43 +674,31 @@ namespace pixel_engine {
             template <typename T, typename... Args>
             App& configure_sets(T arg, Args... args) {
                 m_system_sets[typeid(T).hash_code()] = {arg, args...};
-                return *this;
-            }
-
-            template <typename T, typename... Args>
-            void configure_system_sets(std::shared_ptr<SystemNode> node, in_set<T, Args...> in_sets) {
-                if (m_system_sets.find(typeid(T).hash_code()) != m_system_sets.end()) {
-                    T& set_of_T = std::any_cast<T&>(in_sets.sets[typeid(T).hash_code()]);
-                    bool before = true;
-                    for (auto& set_any : m_system_sets[typeid(T).hash_code()]) {
-                        T& set = std::any_cast<T&>(set_any);
-                        if (set == set_of_T) {
-                            before = false;
-                            break;
-                        }
-                        for (auto& systems : m_in_set_systems[typeid(T).hash_code()]) {
-                            if (systems->sets.find(typeid(T).hash_code()) != systems->sets.end()) {
-                                T& sys_set = std::any_cast<T&>(systems->sets[typeid(T).hash_code()]);
-                                if (sys_set == set) {
-                                    std::cout << "add user defined before\n";
-                                    if (before) {
-                                        node->user_defined_before.insert(systems);
-                                    } else {
-                                        systems->user_defined_before.insert(node);
-                                    }
-                                }
+                std::vector<std::vector<std::shared_ptr<SystemNode>>> in_set_systems;
+                for (auto& set_any : m_system_sets[typeid(T).hash_code()]) {
+                    T& set = std::any_cast<T&>(set_any);
+                    in_set_systems.push_back({});
+                    auto& systems_in_this_set = in_set_systems.back();
+                    for (auto& systems : m_in_set_systems[typeid(T).hash_code()]) {
+                        if (systems->sets.find(typeid(T).hash_code()) != systems->sets.end()) {
+                            T& sys_set = std::any_cast<T&>(systems->sets[typeid(T).hash_code()]);
+                            if (sys_set == set) {
+                                systems_in_this_set.push_back(systems);
                             }
                         }
                     }
-                    m_in_set_systems[typeid(T).hash_code()].push_back(node);
-                    node->sets[typeid(T).hash_code()] = set_of_T;
                 }
-                if constexpr (sizeof...(Args) > 0) {
-                    configure_system_sets(node, in_set<Args...>(in_sets.sets));
+                for (int i = 0; i < in_set_systems.size(); i++) {
+                    for (int j = i + 1; j < in_set_systems.size(); j++) {
+                        for (auto& system1 : in_set_systems[i]) {
+                            for (auto& system2 : in_set_systems[j]) {
+                                system2->user_defined_before.insert(system1);
+                            }
+                        }
+                    }
                 }
+                return *this;
             }
-
-            void configure_system_sets(std::shared_ptr<SystemNode> node, in_set<> in_sets) {}
 
             /*! @brief Add a system.
              * @tparam Args The types of the arguments for the system.

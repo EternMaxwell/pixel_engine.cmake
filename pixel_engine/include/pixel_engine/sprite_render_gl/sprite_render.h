@@ -10,13 +10,20 @@ namespace pixel_engine {
         using namespace systems;
         using namespace prelude;
 
+        enum class SpriteRenderGLSets {
+            before_draw,
+            draw,
+            after_draw,
+        };
+
         struct SpriteRenderGLPlugin : public Plugin {
            public:
             void build(App& app) override {
                 app.add_system_main(
-                       Startup{}, create_pipeline,
-                       after(app.get_plugin<render_gl::RenderGLPlugin>()->context_creation_node))
-                    .add_system_main(Render{}, draw);
+                       Startup{}, create_pipeline, in_set(render_gl::RenderGLStartupSets::after_context_creation))
+                    .configure_sets(
+                        SpriteRenderGLSets::before_draw, SpriteRenderGLSets::draw, SpriteRenderGLSets::after_draw)
+                    .add_system_main(Render{}, draw, in_set(SpriteRenderGLSets::draw));
             }
         };
     }  // namespace sprite_render_gl

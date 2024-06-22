@@ -42,9 +42,7 @@ namespace font_gl_test {
             app.add_system(Startup{}, create_camera)
                 .add_system(
                     Startup{}, create_text,
-                    after(
-                        app.get_plugin<FontGLPlugin>()->library_insert_node,
-                        app.get_plugin<AssetServerGLPlugin>()->insert_asset_server_node))
+                    in_set(font_gl::FontGLSets::after_insertion, asset_server_gl::AssetServerGLSets::after_insertion))
                 .add_system(PreRender{}, camera_ortho_to_primary_window);
         }
     };

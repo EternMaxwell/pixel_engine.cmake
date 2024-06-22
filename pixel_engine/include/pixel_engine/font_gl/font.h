@@ -13,15 +13,18 @@ namespace pixel_engine {
         using namespace resources;
         using namespace prelude;
 
+        enum class FontGLSets {
+            insert_library,
+            after_insertion,
+        };
+
         class FontGLPlugin : public Plugin {
            public:
-            SystemNode library_insert_node;
-
             void build(App& app) {
-                app.add_system(Startup{}, insert_ft2_library, &library_insert_node)
+                app.configure_sets(FontGLSets::insert_library, FontGLSets::after_insertion)
+                    .add_system(Startup{}, insert_ft2_library, in_set(FontGLSets::insert_library))
                     .add_system_main(
-                        Startup{}, create_pipeline,
-                        after(app.get_plugin<render_gl::RenderGLPlugin>()->context_creation_node))
+                        Startup{}, create_pipeline, in_set(render_gl::RenderGLStartupSets::after_context_creation))
                     .add_system_main(Render{}, draw);
             }
         };
