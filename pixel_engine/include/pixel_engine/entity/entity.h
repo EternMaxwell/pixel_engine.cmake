@@ -56,6 +56,7 @@ namespace pixel_engine {
             std::unordered_set<std::shared_ptr<condition>> conditions;
             std::unordered_set<std::shared_ptr<SystemNode>> user_defined_before;
             std::unordered_set<std::shared_ptr<SystemNode>> app_generated_before;
+            std::unordered_map<size_t, std::any> sets;
             double avg_reach_time = 0;
 
             SystemNode(
@@ -312,6 +313,32 @@ namespace pixel_engine {
         template <typename T, typename... Ts>
         struct tuple_contain<T, std::tuple<T, Ts...>> : std::true_type {};
 
+        template <template <typename...> typename T, typename Tuple>
+        struct tuple_contain_template;
+
+        template <template <typename...> typename T>
+        struct tuple_contain_template<T, std::tuple<>> : std::false_type {};
+
+        template <template <typename...> typename T, typename U, typename... Ts>
+        struct tuple_contain_template<T, std::tuple<U, Ts...>> : tuple_contain_template<T, std::tuple<Ts...>> {};
+
+        template <template <typename...> typename T, typename... Ts, typename... Temps>
+        struct tuple_contain_template<T, std::tuple<T<Temps...>, Ts...>> : std::true_type {};
+
+        template <template <typename...> typename T, typename Tuple>
+        struct tuple_template_index {};
+
+        template <template <typename...> typename T, typename U, typename... Args>
+        struct tuple_template_index<T, std::tuple<U, Args...>> {
+            static constexpr int index() {
+                if constexpr (is_template_of<T, U>::value) {
+                    return 0;
+                } else {
+                    return 1 + tuple_template_index<T, std::tuple<Args...>>::index();
+                }
+            }
+        };
+
         struct before {
             friend class App;
 
@@ -336,6 +363,15 @@ namespace pixel_engine {
             after(Nodes... nodes) : nodes({nodes...}){};
         };
 
+        template <typename... Args>
+        struct in_set {
+            std::unordered_map<size_t, std::any> sets;
+            in_set(Args... args) : sets({{typeid(Args).hash_code(), std::any(args)}...}) {}
+            template <typename T, typename... Args>
+            in_set(in_set<T, Args...> in_sets) : sets(in_sets.sets) {}
+            in_set(std::unordered_map<size_t, std::any> sets) : sets(sets) {}
+        };
+
         class App {
             friend class LoopPlugin;
 
@@ -345,7 +381,8 @@ namespace pixel_engine {
             std::unordered_map<entt::entity, std::set<entt::entity>> m_entity_relation_tree;
             std::unordered_map<size_t, std::any> m_resources;
             std::unordered_map<size_t, std::deque<Event>> m_events;
-            std::unordered_map<size_t, std::vector<int>> m_system_sets;
+            std::unordered_map<size_t, std::vector<std::any>> m_system_sets;
+            std::unordered_map<size_t, std::vector<std::shared_ptr<SystemNode>>> m_in_set_systems;
             std::vector<Command> m_existing_commands;
             std::vector<std::unique_ptr<BasicSystem<void>>> m_state_update;
             std::vector<std::shared_ptr<SystemNode>> m_systems;
@@ -364,6 +401,15 @@ namespace pixel_engine {
                     if constexpr (std::is_same_v<T, std::shared_ptr<SystemNode>*>) {
                         return nullptr;
                     }
+                    return T();
+                }
+            }
+
+            template <template <typename...> typename T, typename... Args>
+            constexpr auto tuple_get_template(std::tuple<Args...> tuple) {
+                if constexpr (tuple_contain_template<T, std::tuple<Args...>>::value) {
+                    return std::get<tuple_template_index<T, std::tuple<Args...>>::index()>(tuple);
+                } else {
                     return T();
                 }
             }
@@ -591,13 +637,46 @@ namespace pixel_engine {
              *  @param args The rest of the system sets.
              *  @return The App object itself.
              */
-            template <typename T, std::enable_if_t<std::is_enum_v<T>>, typename... Args>
+            template <typename T, typename... Args>
             App& configure_sets(T arg, Args... args) {
-                T arr[] = {arg, args...};
-                for (auto& a : arr) {
-                    m_system_sets[typeid(T).hash_code()].push_back(a);
+                m_system_sets[typeid(T).hash_code()] = {arg, args...};
+                return *this;
+            }
+
+            template <typename T, typename... Args>
+            void configure_system_sets(std::shared_ptr<SystemNode> node, in_set<T, Args...> in_sets) {
+                if (m_system_sets.find(typeid(T).hash_code()) != m_system_sets.end()) {
+                    T& set_of_T = std::any_cast<T&>(in_sets.sets[typeid(T).hash_code()]);
+                    bool before = true;
+                    for (auto& set_any : m_system_sets[typeid(T).hash_code()]) {
+                        T& set = std::any_cast<T&>(set_any);
+                        if (set == set_of_T) {
+                            before = false;
+                            break;
+                        }
+                        for (auto& systems : m_in_set_systems[typeid(T).hash_code()]) {
+                            if (systems->sets.find(typeid(T).hash_code()) != systems->sets.end()) {
+                                T& sys_set = std::any_cast<T&>(systems->sets[typeid(T).hash_code()]);
+                                if (sys_set == set) {
+                                    std::cout << "add user defined before\n";
+                                    if (before) {
+                                        node->user_defined_before.insert(systems);
+                                    } else {
+                                        systems->user_defined_before.insert(node);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    m_in_set_systems[typeid(T).hash_code()].push_back(node);
+                    node->sets[typeid(T).hash_code()] = set_of_T;
+                }
+                if constexpr (sizeof...(Args) > 0) {
+                    configure_system_sets(node, in_set<Args...>(in_sets.sets));
                 }
             }
+
+            void configure_system_sets(std::shared_ptr<SystemNode> node, in_set<> in_sets) {}
 
             /*! @brief Add a system.
              * @tparam Args The types of the arguments for the system.
@@ -609,11 +688,11 @@ namespace pixel_engine {
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
-            template <typename Sch, typename... Args>
+            template <typename Sch, typename... Args, typename... Sets>
             App& add_system_inner(
                 Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node = nullptr,
                 before befores = before(), after afters = after(),
-                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}, in_set<Sets...> in_sets = in_set()) {
                 std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
                     std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
                 new_node->conditions = conditions;
@@ -630,6 +709,7 @@ namespace pixel_engine {
                 if (node != nullptr) {
                     *node = new_node;
                 }
+                configure_system_sets(new_node, in_sets);
                 check_locked(new_node, new_node);
                 m_systems.push_back(new_node);
                 return *this;
@@ -651,7 +731,8 @@ namespace pixel_engine {
                 auto tuple = std::make_tuple(
                     scheduler, std::function<void(Args...)>(func), tuple_get<std::shared_ptr<SystemNode>*>(args_tuple),
                     tuple_get<before>(args_tuple), tuple_get<after>(args_tuple),
-                    tuple_get<std::unordered_set<std::shared_ptr<condition>>>(args_tuple));
+                    tuple_get<std::unordered_set<std::shared_ptr<condition>>>(args_tuple),
+                    tuple_get_template<in_set>(args_tuple));
                 std::apply([this](auto... args) { add_system_inner(args...); }, tuple);
                 return *this;
             }
@@ -671,8 +752,8 @@ namespace pixel_engine {
                 auto args_tuple = std::tuple<Ts...>(args...);
                 auto tuple = std::make_tuple(
                     scheduler, func, tuple_get<std::shared_ptr<SystemNode>*>(args_tuple), tuple_get<before>(args_tuple),
-                    tuple_get<after>(args_tuple),
-                    tuple_get<std::unordered_set<std::shared_ptr<condition>>>(args_tuple));
+                    tuple_get<after>(args_tuple), tuple_get<std::unordered_set<std::shared_ptr<condition>>>(args_tuple),
+                    tuple_get_template<in_set>(args_tuple));
                 std::apply([this](auto... args) { add_system_inner(args...); }, tuple);
                 return *this;
             }
@@ -687,11 +768,11 @@ namespace pixel_engine {
              * scheduler, this will be ignored when preparing runners.
              * @return The App object itself.
              */
-            template <typename Sch, typename... Args>
+            template <typename Sch, typename... Args, typename... Sets>
             App& add_system_main_inner(
                 Sch scheduler, std::function<void(Args...)> func, std::shared_ptr<SystemNode>* node = nullptr,
                 before befores = before(), after afters = after(),
-                std::unordered_set<std::shared_ptr<condition>> conditions = {}) {
+                std::unordered_set<std::shared_ptr<condition>> conditions = {}, in_set<Sets...> in_sets = in_set()) {
                 std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
                     std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)),
                     true);
@@ -709,6 +790,7 @@ namespace pixel_engine {
                 if (node != nullptr) {
                     *node = new_node;
                 }
+                configure_system_sets(new_node, in_sets);
                 check_locked(new_node, new_node);
                 m_systems.push_back(new_node);
                 return *this;
@@ -730,7 +812,8 @@ namespace pixel_engine {
                 auto tuple = std::make_tuple(
                     scheduler, std::function<void(Args...)>(func), tuple_get<std::shared_ptr<SystemNode>*>(args_tuple),
                     tuple_get<before>(args_tuple), tuple_get<after>(args_tuple),
-                    tuple_get<std::unordered_set<std::shared_ptr<condition>>>(args_tuple));
+                    tuple_get<std::unordered_set<std::shared_ptr<condition>>>(args_tuple),
+                    tuple_get_template<in_set>(args_tuple));
                 std::apply([this](auto... args) { add_system_main_inner(args...); }, tuple);
                 return *this;
             }
@@ -750,8 +833,8 @@ namespace pixel_engine {
                 auto args_tuple = std::tuple<Ts...>(args...);
                 auto tuple = std::make_tuple(
                     scheduler, func, tuple_get<std::shared_ptr<SystemNode>*>(args_tuple), tuple_get<before>(args_tuple),
-                    tuple_get<after>(args_tuple),
-                    tuple_get<std::unordered_set<std::shared_ptr<condition>>>(args_tuple));
+                    tuple_get<after>(args_tuple), tuple_get<std::unordered_set<std::shared_ptr<condition>>>(args_tuple),
+                    tuple_get_template<in_set>(args_tuple));
                 std::apply([this](auto... args) { add_system_main_inner(args...); }, tuple);
                 return *this;
             }
