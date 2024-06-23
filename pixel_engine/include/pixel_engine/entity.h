@@ -52,6 +52,12 @@ namespace pixel_engine {
         template <typename... Args>
         using in_set = entity::in_set<Args...>;
 
+        // condition run
+        template <typename... Args>
+        using run_if = entity::run_if<Args...>;
+        template <typename T>
+        using in_state = entity::in_state<T>;
+
         // schedulers
         using Startup = entity::Startup;
         template <typename T>
