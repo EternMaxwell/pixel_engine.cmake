@@ -53,10 +53,14 @@ namespace pixel_engine {
         using in_set = entity::in_set<Args...>;
 
         // condition run
-        template <typename... Args>
-        using run_if = entity::run_if<Args...>;
         template <typename T>
-        using in_state = entity::in_state<T>;
+        std::shared_ptr<entity::condition> in_state(T state) {
+            return std::make_shared<entity::condition_state<T>>(state);
+        }
+        template <typename... Args>
+        std::unordered_set<std::shared_ptr<entity::condition>> run_if(Args... args) {
+            return {args...};
+        }
 
         // schedulers
         using Startup = entity::Startup;

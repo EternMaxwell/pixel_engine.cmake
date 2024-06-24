@@ -372,15 +372,5 @@ namespace pixel_engine {
                 return m_app->run_system_v(m_func);
             }
         };
-
-        template <typename T>
-        std::shared_ptr<condition> in_state(T state) {
-            return std::make_shared<condition_state<T>>(state);
-        }
-
-        template <typename... Args>
-        std::unordered_set<std::shared_ptr<condition>> run_if(Args... args) {
-            return {args...};
-        }
     }  // namespace entity
 }  // namespace pixel_engine
