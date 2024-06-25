@@ -77,9 +77,7 @@ namespace pipeline_test {
             SystemNode draw_node;
 
             app.add_system(Startup{}, insert_camera)
-                .add_system_main(
-                    Startup{}, create_sprite,
-                    in_set(font_gl::FontGLSets::after_insertion, asset_server_gl::AssetServerGLSets::after_insertion))
+                .add_system_main(Startup{}, create_sprite)
                 .add_system(Startup{}, create_pixels)
                 .add_system(Update{}, camera_ortho_to_primary_window)
                 .add_system(Update{}, move_sprite);

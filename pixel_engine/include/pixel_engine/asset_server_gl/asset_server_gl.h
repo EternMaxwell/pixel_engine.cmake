@@ -27,7 +27,7 @@ namespace pixel_engine {
             void build(App& app) override {
                 using namespace asset_server_gl;
                 app.configure_sets(AssetServerGLSets::insert_asset_server, AssetServerGLSets::after_insertion)
-                    .add_system(Startup{}, insert_asset_server, in_set(AssetServerGLSets::insert_asset_server));
+                    .add_system(PreStartup{}, insert_asset_server, in_set(AssetServerGLSets::insert_asset_server));
             }
         };
     }  // namespace asset_server_gl

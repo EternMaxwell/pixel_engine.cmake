@@ -26,7 +26,7 @@ namespace pixel_engine {
 
             void build(App& app) {
                 app.configure_sets(TaskQueueSets::insert_task_queue, TaskQueueSets::after_insertion)
-                    .add_system(Startup{}, insert_task_queue, in_set(TaskQueueSets::insert_task_queue));
+                    .add_system(PreStartup{}, insert_task_queue, in_set(TaskQueueSets::insert_task_queue));
             }
         };
     }  // namespace task_queue

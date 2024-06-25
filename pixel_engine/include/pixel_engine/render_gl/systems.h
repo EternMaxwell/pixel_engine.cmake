@@ -57,21 +57,24 @@ namespace pixel_engine {
 
             void clear_color(Query<Get<WindowHandle>, With<WindowCreated>, Without<>> query) {
                 for (auto [window_handle] : query.iter()) {
-                    glfwMakeContextCurrent(window_handle.window_handle);
+                    if (glfwGetCurrentContext() != window_handle.window_handle)
+                        glfwMakeContextCurrent(window_handle.window_handle);
                     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 }
             }
 
             void update_viewport(Query<Get<WindowHandle, WindowSize>, With<WindowCreated>, Without<>> query) {
                 for (auto [window_handle, window_size] : query.iter()) {
-                    glfwMakeContextCurrent(window_handle.window_handle);
+                    if (glfwGetCurrentContext() != window_handle.window_handle)
+                        glfwMakeContextCurrent(window_handle.window_handle);
                     glViewport(0, 0, window_size.width, window_size.height);
                 }
             }
 
             void context_creation(Query<Get<WindowHandle>, With<WindowCreated>, Without<>> query) {
                 for (auto [window_handle] : query.iter()) {
-                    glfwMakeContextCurrent(window_handle.window_handle);
+                    if (glfwGetCurrentContext() != window_handle.window_handle)
+                        glfwMakeContextCurrent(window_handle.window_handle);
                     gladLoadGL();
                     glEnable(GL_DEPTH_TEST);
                     glEnable(GL_BLEND);

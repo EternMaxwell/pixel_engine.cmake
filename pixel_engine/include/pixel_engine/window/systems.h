@@ -25,6 +25,7 @@ namespace pixel_engine {
                     Without<WindowCreated>>
                     query) {
                 for (auto [id, window_handle, window_size, window_title, window_hints] : query.iter()) {
+                    spdlog::debug("Creating window");
                     glfwDefaultWindowHints();
 
                     for (auto& [hint, value] : window_hints.hints) {

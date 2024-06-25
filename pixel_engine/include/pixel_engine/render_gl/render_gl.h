@@ -25,7 +25,7 @@ namespace pixel_engine {
                 using namespace window;
                 app.configure_sets(RenderGLStartupSets::context_creation, RenderGLStartupSets::after_context_creation)
                     .add_system_main(
-                        Startup{}, context_creation,
+                        PreStartup{}, context_creation,
                         in_set(window::WindowStartUpSets::after_window_creation, RenderGLStartupSets::context_creation))
                     .configure_sets(
                         RenderGLPreRenderSets::create_pipelines, RenderGLPreRenderSets::after_create_pipelines)

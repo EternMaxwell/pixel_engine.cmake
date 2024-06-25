@@ -62,10 +62,10 @@ namespace pixel_engine {
                 app.configure_sets(
                        WindowStartUpSets::glfw_initialization, WindowStartUpSets::window_creation,
                        WindowStartUpSets::after_window_creation)
-                    .add_system_main(Startup{}, insert_primary_window, &insert_primary_node)
-                    .add_system_main(Startup{}, init_glfw, in_set(WindowStartUpSets::glfw_initialization))
+                    .add_system_main(PreStartup{}, insert_primary_window, &insert_primary_node)
+                    .add_system_main(PreStartup{}, init_glfw, in_set(WindowStartUpSets::glfw_initialization))
                     .add_system_main(
-                        Startup{}, create_window, after(insert_primary_node),
+                        PreStartup{}, create_window, after(insert_primary_node),
                         in_set(WindowStartUpSets::window_creation))
                     .configure_sets(WindowPreUpdateSets::poll_events, WindowPreUpdateSets::update_window_data)
                     .add_system_main(PreUpdate{}, poll_events, in_set(WindowPreUpdateSets::poll_events))

@@ -5,6 +5,8 @@ int main() {
     using namespace font_gl_test;
     using namespace prelude;
 
+    spdlog::set_level(spdlog::level::debug);
+
     App app;
     app.add_plugin(LoopPlugin{})
         .add_plugin(WindowPlugin{})

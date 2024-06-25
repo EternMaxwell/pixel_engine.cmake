@@ -13,7 +13,7 @@ namespace pixel_engine {
            public:
             void build(App& app) override {
                 app.add_system_main(
-                       Startup{}, create_pipeline, in_set(render_gl::RenderGLStartupSets::after_context_creation))
+                       PreStartup{}, create_pipeline, in_set(render_gl::RenderGLStartupSets::after_context_creation))
                     .add_system_main(Render{}, draw);
             }
         };

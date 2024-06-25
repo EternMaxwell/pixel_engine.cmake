@@ -585,7 +585,7 @@ namespace pixel_engine {
                 }
             }
 
-            template <typename T, typename... Args>
+            template <typename SchT, typename T, typename... Args>
             void configure_system_sets(std::shared_ptr<SystemNode> node, in_set<T, Args...> in_sets) {
                 T& set_of_T = std::any_cast<T&>(in_sets.sets[typeid(T).hash_code()]);
                 if (m_system_sets.find(typeid(T).hash_code()) != m_system_sets.end()) {
@@ -599,7 +599,7 @@ namespace pixel_engine {
                         for (auto& systems : m_in_set_systems[typeid(T).hash_code()]) {
                             if (systems->sets.find(typeid(T).hash_code()) != systems->sets.end()) {
                                 T& sys_set = std::any_cast<T&>(systems->sets[typeid(T).hash_code()]);
-                                if (sys_set == set && dynamic_cast<decltype(node->scheduler.get())>(systems->scheduler.get()) != NULL) {
+                                if (sys_set == set && dynamic_cast<SchT*>(systems->scheduler.get()) != NULL) {
                                     if (before) {
                                         node->user_defined_before.insert(systems);
                                     } else {
@@ -613,10 +613,11 @@ namespace pixel_engine {
                 m_in_set_systems[typeid(T).hash_code()].push_back(node);
                 node->sets[typeid(T).hash_code()] = set_of_T;
                 if constexpr (sizeof...(Args) > 0) {
-                    configure_system_sets(node, in_set<Args...>(in_sets.sets));
+                    configure_system_sets<SchT>(node, in_set<Args...>(in_sets.sets));
                 }
             }
 
+            template <typename T>
             void configure_system_sets(std::shared_ptr<SystemNode> node, in_set<> in_sets) {}
 
            public:
@@ -731,7 +732,7 @@ namespace pixel_engine {
                 if (node != nullptr) {
                     *node = new_node;
                 }
-                configure_system_sets(new_node, in_sets);
+                configure_system_sets<Sch>(new_node, in_sets);
                 check_locked(new_node, new_node);
                 m_systems.push_back(new_node);
                 return *this;
@@ -812,7 +813,7 @@ namespace pixel_engine {
                 if (node != nullptr) {
                     *node = new_node;
                 }
-                configure_system_sets(new_node, in_sets);
+                configure_system_sets<Sch>(new_node, in_sets);
                 check_locked(new_node, new_node);
                 m_systems.push_back(new_node);
                 return *this;
@@ -970,9 +971,13 @@ namespace pixel_engine {
             void run_parallel() {
                 spdlog::info("App started.");
                 spdlog::info("Loading systems runners.");
-                // add start up systems
+                // load systems
+                spdlog::debug("Load pre-startup systems.");
+                load_runner<PreStartup>();
                 spdlog::debug("Load start up systems.");
                 load_runner<Startup>();
+                spdlog::debug("Load post-startup systems.");
+                load_runner<PostStartup>();
                 spdlog::debug("Load state change systems.");
                 load_runner<OnStateChange>();
                 spdlog::debug("Load pre-update systems.");
@@ -989,9 +994,15 @@ namespace pixel_engine {
                 load_runner<PostRender>();
                 spdlog::info("Loading done.");
 
+                prepare_runner<PreStartup>();
                 prepare_runner<Startup>();
+                prepare_runner<PostStartup>();
+                spdlog::debug("Run pre-startup systems.");
+                run_runner<PreStartup>();
                 spdlog::debug("Run start up systems.");
                 run_runner<Startup>();
+                spdlog::debug("Run post-startup systems.");
+                run_runner<PostStartup>();
 
                 do {
                     spdlog::debug("Prepare runners.");

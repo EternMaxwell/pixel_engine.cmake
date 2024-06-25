@@ -12,12 +12,44 @@ namespace pixel_engine {
             virtual bool should_run(App* app) = 0;
         };
 
+        class PreStartup : public Scheduler {
+           private:
+            bool m_value;
+
+           public:
+            PreStartup() : m_value(true), Scheduler() {}
+            bool should_run(App* app) override {
+                if (m_value) {
+                    m_value = false;
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        };
+
         class Startup : public Scheduler {
            private:
             bool m_value;
 
            public:
             Startup() : m_value(true), Scheduler() {}
+            bool should_run(App* app) override {
+                if (m_value) {
+                    m_value = false;
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        };
+
+        class PostStartup : public Scheduler {
+           private:
+            bool m_value;
+
+           public:
+            PostStartup() : m_value(true), Scheduler() {}
             bool should_run(App* app) override {
                 if (m_value) {
                     m_value = false;

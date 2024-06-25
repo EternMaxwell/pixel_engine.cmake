@@ -40,9 +40,7 @@ namespace font_gl_test {
        public:
         void build(App& app) {
             app.add_system(Startup{}, create_camera)
-                .add_system(
-                    Startup{}, create_text,
-                    in_set(font_gl::FontGLSets::after_insertion, asset_server_gl::AssetServerGLSets::after_insertion))
+                .add_system(Startup{}, create_text)
                 .add_system(PreRender{}, camera_ortho_to_primary_window);
         }
     };

@@ -63,7 +63,9 @@ namespace pixel_engine {
         }
 
         // schedulers
+        using PreStartup = entity::PreStartup;
         using Startup = entity::Startup;
+        using PostStartup = entity::PostStartup;
         template <typename T>
         using OnEnter = entity::OnEnter<T>;
         template <typename T>
