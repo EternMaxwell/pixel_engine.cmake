@@ -12,5 +12,5 @@ int main() {
         .add_plugin(RenderGLPlugin{})
         .add_plugin(task_queue::TaskQueuePlugin{})
         .add_plugin(test_queue_test::TestPlugin{})
-        .run_parallel();
+        .run();
 }

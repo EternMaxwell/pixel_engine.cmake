@@ -7,7 +7,7 @@
 
 namespace test_with_child {
     using namespace pixel_engine;
-    using namespace entity;
+    using namespace prelude;
 
     struct Health {
         float life;
@@ -19,7 +19,7 @@ namespace test_with_child {
 
     struct WithChild {};
 
-    void spawn(entity::Command command) {
+    void spawn(Command command) {
         std::cout << "spawn" << std::endl;
         for (int i = 0; i < 50; i++) {
             command.spawn(Health{.life = 100.0f}, WithChild{});
@@ -27,7 +27,7 @@ namespace test_with_child {
         std::cout << std::endl;
     }
 
-    void create_child(entity::Command command, entity::Query<Get<entt::entity>, With<WithChild>, Without<>> query) {
+    void create_child(Command command, Query<Get<Entity>, With<WithChild>, Without<>> query) {
         std::cout << "create_child" << std::endl;
         for (auto [entity] : query.iter()) {
             command.entity(entity).spawn(Health{.life = 50.0f});
@@ -35,7 +35,7 @@ namespace test_with_child {
         std::cout << std::endl;
     }
 
-    void print(entity::Query<Get<entt::entity, Health>, With<>, Without<>> query) {
+    void print(Query<Get<Entity, Health>, With<>, Without<>> query) {
         std::cout << "print" << std::endl;
         for (auto [entity, health] : query.iter()) {
             std::string id = std::format("{:#05x}", static_cast<int>(entity));
@@ -44,7 +44,7 @@ namespace test_with_child {
         std::cout << std::endl;
     }
 
-    void print_count(entity::Query<Get<Health>, With<>, Without<>> query) {
+    void print_count(Query<Get<Health>, With<>, Without<>> query) {
         std::cout << "print_count" << std::endl;
         int count = 0;
         for (auto [health] : query.iter()) {
@@ -54,7 +54,7 @@ namespace test_with_child {
         std::cout << std::endl;
     }
 
-    void despawn_recurese(entity::Command command, entity::Query<Get<entt::entity>, With<WithChild>, Without<>> query) {
+    void despawn_recurese(Command command, Query<Get<Entity>, With<WithChild>, Without<>> query) {
         std::cout << "despawn" << std::endl;
         for (auto [entity] : query.iter()) {
             command.entity(entity).despawn_recurse();
@@ -65,12 +65,13 @@ namespace test_with_child {
     class SpawnWithChildPlugin : public entity::Plugin {
        public:
         void build(entity::App& app) override {
-            app.add_system(entity::Startup{}, spawn)
-                .add_system(entity::Startup{}, print_count)
-                .add_system(entity::Startup{}, create_child)
-                .add_system(entity::Startup{}, print_count)
-                .add_system(entity::Startup{}, despawn_recurese)
-                .add_system(entity::Update{}, print_count);
+            SystemNode node;
+            app.add_system(Startup{}, spawn, &node)
+                .add_system(Startup{}, print_count, &node, after(node))
+                .add_system(Startup{}, create_child, &node, after(node))
+                .add_system(Startup{}, print_count, &node, after(node))
+                .add_system(Startup{}, despawn_recurese, &node, after(node))
+                .add_system(Update{}, print_count);
         }
     };
 

@@ -917,30 +917,6 @@ namespace pixel_engine {
                 return *this;
             }
 
-            /*! @brief Run the app.
-             */
-            void run() {
-                spdlog::info("App started.");
-                spdlog::debug("Run start up systems.");
-                run_start_up_systems();
-                spdlog::debug("End start up system commands.");
-                end_commands();
-                do {
-                    spdlog::debug("Run state change systems.");
-                    run_state_change_systems();
-                    spdlog::debug("Update states.");
-                    update_states();
-                    spdlog::debug("Run update systems.");
-                    run_update_systems();
-                    end_commands();
-                    spdlog::debug("Run render systems.");
-                    run_render_systems();
-                    end_commands();
-                    spdlog::debug("Tick events and clear out-dated events.");
-                    tick_events();
-                } while (m_loop_enabled && !run_system_v(std::function(check_exit)));
-            }
-
             template <typename T>
             void load_runner() {
                 auto runner = std::make_shared<SystemRunner>(this, m_pool);
@@ -968,7 +944,7 @@ namespace pixel_engine {
 
             /*! @brief Run the app in parallel.
              */
-            void run_parallel() {
+            void run() {
                 spdlog::info("App started.");
                 spdlog::info("Loading systems runners.");
                 // load systems

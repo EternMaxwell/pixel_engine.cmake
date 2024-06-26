@@ -2,8 +2,9 @@
 
 namespace test_loop {
     using namespace pixel_engine;
+    using namespace prelude;
 
-    void print_hello(entity::Command command) { std::cout << "Hello, World!" << std::endl; }
+    void print_hello(Command command) { std::cout << "Hello, World!" << std::endl; }
 
     int count_down = 20;
 
@@ -12,19 +13,19 @@ namespace test_loop {
         return count_down <= 0;
     }
 
-    void exit_app(entity::EventWriter<entity::AppExit> exit_event) {
-        if ((count_down--) <= 0) exit_event.write(entity::AppExit{});
+    void exit_app(EventWriter<AppExit> exit_event) {
+        if ((count_down--) <= 0) exit_event.write(AppExit{});
     }
 
-    class LoopTestPlugin : public entity::Plugin {
+    class LoopTestPlugin : public Plugin {
        public:
-        void build(entity::App& app) override {
-            app.add_system(entity::Update{}, print_hello).add_system(entity::Update{}, exit_app);
+        void build(App& app) override {
+            app.add_system(Update{}, print_hello).add_system(Update{}, exit_app);
         }
     };
 
     void test() {
-        entity::App app;
-        app.add_plugin(entity::LoopPlugin{}).add_plugin(LoopTestPlugin{}).run();
+        App app;
+        app.add_plugin(LoopPlugin{}).add_plugin(LoopTestPlugin{}).run();
     }
 }  // namespace test_loop

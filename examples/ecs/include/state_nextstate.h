@@ -2,14 +2,15 @@
 
 namespace test_state {
     using namespace pixel_engine;
+    using namespace prelude;
 
     int loops = 10;
 
-    enum class State { Start = 0, Middle, End };
+    enum class States { Start = 0, Middle, End };
 
-    void is_state_start(entity::Resource<entity::State<State>> state) {
+    void is_state_start(Resource<State<States>> state) {
         if (state.has_value()) {
-            if (state->is_state(State::Start)) {
+            if (state->is_state(States::Start)) {
                 std::cout << "is_state_start: true" << std::endl;
             } else {
                 std::cout << "is_state_start: false" << std::endl;
@@ -17,9 +18,9 @@ namespace test_state {
         }
     }
 
-    void is_state_middle(entity::Resource<entity::State<State>> state) {
+    void is_state_middle(Resource<State<States>> state) {
         if (state.has_value()) {
-            if (state->is_state(State::Middle)) {
+            if (state->is_state(States::Middle)) {
                 std::cout << "is_state_middle: true" << std::endl;
             } else {
                 std::cout << "is_state_middle: false" << std::endl;
@@ -27,9 +28,9 @@ namespace test_state {
         }
     }
 
-    void is_state_end(entity::Resource<entity::State<State>> state) {
+    void is_state_end(Resource<State<States>> state) {
         if (state.has_value()) {
-            if (state->is_state(State::End)) {
+            if (state->is_state(States::End)) {
                 std::cout << "is_state_end: true" << std::endl;
             } else {
                 std::cout << "is_state_end: false" << std::endl;
@@ -37,46 +38,45 @@ namespace test_state {
         }
     }
 
-    void set_state_start(entity::Resource<entity::NextState<State>> state) {
+    void set_state_start(Resource<NextState<States>> state) {
         if (state.has_value()) {
-            state->set_state(State::Start);
+            state->set_state(States::Start);
         }
     }
 
-    void set_state_middle(entity::Resource<entity::NextState<State>> state) {
+    void set_state_middle(Resource<NextState<States>> state) {
         if (state.has_value()) {
-            state->set_state(State::Middle);
+            state->set_state(States::Middle);
         }
     }
 
-    void set_state_end(entity::Resource<entity::NextState<State>> state) {
+    void set_state_end(Resource<NextState<States>> state) {
         if (state.has_value()) {
-            state->set_state(State::End);
+            state->set_state(States::End);
         }
     }
 
-    void exit(entity::EventWriter<entity::AppExit> exit) {
+    void exit(EventWriter<AppExit> exit) {
         std::cout << "tick: " << loops << std::endl;
-        if ((loops--) <= 0) exit.write(entity::AppExit{});
+        if ((loops--) <= 0) exit.write(AppExit{});
     }
 
-    class StateTestPlugin : public entity::Plugin {
+    class StateTestPlugin : public Plugin {
        public:
-        void build(entity::App& app) override {
-            entity::Node node1;
-            app.init_state<State>()
-                .add_plugin(entity::LoopPlugin{})
-                .add_system(entity::Startup{}, is_state_start, &node1)
-                .add_system(entity::OnEnter(State::Start), set_state_middle)
-                .add_system(entity::OnEnter(State::Middle), set_state_end)
-                .add_system(entity::Update{}, is_state_middle)
-                .add_system(entity::Update{}, is_state_end)
-                .add_system(entity::Update{}, exit);
+        void build(App& app) override {
+            SystemNode node;
+            app.init_state<States>()
+                .add_system(Startup{}, is_state_start)
+                .add_system(OnEnter(States::Start), set_state_middle)
+                .add_system(OnEnter(States::Middle), set_state_end)
+                .add_system(Update{}, is_state_middle, &node)
+                .add_system(Update{}, is_state_end, &node, after(node))
+                .add_system(Update{}, exit, &node, after(node));
         }
     };
 
     void test() {
-        entity::App app;
-        app.add_plugin(StateTestPlugin{}).run();
+        App app;
+        app.add_plugin(StateTestPlugin{}).add_plugin(LoopPlugin{}).run();
     }
 }  // namespace test_state

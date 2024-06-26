@@ -3,7 +3,7 @@
 using namespace pixel_engine;
 
 namespace test_parallel_run {
-    using namespace entity;
+    using namespace prelude;
 
     struct Data1 {
         int data;
@@ -53,7 +53,7 @@ namespace test_parallel_run {
     class ParallelTestPlugin : public entity::Plugin {
        public:
         void build(entity::App& app) override {
-            Node node1, node2;
+            SystemNode node1, node2;
             app.add_plugin(LoopPlugin{})
                 .add_system(Startup{}, spawn_data1)
                 .add_system(Startup{}, spawn_data2)
@@ -67,6 +67,6 @@ namespace test_parallel_run {
 
     void test() {
         entity::App app;
-        app.add_plugin(ParallelTestPlugin{}).run_parallel();
+        app.add_plugin(ParallelTestPlugin{}).run();
     }
 }  // namespace test_parallel_run

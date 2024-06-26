@@ -7,7 +7,7 @@
 
 namespace test_spawn_despawn {
     using namespace pixel_engine;
-    using namespace entity;
+    using namespace prelude;
 
     struct Health {
         float life;
@@ -18,12 +18,12 @@ namespace test_spawn_despawn {
     };
 
     struct HealthPositionBundle {
-        entity::Bundle tag;
+        Bundle tag;
         Health health{.life = 100.0f};
         Position position{.x = 0.0f, .y = 0.0f};
     };
 
-    void spawn(entity::Command command) {
+    void spawn(Command command) {
         std::cout << "spawn" << std::endl;
         for (int i = 0; i < 50; i++) {
             using namespace std;
@@ -41,7 +41,7 @@ namespace test_spawn_despawn {
         std::cout << std::endl;
     }
 
-    void print(entity::Query<Get<entt::entity, Health, Position>, With<>, Without<>> query) {
+    void print(Query<Get<Entity, Health, Position>, With<>, Without<>> query) {
         std::cout << "print" << std::endl;
         for (auto [entity, health, position] : query.iter()) {
             std::string id = std::format("{:#05x}", static_cast<int>(entity));
@@ -51,7 +51,7 @@ namespace test_spawn_despawn {
         std::cout << std::endl;
     }
 
-    void print_count(entity::Query<Get<entt::entity, Health>, With<>, Without<>> query) {
+    void print_count(Query<Get<Entity, Health>, With<>, Without<>> query) {
         std::cout << "print_count" << std::endl;
         int count = 0;
         for (auto [entity, health] : query.iter()) {
@@ -61,7 +61,7 @@ namespace test_spawn_despawn {
         std::cout << std::endl;
     }
 
-    void change_component_data(entity::Command command, entity::Query<Get<entt::entity, Health>, With<>, Without<>> query) {
+    void change_component_data(Command command, Query<Get<Entity, Health>, With<>, Without<>> query) {
         std::cout << "change_component_data" << std::endl;
         for (auto [id, health] : query.iter()) {
             auto [heal2] = query.get(id);
@@ -70,7 +70,7 @@ namespace test_spawn_despawn {
         std::cout << std::endl;
     }
 
-    void despawn(entity::Command command, entity::Query<Get<entt::entity, Health>, With<>, Without<>> query) {
+    void despawn(Command command, Query<Get<Entity, Health>, With<>, Without<>> query) {
         std::cout << "despawn" << std::endl;
         for (auto [entity, health] : query.iter()) {
             command.entity(entity).despawn();
@@ -78,22 +78,23 @@ namespace test_spawn_despawn {
         std::cout << std::endl;
     }
 
-    class SpawnDespawnPlugin : public entity::Plugin {
+    class SpawnDespawnPlugin : public Plugin {
        public:
-        void build(entity::App& app) override {
-            app.add_system(entity::Startup{}, spawn)
-                .add_system(entity::Startup{}, print_count)
-                .add_system(entity::Startup{}, print)
-                .add_system(entity::Startup{}, change_component_data)
-                .add_system(entity::Startup{}, print_count)
-                .add_system(entity::Startup{}, print)
-                .add_system(entity::Startup{}, despawn)
-                .add_system(entity::Update{}, print_count);
+        void build(App& app) override {
+            SystemNode node;
+            app.add_system(Startup{}, spawn, &node)
+                .add_system(Startup{}, print_count, &node, after(node))
+                .add_system(Startup{}, print, &node, after(node))
+                .add_system(Startup{}, change_component_data, &node, after(node))
+                .add_system(Startup{}, print_count, &node, after(node))
+                .add_system(Startup{}, print, &node, after(node))
+                .add_system(Startup{}, despawn, &node, after(node))
+                .add_system(Update{}, print_count, &node, after(node));
         }
     };
 
     void test() {
-        entity::App app;
+        App app;
         app.add_plugin(SpawnDespawnPlugin{}).run();
     }
 }  // namespace test_spawn_despawn

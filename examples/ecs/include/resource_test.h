@@ -7,12 +7,13 @@
 
 namespace test_resource {
     using namespace pixel_engine;
+    using namespace prelude;
 
-    struct Resource {
+    struct Res {
         int data;
     };
 
-    void access_resource(entity::Resource<Resource> resource) {
+    void access_resource(Resource<Res> resource) {
         std::cout << "access_resource" << std::endl;
         if (resource.has_value()) {
             std::cout << "resource: " << resource->data << std::endl;
@@ -22,25 +23,25 @@ namespace test_resource {
         std::cout << std::endl;
     }
 
-    void set_resource(entity::Command command) {
+    void set_resource(Command command) {
         std::cout << "set_resource" << std::endl;
-        command.insert_resource(Resource{.data = 100});
+        command.insert_resource(Res{.data = 100});
         std::cout << std::endl;
     }
 
-    void set_resource_with_init(entity::Command command) {
+    void set_resource_with_init(Command command) {
         std::cout << "set_resource_with_init" << std::endl;
-        command.init_resource<Resource>();
+        command.init_resource<Res>();
         std::cout << std::endl;
     }
 
-    void remove_resource(entity::Command command) {
+    void remove_resource(Command command) {
         std::cout << "remove_resource" << std::endl;
-        command.remove_resource<Resource>();
+        command.remove_resource<Res>();
         std::cout << std::endl;
     }
 
-    void change_resource(entity::Resource<Resource> resource) {
+    void change_resource(Resource<Res> resource) {
         std::cout << "change_resource" << std::endl;
         resource->data = 200;
         std::cout << std::endl;
@@ -48,15 +49,16 @@ namespace test_resource {
 
     class ResourceTestPlugin : public entity::Plugin {
        public:
-        void build(entity::App& app) override {
-            app.add_system(entity::Startup{}, set_resource)
-                .add_system(entity::Startup{}, access_resource)
-                .add_system(entity::Startup{}, remove_resource)
-                .add_system(entity::Startup{}, set_resource_with_init)
-                .add_system(entity::Startup{}, access_resource)
-                .add_system(entity::Startup{}, change_resource)
-                .add_system(entity::Startup{}, access_resource)
-                .add_system(entity::Startup{}, remove_resource);
+        void build(App& app) override {
+            SystemNode node;
+            app.add_system(Startup{}, set_resource, &node)
+                .add_system(Startup{}, access_resource, &node, after(node))
+                .add_system(Startup{}, remove_resource, &node, after(node))
+                .add_system(Startup{}, set_resource_with_init, &node, after(node))
+                .add_system(Startup{}, access_resource, &node, after(node))
+                .add_system(Startup{}, change_resource, &node, after(node))
+                .add_system(Startup{}, access_resource, &node, after(node))
+                .add_system(Startup{}, remove_resource, &node, after(node));
         }
     };
 
