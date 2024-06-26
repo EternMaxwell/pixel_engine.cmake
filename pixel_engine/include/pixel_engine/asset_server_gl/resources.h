@@ -14,11 +14,11 @@ namespace pixel_engine {
         namespace resources {
             class AssetServerGL {
                private:
-                std::string m_base_path = "./";
+                std::string m_base_path;
                 std::unordered_map<std::string, FT_Face> m_font_faces;
 
                public:
-                AssetServerGL(const std::string& base_path = "./") : m_base_path(base_path.c_str()) {}
+                AssetServerGL(const std::string& base_path = "./") : m_base_path(base_path) {}
 
                 std::vector<char> load_shader_source(const std::string& path) {
                     std::ifstream file(m_base_path + path);

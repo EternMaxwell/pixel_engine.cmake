@@ -61,10 +61,11 @@ namespace test_spawn_despawn {
         std::cout << std::endl;
     }
 
-    void change_component_data(entity::Command command, entity::Query<Get<Health>, With<>, Without<>> query) {
+    void change_component_data(entity::Command command, entity::Query<Get<entt::entity, Health>, With<>, Without<>> query) {
         std::cout << "change_component_data" << std::endl;
-        for (auto [health] : query.iter()) {
-            health.life = 200.0f;
+        for (auto [id, health] : query.iter()) {
+            auto [heal2] = query.get(id);
+            heal2.life = 200.0f;
         }
         std::cout << std::endl;
     }

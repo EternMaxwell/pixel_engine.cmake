@@ -32,11 +32,11 @@ namespace pixel_engine {
             class Query<Get<Qus...>, With<Ins...>, Without<Exs...>> {
                private:
                 entt::registry& registry;
-                decltype(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{}).each()) m_iter;
+                decltype(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{})) m_view;
 
                public:
                 Query(entt::registry& registry) : registry(registry) {
-                    m_iter = registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{}).each();
+                    m_view = registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{});
                 }
 
                 class iterator : public std::iterator<std::input_iterator_tag, std::tuple<Qus...>> {
@@ -77,7 +77,9 @@ namespace pixel_engine {
                 /*! @brief Get the iterator for the query.
                  * @return The iterator for the query.
                  */
-                auto iter() { return iterator(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{}).each()); }
+                auto iter() { return iterator(m_view.each()); }
+
+                std::tuple<Qus&...> get(entt::entity id) { return m_view.get<Qus...>(id); }
 
                 /*! @brief Get the single entity and requaired components.
                  * @return An optional of a single tuple of entity and requaired
@@ -97,11 +99,11 @@ namespace pixel_engine {
             class Query<Get<entt::entity, Qus...>, With<Ins...>, Without<Exs...>> {
                private:
                 entt::registry& registry;
-                decltype(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{}).each()) m_iter;
+                decltype(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{})) m_view;
 
                public:
                 Query(entt::registry& registry) : registry(registry) {
-                    m_iter = registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{}).each();
+                    m_view = registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{});
                 }
 
                 class iterator : public std::iterator<std::input_iterator_tag, std::tuple<Qus...>> {
@@ -143,7 +145,9 @@ namespace pixel_engine {
                 /*! @brief Get the iterator for the query.
                  * @return The iterator for the query.
                  */
-                auto iter() { return iterator(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{}).each()); }
+                auto iter() { return iterator(m_view.each()); }
+
+                std::tuple<Qus&...> get(entt::entity id) { return m_view.get<Qus...>(id); }
 
                 /*! @brief Get the single entity and requaired components.
                  * @return An optional of a single tuple of entity and requaired
