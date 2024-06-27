@@ -46,7 +46,8 @@ namespace test_spawn_despawn {
         for (auto [entity, health, position] : query.iter()) {
             std::string id = std::format("{:#05x}", static_cast<int>(entity));
             std::cout << "entity: " << id << " [health: " << health.life << " position: " << position.x << ", "
-                      << position.y << "]" << std::endl;
+                      << position.y << "]"
+                      << " " << query.contains(entity) << std::endl;
         }
         std::cout << std::endl;
     }

@@ -81,6 +81,8 @@ namespace pixel_engine {
 
                 std::tuple<Qus&...> get(entt::entity id) { return m_view.get<Qus...>(id); }
 
+                bool contains(entt::entity id) { return m_view.contains(id); }
+
                 /*! @brief Get the single entity and requaired components.
                  * @return An optional of a single tuple of entity and requaired
                  * components.
@@ -148,6 +150,8 @@ namespace pixel_engine {
                 auto iter() { return iterator(m_view.each()); }
 
                 std::tuple<Qus&...> get(entt::entity id) { return m_view.get<Qus...>(id); }
+
+                bool contains(entt::entity id) { return m_view.contains(id); }
 
                 /*! @brief Get the single entity and requaired components.
                  * @return An optional of a single tuple of entity and requaired
