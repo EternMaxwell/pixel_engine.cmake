@@ -27,6 +27,10 @@ namespace pixel_engine {
 
         struct Bundle {};
 
+        struct Parent {
+            entt::entity entity;
+        };
+
         template <typename T>
         struct is_bundle {
             static constexpr bool value() {
@@ -61,14 +65,14 @@ namespace pixel_engine {
             }
 
             template <typename... Args, size_t... I>
-            static void emplace_internal_tuple(entt::registry* registry, entt::entity entity,
-                                               std::tuple<Args...>& tuple, std::index_sequence<I...>) {
+            static void emplace_internal_tuple(
+                entt::registry* registry, entt::entity entity, std::tuple<Args...>& tuple, std::index_sequence<I...>) {
                 emplace_internal(registry, entity, std::get<I>(tuple)...);
             }
 
             template <typename... Args>
-            static void emplace_internal_tuple(entt::registry* registry, entt::entity entity,
-                                               std::tuple<Args...>& tuple) {
+            static void emplace_internal_tuple(
+                entt::registry* registry, entt::entity entity, std::tuple<Args...>& tuple) {
                 emplace_internal_tuple(registry, entity, tuple, std::make_index_sequence<sizeof...(Args)>());
             }
         };
@@ -82,10 +86,11 @@ namespace pixel_engine {
             std::shared_ptr<std::vector<entt::entity>> m_despawn_recurse_list;
 
            public:
-            EntityCommand(entt::registry* registry, const entt::entity& entity,
-                          std::unordered_map<entt::entity, std::set<entt::entity>>* relation_tree,
-                          std::shared_ptr<std::vector<entt::entity>> despawn_list,
-                          std::shared_ptr<std::vector<entt::entity>> despawn_recurse_list)
+            EntityCommand(
+                entt::registry* registry, const entt::entity& entity,
+                std::unordered_map<entt::entity, std::set<entt::entity>>* relation_tree,
+                std::shared_ptr<std::vector<entt::entity>> despawn_list,
+                std::shared_ptr<std::vector<entt::entity>> despawn_recurse_list)
                 : m_registry(registry),
                   m_entity(entity),
                   m_parent_tree(relation_tree),
@@ -108,7 +113,7 @@ namespace pixel_engine {
             template <typename... Args>
             auto& spawn(Args... args) {
                 auto child = m_registry->create();
-                entity::internal::emplace_internal(m_registry, child, args...);
+                entity::internal::emplace_internal(m_registry, child, Parent{.entity = m_entity}, args...);
                 (*m_parent_tree)[m_entity].insert(child);
                 return child;
             }
@@ -157,9 +162,9 @@ namespace pixel_engine {
             std::shared_ptr<std::vector<entt::entity>> m_despawn_recurse_list;
 
            public:
-            Command(entt::registry* registry, std::unordered_map<entt::entity, std::set<entt::entity>>* relation_tree,
-                    std::unordered_map<size_t, std::any>* resources,
-                    std::unordered_map<size_t, std::deque<Event>>* events)
+            Command(
+                entt::registry* registry, std::unordered_map<entt::entity, std::set<entt::entity>>* relation_tree,
+                std::unordered_map<size_t, std::any>* resources, std::unordered_map<size_t, std::deque<Event>>* events)
                 : m_registry(registry), m_parent_tree(relation_tree), m_resources(resources), m_events(events) {
                 m_despawn_list = std::make_shared<std::vector<entt::entity>>();
                 m_despawn_recurse_list = std::make_shared<std::vector<entt::entity>>();
@@ -248,10 +253,13 @@ namespace pixel_engine {
             void end() {
                 for (auto entity : *m_despawn_list) {
                     m_registry->destroy(entity);
+                    for (auto child : (*m_parent_tree)[entity]) {
+                        m_registry->erase<Parent>(child);
+                    }
                 }
                 for (auto entity : *m_despawn_recurse_list) {
                     m_registry->destroy(entity);
-                    for (auto child : m_parent_tree->at(entity)) {
+                    for (auto child : (*m_parent_tree)[entity]) {
                         m_registry->destroy(child);
                     }
                 }
