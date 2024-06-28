@@ -52,6 +52,7 @@ namespace pixel_engine {
         struct SystemNode {
             const bool in_main_thread;
             std::shared_ptr<Scheduler> scheduler;
+            const type_info* scheduler_type;
             std::shared_ptr<BasicSystem<void>> system;
             std::unordered_set<std::shared_ptr<condition>> conditions;
             std::unordered_set<std::shared_ptr<SystemNode>> user_defined_before;
@@ -61,8 +62,8 @@ namespace pixel_engine {
 
             SystemNode(
                 std::shared_ptr<Scheduler> scheduler, std::shared_ptr<BasicSystem<void>> system,
-                const bool& in_main = false)
-                : scheduler(scheduler), system(system), in_main_thread(in_main) {}
+                const std::type_info* scheduler_type, const bool& in_main = false)
+                : scheduler(scheduler), system(system), in_main_thread(in_main), scheduler_type(scheduler_type) {}
 
             std::tuple<std::shared_ptr<Scheduler>, std::shared_ptr<BasicSystem<void>>> to_tuple() {
                 return std::make_tuple(scheduler, system);
@@ -667,6 +668,7 @@ namespace pixel_engine {
 
             /*! @brief Configure system sets. This means the sequence of the args is the sequence of the sets. And this
              * affects how systems are run.
+             *  @tparam Sch The scheduler type.
              *  @tparam T The type of the system set.
              *  @param arg The system set.
              *  @param args The rest of the system sets.
@@ -693,6 +695,7 @@ namespace pixel_engine {
                     for (int j = i + 1; j < in_set_systems.size(); j++) {
                         for (auto& system1 : in_set_systems[i]) {
                             for (auto& system2 : in_set_systems[j]) {
+                                if (system1->scheduler_type != system2->scheduler_type) continue;
                                 system2->user_defined_before.insert(system1);
                             }
                         }
@@ -717,7 +720,8 @@ namespace pixel_engine {
                 before befores = before(), after afters = after(),
                 std::unordered_set<std::shared_ptr<condition>> conditions = {}, in_set<Sets...> in_sets = in_set()) {
                 std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
-                    std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)));
+                    std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)),
+                    &typeid(Sch));
                 new_node->conditions = conditions;
                 for (auto& before_node : afters.nodes) {
                     if ((before_node != nullptr) && (dynamic_cast<Sch*>(before_node->scheduler.get()) != NULL)) {
@@ -798,7 +802,7 @@ namespace pixel_engine {
                 std::unordered_set<std::shared_ptr<condition>> conditions = {}, in_set<Sets...> in_sets = in_set()) {
                 std::shared_ptr<SystemNode> new_node = std::make_shared<SystemNode>(
                     std::make_shared<Sch>(scheduler), std::make_shared<System<Args...>>(System<Args...>(this, func)),
-                    true);
+                    &typeid(Sch), true);
                 new_node->conditions = conditions;
                 for (auto& before_node : afters.nodes) {
                     if ((before_node != nullptr) && (dynamic_cast<Sch*>(before_node->scheduler.get()) != NULL)) {
