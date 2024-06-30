@@ -2,10 +2,6 @@
 
 #include "pixel_engine/entity/entity.h"
 
-#pragma once
-
-#include "pixel_engine/entity.h"
-
 namespace pixel_engine {
     namespace prelude {
         // app

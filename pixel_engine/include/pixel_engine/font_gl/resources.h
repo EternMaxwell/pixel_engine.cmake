@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include <ft2build.h>
-#include FT_FREETYPE_H
+#include <freetype/freetype.h>
 
 namespace pixel_engine {
     namespace font_gl {

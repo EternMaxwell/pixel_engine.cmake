@@ -20,13 +20,7 @@ namespace pixel_engine {
 
         class FontGLPlugin : public Plugin {
            public:
-            void build(App& app) {
-                app.configure_sets(FontGLSets::insert_library, FontGLSets::after_insertion)
-                    .add_system(PreStartup{}, insert_ft2_library, in_set(FontGLSets::insert_library))
-                    .add_system_main(
-                        PreStartup{}, create_pipeline, in_set(render_gl::RenderGLStartupSets::after_context_creation))
-                    .add_system_main(Render{}, draw);
-            }
+            void build(App& app);
         };
     }  // namespace font_gl
 }  // namespace pixel_engine

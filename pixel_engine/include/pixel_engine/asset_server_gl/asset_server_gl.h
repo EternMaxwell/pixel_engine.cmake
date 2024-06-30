@@ -24,11 +24,7 @@ namespace pixel_engine {
            public:
             void set_base_path(const std::string& base_path) { m_base_path = base_path; }
 
-            void build(App& app) override {
-                using namespace asset_server_gl;
-                app.configure_sets(AssetServerGLSets::insert_asset_server, AssetServerGLSets::after_insertion)
-                    .add_system(PreStartup{}, insert_asset_server, in_set(AssetServerGLSets::insert_asset_server));
-            }
+            void build(App& app) override;
         };
     }  // namespace asset_server_gl
 }  // namespace pixel_engine

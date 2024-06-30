@@ -13,8 +13,8 @@
 namespace pixel_engine {
     namespace prelude {
         // plugins
+        using AssetServerGLPlugin = asset_server_gl::AssetServerGLPlugin;
         using WindowPlugin = window::WindowPlugin;
         using RenderGLPlugin = render_gl::RenderGLPlugin;
-        using AssetServerGLPlugin = asset_server_gl::AssetServerGLPlugin;
     }  // namespace prelude
 }  // namespace pixel_engine
