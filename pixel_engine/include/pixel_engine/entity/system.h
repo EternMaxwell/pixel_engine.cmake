@@ -162,7 +162,6 @@ namespace pixel_engine {
 
            public:
             BasicSystem(App* app) : app(app) {}
-            template <typename... Args>
             bool contrary_to(std::shared_ptr<BasicSystem>& other) {
                 if (has_command && (other->has_command || other->has_query)) return true;
                 if (has_query && (other->has_command || other->has_query)) return true;

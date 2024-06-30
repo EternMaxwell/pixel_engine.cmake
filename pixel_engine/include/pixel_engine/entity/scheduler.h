@@ -156,14 +156,10 @@ namespace pixel_engine {
                 m_app = app;
                 return m_app->run_system_v(
                     std::function([&](Resource<NextState<T>> state_next, Resource<State<T>> state) {
-                        if (state.has_value()) {
-                            if (state.value().is_state(m_state)) {
-                                if (state_next.has_value()) {
-                                    if (!state_next.value().is_state(m_state)) {
-                                        return true;
-                                    }
-                                }
-                            }
+                        if (!state.has_value()) return false;
+                        if ((state.value().is_state(m_state) && state_next.has_value()) &&
+                            !state_next.value().is_state(m_state)) {
+                            return true;
                         }
                         return false;
                     }));

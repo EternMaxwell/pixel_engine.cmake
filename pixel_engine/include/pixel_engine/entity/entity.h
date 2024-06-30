@@ -38,16 +38,9 @@ namespace pixel_engine {
 
         struct AppExit {};
 
-        static bool check_exit(EventReader<AppExit> exit_events) {
-            spdlog::debug("Check if exit");
-            for (auto& e : exit_events.read()) {
-                spdlog::info("Exit event received, exiting app.");
-                return true;
-            }
-            return false;
-        }
+        bool check_exit(EventReader<AppExit> exit_events);
 
-        void exit_app(EventWriter<AppExit> exit_events) { exit_events.write(AppExit{}); }
+        void exit_app(EventWriter<AppExit> exit_events);
 
         struct SystemNode {
             const bool in_main_thread;
@@ -71,23 +64,11 @@ namespace pixel_engine {
             /*! @brief Get the depth of a node, 0 if it is a leaf node.
              * @return The depth of the node.
              */
-            size_t user_before_depth() {
-                size_t max_depth = 0;
-                for (auto& before : user_defined_before) {
-                    max_depth = std::max(max_depth, before->user_before_depth() + 1);
-                }
-                return max_depth;
-            }
+            size_t user_before_depth();
             /*! @brief Get the time in milliseconds for the runner to reach this system.
              * @return The time in milliseconds.
              */
-            double time_to_reach() {
-                double max_time = 0;
-                for (auto& before : user_defined_before) {
-                    max_time = std::max(max_time, before->time_to_reach() + before->system->get_avg_time());
-                }
-                return max_time;
-            }
+            double time_to_reach();
         };
 
         struct SystemRunner {
@@ -135,170 +116,6 @@ namespace pixel_engine {
             bool done();
             bool all_load();
         };
-
-        void SystemRunner::run() {
-            runned = true;
-            std::atomic<int> tasks_in = 0;
-            while (!all_load()) {
-                auto next = get_next();
-                if (next != nullptr) {
-                    if (!next->in_main_thread) {
-                        {
-                            std::unique_lock<std::mutex> lk(m);
-                            cv.wait(lk, [&] { return tasks_in <= pool->get_thread_count(); });
-                        }
-                        tasks_in++;
-                        if (ignore_scheduler) {
-                            futures[next] = pool->submit_task([&, next] {
-                                bool condition_pass = true;
-                                for (auto& condition : next->conditions) {
-                                    if (!condition->if_run(app)) {
-                                        condition_pass = false;
-                                        break;
-                                    }
-                                }
-                                if (condition_pass) {
-                                    next->system->run();
-                                }
-                                tasks_in--;
-                                std::unique_lock<std::mutex> lk(m);
-                                any_done = true;
-                                cv.notify_all();
-                                return;
-                            });
-                        } else {
-                            App* app = this->app;
-                            futures[next] = pool->submit_task([&, app, next] {
-                                if (next->scheduler->should_run(app)) {
-                                    bool condition_pass = true;
-                                    for (auto& condition : next->conditions) {
-                                        if (!condition->if_run(app)) {
-                                            condition_pass = false;
-                                            break;
-                                        }
-                                    }
-                                    if (condition_pass) {
-                                        next->system->run();
-                                    }
-                                }
-                                tasks_in--;
-                                std::unique_lock<std::mutex> lk(m);
-                                any_done = true;
-                                cv.notify_all();
-                                return;
-                            });
-                        }
-                    } else {
-                        std::promise<void> p;
-                        futures[next] = p.get_future();
-                        next->system->run();
-                        p.set_value();
-                    }
-                }
-            }
-        }
-
-        void SystemRunner::prepare() {
-            tails.clear();
-            if (!runned) {
-                sort_depth();
-            } else {
-                sort_time();
-            }
-            for (auto& sys : systems_all) {
-                sys->app_generated_before.clear();
-                for (auto& ins : tails) {
-                    if (ins->system->contrary_to(sys->system) &&
-                        (ins->user_defined_before.find(sys) == ins->user_defined_before.end())) {
-                        sys->app_generated_before.insert(ins);
-                    }
-                }
-                tails.insert(sys);
-            }
-            for (auto& sys : systems_all) {
-                for (auto& before : sys->app_generated_before) {
-                    tails.erase(before);
-                }
-                for (auto& before : sys->user_defined_before) {
-                    tails.erase(before);
-                }
-            }
-        }
-
-        std::shared_ptr<SystemNode> SystemRunner::should_run(const std::shared_ptr<SystemNode>& sys) {
-            bool before_done = true;
-
-            // user def before
-            for (auto& before : sys->user_defined_before) {
-                // if before not in futures
-                if (futures.find(before) == futures.end()) {
-                    return should_run(before);
-                }
-                // else if in and finished
-                else if (futures[before].wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-                    before_done = false;
-                }
-            }
-            // app gen before
-            for (auto& before : sys->app_generated_before) {
-                // if before not in futures
-                if (futures.find(before) == futures.end()) {
-                    return should_run(before);
-                }
-                // else if in and finished
-                else if (futures[before].wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-                    before_done = false;
-                }
-            }
-            if (before_done) return sys;
-            return nullptr;
-        }
-
-        std::shared_ptr<SystemNode> SystemRunner::get_next() {
-            for (auto& sys : tails) {
-                if (futures.find(sys) != futures.end()) {
-                    continue;
-                }
-                auto should = should_run(sys);
-                if (should != nullptr) {
-                    return should;
-                }
-            }
-            std::unique_lock<std::mutex> lk(m);
-            if (!any_done) {
-                cv.wait_for(lk, std::chrono::milliseconds(2), [&] {
-                    if (any_done) {
-                        any_done = false;
-                        return true;
-                    }
-                    return false;
-                });
-            } else {
-                any_done = false;
-            }
-            return nullptr;
-        }
-
-        bool SystemRunner::done() {
-            for (auto& sys : tails) {
-                if (futures.find(sys) == futures.end()) {
-                    return false;
-                }
-                if (futures[sys].wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        bool SystemRunner::all_load() {
-            for (auto& sys : tails) {
-                if (futures.find(sys) == futures.end()) {
-                    return false;
-                }
-            }
-            return true;
-        }
 
         template <typename T, typename Tuple>
         struct tuple_contain;
@@ -482,34 +299,11 @@ namespace pixel_engine {
                 };
             }
 
-            void end_commands() {
-                for (auto& cmd : m_existing_commands) {
-                    cmd.end();
-                }
-                m_existing_commands.clear();
-            }
+            void end_commands();
 
-            void tick_events() {
-                for (auto& [key, value] : m_events) {
-                    while (!value->empty()) {
-                        auto& event = value->front();
-                        if (event.ticks >= 1) {
-                            value->pop_front();
-                        } else {
-                            break;
-                        }
-                    }
-                    for (auto& event : *value) {
-                        event.ticks++;
-                    }
-                }
-            }
+            void tick_events();
 
-            void update_states() {
-                for (auto& state : m_state_update) {
-                    state->run();
-                }
-            }
+            void update_states();
 
             template <typename SchT, typename T, typename... Args>
             void configure_system_sets(std::shared_ptr<SystemNode> node, in_set<T, Args...> in_sets) {
@@ -622,14 +416,7 @@ namespace pixel_engine {
                 return std::apply(func, get_values<Args...>());
             }
 
-            void check_locked(std::shared_ptr<SystemNode> node, std::shared_ptr<SystemNode>& node2) {
-                for (auto& before : node->user_defined_before) {
-                    if (before == node2) {
-                        throw std::runtime_error("System locked.");
-                    }
-                    check_locked(before, node2);
-                }
-            }
+            void check_locked(std::shared_ptr<SystemNode> node, std::shared_ptr<SystemNode>& node2);
 
             /*! @brief Configure system sets. This means the sequence of the args is the sequence of the sets. And this
              * affects how systems are run.
@@ -888,28 +675,7 @@ namespace pixel_engine {
 
             /*! @brief Run the app in parallel.
              */
-            void run() {
-                spdlog::info("App started.");
-                spdlog::info("Loading system runners.");
-                load_runners<
-                    PreStartup, Startup, PostStartup, OnStateChange, PreUpdate, Update, PostUpdate, PreRender, Render,
-                    PostRender, PreExit, Exit, PostExit>();
-                spdlog::info("Loading done.");
-                prepare_runners<PreStartup, Startup, PostStartup>();
-                run_runners<PreStartup, Startup, PostStartup>();
-                // loop
-                do {
-                    prepare_runners<OnStateChange, PreUpdate, Update, PostUpdate, PreRender, Render, PostRender>();
-                    run_runner<OnStateChange>();
-                    update_states();
-                    run_runners<PreUpdate, Update, PostUpdate, PreRender, Render, PostRender>();
-                    tick_events();
-                } while (m_loop_enabled && !run_system_v(std::function(check_exit)));
-                // prepare exit runners.
-                prepare_runners<PreExit, Exit, PostExit>();
-                run_runners<PreExit, Exit, PostExit>();
-                spdlog::info("App terminated.");
-            }
+            void run();
         };
 
         class LoopPlugin : public Plugin {
