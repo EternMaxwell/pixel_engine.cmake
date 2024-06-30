@@ -100,12 +100,12 @@ namespace pixel_engine {
              * @brief offset is the byte offset of the first component of the attribute.
              */
             struct VertexAttrib {
-                int location;
-                int size;
+                uint32_t location;
+                uint32_t size;
                 int type;
                 bool normalized;
-                int stride;
-                int offset;
+                uint32_t stride;
+                uint64_t offset;
             };
 
             /*! @brief Attributes used in a pipeline.
