@@ -96,6 +96,24 @@ namespace pixel_engine {
             bool should_run(App* app) override { return true; }
         };
 
+        class PreExit : public Scheduler {
+           public:
+            PreExit() : Scheduler() {}
+            bool should_run(App* app) override { return true; }
+        };
+
+        class Exit : public Scheduler {
+           public:
+            Exit() : Scheduler() {}
+            bool should_run(App* app) override { return true; }
+        };
+
+        class PostExit : public Scheduler {
+           public:
+            PostExit() : Scheduler() {}
+            bool should_run(App* app) override { return true; }
+        };
+
         class OnStateChange : public Scheduler {};
 
         template <typename T>

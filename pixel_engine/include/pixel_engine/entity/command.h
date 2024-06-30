@@ -111,7 +111,7 @@ namespace pixel_engine {
              * @return The child entity id.
              */
             template <typename... Args>
-            auto& spawn(Args... args) {
+            entt::entity spawn(Args... args) {
                 auto child = m_registry->create();
                 entity::internal::emplace_internal(m_registry, child, Parent{.entity = m_entity}, args...);
                 (*m_parent_tree)[m_entity].insert(child);
@@ -157,14 +157,15 @@ namespace pixel_engine {
             entt::registry* const m_registry;
             std::unordered_map<entt::entity, std::set<entt::entity>>* const m_parent_tree;
             std::unordered_map<size_t, std::any>* const m_resources;
-            std::unordered_map<size_t, std::deque<Event>>* m_events;
+            std::unordered_map<size_t, std::shared_ptr<std::deque<Event>>>* m_events;
             std::shared_ptr<std::vector<entt::entity>> m_despawn_list;
             std::shared_ptr<std::vector<entt::entity>> m_despawn_recurse_list;
 
            public:
             Command(
                 entt::registry* registry, std::unordered_map<entt::entity, std::set<entt::entity>>* relation_tree,
-                std::unordered_map<size_t, std::any>* resources, std::unordered_map<size_t, std::deque<Event>>* events)
+                std::unordered_map<size_t, std::any>* resources,
+                std::unordered_map<size_t, std::shared_ptr<std::deque<Event>>>* events)
                 : m_registry(registry), m_parent_tree(relation_tree), m_resources(resources), m_events(events) {
                 m_despawn_list = std::make_shared<std::vector<entt::entity>>();
                 m_despawn_recurse_list = std::make_shared<std::vector<entt::entity>>();

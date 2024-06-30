@@ -76,6 +76,9 @@ namespace pixel_engine {
         using PreRender = entity::PreRender;
         using Render = entity::Render;
         using PostRender = entity::PostRender;
+        using PreExit = entity::PreExit;
+        using Exit = entity::Exit;
+        using PostExit = entity::PostExit;
 
         // plugins
         using Plugin = entity::Plugin;
