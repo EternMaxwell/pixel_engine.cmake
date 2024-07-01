@@ -31,9 +31,9 @@ namespace pixel_engine {
             entt::entity entity;
         };
 
-        template <typename T>
-        struct is_bundle {
-            static constexpr bool value() {
+        namespace internal {
+            template <typename T>
+            static consteval bool is_bundle() {
                 bool is_bundle = false;
                 bool* target = &is_bundle;
                 pfr::for_each_field(T(), [&](const auto& field) {
@@ -43,14 +43,10 @@ namespace pixel_engine {
                 });
                 return is_bundle;
             }
-        };
 
-        struct internal {
             template <typename T, typename... Args>
-            static void emplace_internal(entt::registry* registry, entt::entity entity, T arg, Args... args) {
-                if constexpr (is_template_of<std::tuple, T>::value) {
-                    emplace_internal_tuple(registry, entity, arg);
-                } else if constexpr (is_bundle<T>::value()) {
+            void emplace_internal(entt::registry* registry, entt::entity entity, T arg, Args... args) {
+                if constexpr (is_bundle<T>()) {
                     pfr::for_each_field(arg, [&](const auto& field) {
                         if constexpr (!std::is_same_v<Bundle, decltype(field)>) {
                             emplace_internal(registry, entity, field);
@@ -65,17 +61,16 @@ namespace pixel_engine {
             }
 
             template <typename... Args, size_t... I>
-            static void emplace_internal_tuple(
+            void emplace_internal_tuple(
                 entt::registry* registry, entt::entity entity, std::tuple<Args...>& tuple, std::index_sequence<I...>) {
                 emplace_internal(registry, entity, std::get<I>(tuple)...);
             }
 
             template <typename... Args>
-            static void emplace_internal_tuple(
-                entt::registry* registry, entt::entity entity, std::tuple<Args...>& tuple) {
+            void emplace_internal_tuple(entt::registry* registry, entt::entity entity, std::tuple<Args...>& tuple) {
                 emplace_internal_tuple(registry, entity, tuple, std::make_index_sequence<sizeof...(Args)>());
             }
-        };
+        }  // namespace internal
 
         class EntityCommand {
            private:
@@ -111,7 +106,7 @@ namespace pixel_engine {
              * @return The child entity id.
              */
             template <typename... Args>
-            auto& spawn(Args... args) {
+            entt::entity spawn(Args... args) {
                 auto child = m_registry->create();
                 entity::internal::emplace_internal(m_registry, child, Parent{.entity = m_entity}, args...);
                 (*m_parent_tree)[m_entity].insert(child);
@@ -157,14 +152,15 @@ namespace pixel_engine {
             entt::registry* const m_registry;
             std::unordered_map<entt::entity, std::set<entt::entity>>* const m_parent_tree;
             std::unordered_map<size_t, std::any>* const m_resources;
-            std::unordered_map<size_t, std::deque<Event>>* m_events;
+            std::unordered_map<size_t, std::shared_ptr<std::deque<Event>>>* m_events;
             std::shared_ptr<std::vector<entt::entity>> m_despawn_list;
             std::shared_ptr<std::vector<entt::entity>> m_despawn_recurse_list;
 
            public:
             Command(
                 entt::registry* registry, std::unordered_map<entt::entity, std::set<entt::entity>>* relation_tree,
-                std::unordered_map<size_t, std::any>* resources, std::unordered_map<size_t, std::deque<Event>>* events)
+                std::unordered_map<size_t, std::any>* resources,
+                std::unordered_map<size_t, std::shared_ptr<std::deque<Event>>>* events)
                 : m_registry(registry), m_parent_tree(relation_tree), m_resources(resources), m_events(events) {
                 m_despawn_list = std::make_shared<std::vector<entt::entity>>();
                 m_despawn_recurse_list = std::make_shared<std::vector<entt::entity>>();

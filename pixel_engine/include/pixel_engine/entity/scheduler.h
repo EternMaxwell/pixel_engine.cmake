@@ -96,6 +96,24 @@ namespace pixel_engine {
             bool should_run(App* app) override { return true; }
         };
 
+        class PreExit : public Scheduler {
+           public:
+            PreExit() : Scheduler() {}
+            bool should_run(App* app) override { return true; }
+        };
+
+        class Exit : public Scheduler {
+           public:
+            Exit() : Scheduler() {}
+            bool should_run(App* app) override { return true; }
+        };
+
+        class PostExit : public Scheduler {
+           public:
+            PostExit() : Scheduler() {}
+            bool should_run(App* app) override { return true; }
+        };
+
         class OnStateChange : public Scheduler {};
 
         template <typename T>
@@ -138,14 +156,10 @@ namespace pixel_engine {
                 m_app = app;
                 return m_app->run_system_v(
                     std::function([&](Resource<NextState<T>> state_next, Resource<State<T>> state) {
-                        if (state.has_value()) {
-                            if (state.value().is_state(m_state)) {
-                                if (state_next.has_value()) {
-                                    if (!state_next.value().is_state(m_state)) {
-                                        return true;
-                                    }
-                                }
-                            }
+                        if (!state.has_value()) return false;
+                        if ((state.value().is_state(m_state) && state_next.has_value()) &&
+                            !state_next.value().is_state(m_state)) {
+                            return true;
                         }
                         return false;
                     }));

@@ -1,5 +1,9 @@
 ﻿#pragma once
 
+#include <vector>
+
+#include "pixel_engine/entity.h"
+
 namespace pixel_engine {
     namespace render_gl {
         namespace components {
@@ -21,12 +25,7 @@ namespace pixel_engine {
                  * @param size The size of the data to write.
                  * @param offset The offset in the buffer to write the data to.
                  */
-                void write(const void* data, size_t size, size_t offset) {
-                    if (offset + size > this->data.size()) {
-                        this->data.resize(offset + size);
-                    }
-                    memcpy(this->data.data() + offset, data, size);
-                }
+                void write(const void* rdata, size_t size, size_t offset);
             };
 
             /*! @brief A pipeline object.
@@ -101,12 +100,12 @@ namespace pixel_engine {
              * @brief offset is the byte offset of the first component of the attribute.
              */
             struct VertexAttrib {
-                int location;
-                int size;
+                uint32_t location;
+                uint32_t size;
                 int type;
                 bool normalized;
-                int stride;
-                int offset;
+                uint32_t stride;
+                uint64_t offset;
             };
 
             /*! @brief Attributes used in a pipeline.

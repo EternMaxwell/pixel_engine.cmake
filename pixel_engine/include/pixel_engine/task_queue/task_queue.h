@@ -24,10 +24,7 @@ namespace pixel_engine {
             TaskQueuePlugin() {}
             TaskQueuePlugin(int num_threads) : num_threads(num_threads) {}
 
-            void build(App& app) {
-                app.configure_sets(TaskQueueSets::insert_task_queue, TaskQueueSets::after_insertion)
-                    .add_system(PreStartup{}, insert_task_queue, in_set(TaskQueueSets::insert_task_queue));
-            }
+            void build(App& app);
         };
     }  // namespace task_queue
 }  // namespace pixel_engine

@@ -23,10 +23,10 @@ namespace pixel_engine {
         template <typename Evt>
         class EventWriter {
            private:
-            std::deque<Event>* const m_events;
+            std::shared_ptr<std::deque<Event>> const m_events;
 
            public:
-            EventWriter(std::deque<Event>* events) : m_events(events) {}
+            EventWriter(std::shared_ptr<std::deque<Event>> events) : m_events(events) {}
 
             /*! @brief Write an event.
              * @param evt The event to be written.
@@ -40,18 +40,18 @@ namespace pixel_engine {
         template <typename Evt>
         class EventReader {
            private:
-            std::deque<Event>* const m_events;
+            std::shared_ptr<std::deque<Event>> const m_events;
 
            public:
-            EventReader(std::deque<Event>* events) : m_events(events) {}
+            EventReader(std::shared_ptr<std::deque<Event>> events) : m_events(events) {}
 
             class event_iter : public std::iterator<std::input_iterator_tag, Evt> {
                private:
-                std::deque<Event>* m_events;
+                std::shared_ptr<std::deque<Event>> m_events;
                 std::deque<Event>::iterator m_iter;
 
                public:
-                event_iter(std::deque<Event>* events, std::deque<Event>::iterator iter)
+                event_iter(std::shared_ptr<std::deque<Event>> events, std::deque<Event>::iterator iter)
                     : m_events(events), m_iter(iter) {}
                 event_iter& operator++() {
                     m_iter++;

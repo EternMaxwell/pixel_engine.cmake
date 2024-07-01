@@ -2,10 +2,6 @@
 
 #include "pixel_engine/entity/entity.h"
 
-#pragma once
-
-#include "pixel_engine/entity.h"
-
 namespace pixel_engine {
     namespace prelude {
         // app
@@ -76,6 +72,9 @@ namespace pixel_engine {
         using PreRender = entity::PreRender;
         using Render = entity::Render;
         using PostRender = entity::PostRender;
+        using PreExit = entity::PreExit;
+        using Exit = entity::Exit;
+        using PostExit = entity::PostExit;
 
         // plugins
         using Plugin = entity::Plugin;

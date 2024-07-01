@@ -15,11 +15,9 @@ else ()
   add_compile_options(-Wa,-mbig-obj)
 endif ()
 
-#prepare third-party
-find_package (Vulkan REQUIRED)
-
 #find third-party if possible
 find_package (OpenGL REQUIRED)
+find_package (Vulkan REQUIRED)
 
 #sub directories
 add_subdirectory (libs/entt)
