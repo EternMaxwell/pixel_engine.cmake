@@ -5,7 +5,6 @@
 
 namespace pixel_engine {
     namespace render_gl {
-        using namespace systems;
         using namespace prelude;
 
         enum class RenderGLStartupSets {

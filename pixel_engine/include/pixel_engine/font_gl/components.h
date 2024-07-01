@@ -1,18 +1,18 @@
 ﻿#pragma once
 
-#include <ft2build.h>
 #include <freetype/freetype.h>
+#include <ft2build.h>
 
 #include <string>
 
-#include "pixel_engine/components/components.h"
 #include "pixel_engine/entity.h"
+#include "pixel_engine/transform/components.h"
 
 namespace pixel_engine {
     namespace font_gl {
         namespace components {
             using namespace prelude;
-            using namespace core_components;
+            using namespace transform;
             /*! @brief Text component. Will be rendered if has Transform component.
              *  @brief text : Text to render, in unicode encoding.
              *  @brief size : Size to draw of the text. Also height of one line.

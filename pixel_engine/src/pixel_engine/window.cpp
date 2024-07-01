@@ -2,6 +2,9 @@
 
 #include "pixel_engine/window/systems.h"
 
+using namespace pixel_engine::window::systems;
+using namespace pixel_engine::window::events;
+
 void pixel_engine::window::systems::init_glfw() {
     if (!glfwInit()) {
         throw std::runtime_error("Failed to initialize GLFW");

@@ -1,6 +1,9 @@
 ﻿#include "pixel_engine/sprite_render_gl/sprite_render.h"
 #include "pixel_engine/sprite_render_gl/systems.h"
 
+using namespace pixel_engine::sprite_render_gl::components;
+using namespace pixel_engine::sprite_render_gl::systems;
+
 void pixel_engine::sprite_render_gl::SpriteRenderGLPlugin::build(App& app) {
     app.add_system_main(PreStartup{}, create_pipeline, in_set(render_gl::RenderGLStartupSets::after_context_creation))
         .configure_sets(SpriteRenderGLSets::before_draw, SpriteRenderGLSets::draw, SpriteRenderGLSets::after_draw)

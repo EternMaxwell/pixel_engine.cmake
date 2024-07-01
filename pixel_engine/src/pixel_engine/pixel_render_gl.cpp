@@ -2,6 +2,9 @@
 
 #include "pixel_engine/pixel_render_gl/systems.h"
 
+using namespace pixel_engine::pixel_render_gl::components;
+using namespace pixel_engine::pixel_render_gl::systems;
+
 void pixel_engine::pixel_render_gl::PixelRenderGLPlugin::build(App& app) {
     app.add_system_main(PreStartup{}, create_pipeline, in_set(render_gl::RenderGLStartupSets::after_context_creation))
         .add_system_main(Render{}, draw);

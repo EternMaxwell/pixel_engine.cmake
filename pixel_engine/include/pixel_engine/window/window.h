@@ -8,8 +8,6 @@
 namespace pixel_engine {
     namespace window {
         using namespace components;
-        using namespace systems;
-        using namespace events;
         using namespace prelude;
 
         enum class WindowStartUpSets {

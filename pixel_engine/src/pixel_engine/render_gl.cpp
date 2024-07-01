@@ -3,6 +3,8 @@
 #include "pixel_engine/render_gl/components.h"
 #include "pixel_engine/render_gl/systems.h"
 
+using namespace pixel_engine::render_gl::systems;
+
 void pixel_engine::render_gl::components::Buffer::write(const void* rdata, size_t size, size_t offset) {
     if (offset + size > data.size()) {
         data.resize(offset + size);

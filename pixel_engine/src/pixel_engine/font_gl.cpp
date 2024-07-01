@@ -1,6 +1,10 @@
 ﻿#include "pixel_engine/font_gl/font.h"
 #include "pixel_engine/font_gl/systems.h"
 
+using namespace pixel_engine::font_gl::components;
+using namespace pixel_engine::font_gl::systems;
+using namespace pixel_engine::font_gl::resources;
+
 void pixel_engine::font_gl::FontGLPlugin::build(App& app) {
     app.configure_sets(FontGLSets::insert_library, FontGLSets::after_insertion)
         .add_system(PreStartup{}, insert_ft2_library, in_set(FontGLSets::insert_library))

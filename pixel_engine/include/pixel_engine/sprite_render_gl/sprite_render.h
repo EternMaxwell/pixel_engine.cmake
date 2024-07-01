@@ -6,8 +6,6 @@
 
 namespace pixel_engine {
     namespace sprite_render_gl {
-        using namespace components;
-        using namespace systems;
         using namespace prelude;
 
         enum class SpriteRenderGLSets {

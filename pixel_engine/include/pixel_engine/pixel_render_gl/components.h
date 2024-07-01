@@ -1,13 +1,13 @@
 ﻿#pragma once
 
-#include "pixel_engine/components/components.h"
+#include "pixel_engine/transform/components.h"
 #include "pixel_engine/entity.h"
 
 namespace pixel_engine {
     namespace pixel_render_gl {
         namespace components {
             using namespace prelude;
-            using namespace core_components;
+            using namespace transform;
 
             /*! @brief A struct to store pixel data.
              *  @brief x: The x position of the pixel.

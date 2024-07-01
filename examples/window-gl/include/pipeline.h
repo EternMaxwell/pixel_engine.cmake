@@ -11,7 +11,6 @@ namespace pipeline_test {
     using namespace asset_server_gl::resources;
     using namespace window::components;
     using namespace render_gl::systems;
-    using namespace render_gl::components;
 
     struct TestPipeline {};
 
@@ -25,11 +24,11 @@ namespace pipeline_test {
 
     void insert_camera(Command command) {
         spdlog::debug("Inserting camera");
-        command.spawn(core_components::Camera2dBundle{});
+        command.spawn(camera::Camera2dBundle{});
     }
 
     void create_pixels(Command command) {
-        command.spawn(pixel_render_gl::PixelGroupBundle{.pixels{
+        command.spawn(pixel_render_gl::components::PixelGroupBundle{.pixels{
             .pixels = {
                 {.position = {0.0f, 0.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f, 1.0f}},
                 {.position = {1.0f, 0.0f, 0.0f}, .color = {0.0f, 1.0f, 0.0f, 1.0f}},
@@ -51,7 +50,7 @@ namespace pipeline_test {
         });
     }
 
-    void move_sprite(Query<Get<core_components::Transform>, With<sprite_render_gl::Sprite>> sprite_query) {
+    void move_sprite(Query<Get<transform::Transform>, With<sprite_render_gl::components::Sprite>> sprite_query) {
         for (auto [transform] : sprite_query.iter()) {
             transform.translation.x += 0.000001f;
             transform.translation.y += 0.000001f;
@@ -59,7 +58,7 @@ namespace pipeline_test {
     }
 
     void camera_ortho_to_primary_window(
-        Query<Get<core_components::OrthoProjection>, With<core_components::Camera2d>, Without<>> camera_query,
+        Query<Get<transform::OrthoProjection>, With<camera::Camera2d>, Without<>> camera_query,
         Query<Get<const WindowSize>, With<PrimaryWindow>, Without<>> window_query) {
         for (auto [projection] : camera_query.iter()) {
             for (auto [window_size] : window_query.iter()) {

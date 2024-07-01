@@ -8,6 +8,12 @@ namespace font_gl_test {
     using namespace pixel_engine::font_gl;
     using namespace pixel_engine::prelude;
     using namespace window::components;
+    using namespace camera::components;
+    using namespace transform::components;
+    using namespace prelude;
+    using namespace asset_server_gl::resources;
+    using namespace font_gl::resources;
+    using namespace font_gl::components;
 
     void create_camera(Command command) { command.spawn(Camera2dBundle{}); }
 

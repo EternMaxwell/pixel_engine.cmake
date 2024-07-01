@@ -8,9 +8,6 @@
 
 namespace pixel_engine {
     namespace font_gl {
-        using namespace components;
-        using namespace systems;
-        using namespace resources;
         using namespace prelude;
 
         enum class FontGLSets {
