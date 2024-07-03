@@ -1,4 +1,6 @@
-﻿#include "components.h"
+﻿#pragma once
+
+#include "components.h"
 #include "systems.h"
 
 namespace pixel_engine {

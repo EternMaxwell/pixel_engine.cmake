@@ -1,4 +1,6 @@
-﻿#include "pixel_engine/entity.h"
+﻿#pragma once
+
+#include "pixel_engine/entity.h"
 
 namespace pixel_engine {
     namespace path_voxel {

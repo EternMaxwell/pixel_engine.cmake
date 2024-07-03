@@ -1,4 +1,6 @@
-﻿#include "components.h"
+﻿#pragma once
+
+#include "components.h"
 
 namespace pixel_engine {
     namespace path_voxel {
