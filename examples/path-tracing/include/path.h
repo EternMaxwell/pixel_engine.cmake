@@ -14,7 +14,7 @@ namespace path {
     using namespace pixel_engine::transform;
 
     struct Voxel {
-        bool occupies = false;
+        float occupied = 0;
         float color[3] = {0.0f, 0.0f, 0.0f};
     };
 
@@ -25,23 +25,21 @@ namespace path {
     struct PathPipeline {};
 
     struct Voxel_World {
-        int width_x;
-        int width_y;
-        int width_z;
+        glm::ivec4 size;
         std::vector<Voxel> voxels;
         Voxel& at(int x, int y, int z) {
-            return voxels[x + static_cast<size_t>(y) * width_x + static_cast<size_t>(z) * width_x * width_y];
+            return voxels[x + static_cast<size_t>(y) * size.x + static_cast<size_t>(z) * size.x * size.y];
         }
         void set(int x, int y, int z, Voxel voxel) {
-            voxels[x + static_cast<size_t>(y) * width_x + static_cast<size_t>(z) * width_x * width_y] = voxel;
+            voxels[x + static_cast<size_t>(y) * size.x + static_cast<size_t>(z) * size.x * size.y] = voxel;
         }
         void resize(int x, int y, int z) {
-            width_x = x;
-            width_y = y;
-            width_z = z;
+            size.x = x;
+            size.y = y;
+            size.z = z;
             voxels.resize(static_cast<size_t>(x) * y * z);
         }
-        size_t size() { return voxels.size(); }
+        size_t dsize() { return voxels.size(); }
     };
 
     void create_pipeline(Command command, Resource<AssetServerGL> asset_server) {
@@ -76,23 +74,15 @@ namespace path {
 
     void create_world(Command command) {
         Voxel_World world;
-        world.resize(10, 10, 10);
-        for (int x = 0; x < world.width_x; x++) {
-            for (int y = 0; y < world.width_y; y++) {
-                for (int z = 0; z < world.width_z; z++) {
-                    if (x == 0 || x == world.width_x - 1 || y == 0 || y == world.width_y - 1 || z == 0 ||
-                        z == world.width_z - 1)
-                        world.set(
-                            x, y, z,
-                            Voxel{
-                                .occupies = false,
-                                .color = {0.0f, 0.0f, 0.0f},
-                            });
+        world.resize(20, 20, 20);
+        for (int x = 0; x < world.size.x; x++) {
+            for (int y = 0; y < world.size.y; y++) {
+                for (int z = 0; z < world.size.z; z++) {
                     world.set(
                         x, y, z,
                         Voxel{
-                            .occupies = true,
-                            .color{(float)x / world.width_x, (float)y / world.width_y, (float)z / world.width_z},
+                            .occupied = 1,
+                            .color{(float)x / world.size.x, (float)y / world.size.y, (float)z / world.size.z},
                         });
                 }
             }
@@ -108,18 +98,16 @@ namespace path {
         }
         auto [buffers] = bs.value();
         auto [world] = w.value();
-        glNamedBufferData(buffers.storage_buffers[0].buffer, world.size() * sizeof(Voxel) + 12, NULL, GL_DYNAMIC_DRAW);
-        glNamedBufferSubData(buffers.storage_buffers[0].buffer, 0, 4, &world.width_x);
-        glNamedBufferSubData(buffers.storage_buffers[0].buffer, 4, 4, &world.width_y);
-        glNamedBufferSubData(buffers.storage_buffers[0].buffer, 8, 4, &world.width_z);
-        glNamedBufferSubData(buffers.storage_buffers[0].buffer, 12, world.size() * sizeof(Voxel), world.voxels.data());
+        glNamedBufferData(buffers.storage_buffers[0].buffer, world.dsize() * sizeof(Voxel) + 16, NULL, GL_DYNAMIC_DRAW);
+        glNamedBufferSubData(buffers.storage_buffers[0].buffer, 0, 16, &world.size);
+        glNamedBufferSubData(buffers.storage_buffers[0].buffer, 16, world.dsize() * sizeof(Voxel), world.voxels.data());
     }
 
     void create_camera_path(Command command) {
         command.spawn(CameraPath{
-            .position = {0.0f, 0.0f, 0.0f},
-            .direction = {0.0f, 0.0f, 1.0f},
-            .up = {0.0f, 1.0f, 0.0f},
+            .position = {0.0f, 0.0f, -20.0f, 1.0},
+            .direction = {0.0f, 0.0f, 1.0f, 1.0},
+            .up = {0.0f, 1.0f, 0.0f, 1.0},
         });
     }
 
@@ -135,6 +123,8 @@ namespace path {
         auto [pipeline, buffers] = bs.value();
         auto [world] = w.value();
         auto [cam] = c.value();
+        cam.position += glm::vec4(-0.0003f, 0.0003f, -0.0001f, 0.0f);
+        cam.direction = glm::rotate(glm::mat4(1.0f), 0.001f, glm::vec3(0.0f, 1.0f, 0.0f)) * cam.direction;
         glUseProgram(pipeline.program);
         glBindVertexArray(pipeline.vertex_array);
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, buffers.uniform_buffers[0].buffer);
@@ -143,7 +133,7 @@ namespace path {
         buffers.uniform_buffers[0].write(&cam.direction, sizeof(cam.direction), sizeof(cam.direction));
         buffers.uniform_buffers[0].write(&cam.up, sizeof(cam.up), sizeof(cam.direction) * 2);
         glNamedBufferData(
-            buffers.uniform_buffers[0].buffer, 3 * sizeof(glm::vec3), buffers.uniform_buffers[0].data.data(),
+            buffers.uniform_buffers[0].buffer, 3 * sizeof(glm::vec4), buffers.uniform_buffers[0].data.data(),
             GL_DYNAMIC_DRAW);
         glBindBuffer(GL_ARRAY_BUFFER, pipeline.vertex_buffer.buffer);
         float vertices[] = {

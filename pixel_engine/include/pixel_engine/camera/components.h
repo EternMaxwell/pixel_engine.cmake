@@ -27,17 +27,17 @@ namespace pixel_engine {
             };
 
             struct CameraPath {
-                glm::vec3 position;
-                glm::vec3 direction;
-                glm::vec3 up;
+                glm::vec4 position;
+                glm::vec4 direction;
+                glm::vec4 up;
 
-                void set_position(glm::vec3 position) { this->position = position; }
-                void look_at(glm::vec3 direction) { this->direction = direction; }
-                void set_up(glm::vec3 up) { this->up = up; }
+                void set_position(glm::vec3 position) { this->position = glm::vec4(position, 1.0); }
+                void look_at(glm::vec3 direction) { this->direction = glm::vec4(glm::normalize(direction), 0.0); }
+                void set_up(glm::vec3 up) { this->up = glm::vec4(glm::normalize(up), 0.0); }
                 void rotate(glm::vec3 axis, float angle) {
                     glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), angle, axis);
-                    direction = glm::vec3(rotation * glm::vec4(direction, 1.0f));
-                    up = glm::vec3(rotation * glm::vec4(up, 1.0f));
+                    direction = rotation * direction;
+                    up = rotation * up;
                 }
             };
         }  // namespace components
