@@ -237,9 +237,9 @@ void pixel_engine::entity::App::run() {
         PreStartup, Startup, PostStartup, OnStateChange, PreUpdate, Update, PostUpdate, PreRender, Render, PostRender,
         PreExit, Exit, PostExit>();
     spdlog::info("Loading done.");
-    spdlog::info("Preparing start up runners.");
+    spdlog::debug("Preparing start up runners.");
     prepare_runners<PreStartup, Startup, PostStartup>();
-    spdlog::info("Running start up runners.");
+    spdlog::debug("Running start up runners.");
     run_runners<PreStartup, Startup, PostStartup>();
     // loop
     do {
