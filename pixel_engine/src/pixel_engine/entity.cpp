@@ -1,7 +1,5 @@
 ﻿#include "pixel_engine/entity.h"
 
-#include "pixel_engine/prelude.h"
-
 bool pixel_engine::entity::check_exit(EventReader<AppExit> exit_events) {
     spdlog::debug("Check if exit");
     for (auto& e : exit_events.read()) {
