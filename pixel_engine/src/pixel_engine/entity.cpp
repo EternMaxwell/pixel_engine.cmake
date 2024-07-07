@@ -3,7 +3,7 @@
 #include "pixel_engine/prelude.h"
 
 bool pixel_engine::entity::check_exit(EventReader<AppExit> exit_events) {
-    spdlog::debug("Check if exit");
+    //spdlog::debug("Check if exit");
     for (auto& e : exit_events.read()) {
         spdlog::info("Exit event received, exiting app.");
         return true;
@@ -239,14 +239,23 @@ void pixel_engine::entity::App::run() {
         PreStartup, Startup, PostStartup, OnStateChange, PreUpdate, Update, PostUpdate, PreRender, Render, PostRender,
         PreExit, Exit, PostExit>();
     spdlog::info("Loading done.");
+    spdlog::info("Preparing start up runners.");
     prepare_runners<PreStartup, Startup, PostStartup>();
+    spdlog::info("Running start up runners.");
     run_runners<PreStartup, Startup, PostStartup>();
     // loop
     do {
+        spdlog::debug("Prepare runners.");
         prepare_runners<OnStateChange, PreUpdate, Update, PostUpdate, PreRender, Render, PostRender>();
+        spdlog::debug("Run on state change runners.");
         run_runner<OnStateChange>();
+        spdlog::debug("Update states.");
         update_states();
-        run_runners<PreUpdate, Update, PostUpdate, PreRender, Render, PostRender>();
+        spdlog::debug("Run update runners.");
+        run_runners<PreUpdate, Update, PostUpdate>();
+        spdlog::debug("Run render runners.");
+        run_runners<PreRender, Render, PostRender>();
+        spdlog::debug("Tick events.");
         tick_events();
     } while (m_loop_enabled && !run_system_v(std::function(check_exit)));
     // prepare exit runners.

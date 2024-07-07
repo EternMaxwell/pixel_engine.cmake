@@ -74,16 +74,25 @@ namespace path {
 
     void create_world(Command command) {
         Voxel_World world;
-        world.resize(20, 20, 20);
+        world.resize(100, 100, 100);
         for (int x = 0; x < world.size.x; x++) {
             for (int y = 0; y < world.size.y; y++) {
                 for (int z = 0; z < world.size.z; z++) {
-                    world.set(
-                        x, y, z,
-                        Voxel{
-                            .occupied = 1,
-                            .color{(float)x / world.size.x, (float)y / world.size.y, (float)z / world.size.z},
-                        });
+                    if ((y == 0 || y == world.size.z - 1) && (x == 0 || x == world.size.x - 1) &&
+                        (z == 0 || z == world.size.z - 1))
+                        world.set(
+                            x, y, z,
+                            Voxel{
+                                .occupied = 1,
+                                .color{1.0f, 1.0f, 1.0f},
+                            });
+                    else
+                        world.set(
+                            x, y, z,
+                            Voxel{
+                                .occupied = 1,
+                                .color{(float)x / world.size.x, (float)y / world.size.y, (float)z / world.size.z},
+                            });
                 }
             }
         }

@@ -50,7 +50,7 @@ Ray create_ray(vec3 origin, vec3 dir) {
     ray.dir = normalize(dir);
     ray.hit = false;
     ray.rdir = 1.0 / ray.dir;
-    ray.d_sign = -sign(ray.dir);
+    ray.d_sign = clamp(sign(ray.dir), 1, 1);
     ray.axis = 0;
     return ray;
 }
