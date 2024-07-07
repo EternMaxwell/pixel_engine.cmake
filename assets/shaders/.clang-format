@@ -1,6 +1,8 @@
-﻿ # We'll use defaults from the LLVM style, but with 4 columns indentation.
- BasedOnStyle: Google
+﻿ BasedOnStyle: Google
  IndentWidth: 4
  PointerAlignment: Left
  NamespaceIndentation: All
- ColumnLimit: 120
+ ColumnLimit: 80
+ AllowAllArgumentsOnNextLine: true
+ AllowShortBlocksOnASingleLine: Empty
+ AlignAfterOpenBracket: AlwaysBreak

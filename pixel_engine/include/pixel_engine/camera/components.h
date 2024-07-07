@@ -30,10 +30,14 @@ namespace pixel_engine {
                 glm::vec4 position;
                 glm::vec4 direction;
                 glm::vec4 up;
+                glm::vec4 proj;
 
                 void set_position(glm::vec3 position) { this->position = glm::vec4(position, 1.0); }
                 void look_at(glm::vec3 direction) { this->direction = glm::vec4(glm::normalize(direction), 0.0); }
                 void set_up(glm::vec3 up) { this->up = glm::vec4(glm::normalize(up), 0.0); }
+                void set_proj(float fov, float aspect, float near, float far) {
+                    proj = glm::vec4(fov, aspect, near, far);
+                }
                 void rotate(glm::vec3 axis, float angle) {
                     glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), angle, axis);
                     direction = rotation * direction;

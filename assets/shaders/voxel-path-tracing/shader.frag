@@ -8,6 +8,7 @@ layout(std140, binding = 0) uniform Camera {
     vec4 pos;
     vec4 dir;
     vec4 up;
+    vec4 proj;
 }
 camera;
 
@@ -41,7 +42,8 @@ layout(std140, binding = 0) buffer Voxels {
 voxels;
 
 Voxel get_voxel(int x, int y, int z) {
-    return voxels.voxels[x + y * voxels.size.x + z * voxels.size.x * voxels.size.y];
+    return voxels
+        .voxels[x + y * voxels.size.x + z * voxels.size.x * voxels.size.y];
 }
 
 Ray create_ray(vec3 origin, vec3 dir) {
@@ -50,14 +52,18 @@ Ray create_ray(vec3 origin, vec3 dir) {
     ray.dir = normalize(dir);
     ray.hit = false;
     ray.rdir = 1.0 / ray.dir;
-    ray.d_sign = clamp(sign(ray.dir), 1, 1);
+    ray.d_sign = clamp(-sign(ray.dir), 0.0, 1.0);
     ray.axis = 0;
     return ray;
 }
 
 Ray get_ray() {
     vec3 origin = camera.pos.xyz;
-    vec3 dir = normalize(camera.dir.xyz + in_pos.y * camera.up.xyz - in_pos.x * cross(camera.dir.xyz, camera.up.xyz));
+    vec3 dir = normalize(
+        camera.dir.xyz +
+        tan(camera.proj.x) *
+            (in_pos.y * camera.up.xyz -
+             camera.proj.y * in_pos.x * cross(camera.dir.xyz, camera.up.xyz)));
     return create_ray(origin, dir);
 }
 
@@ -67,11 +73,6 @@ vec4 get_albedo(Ray ray) {
         return vec4(voxel.data.zyw, 1.0);
     }
     return vec4(0);
-}
-
-bool point_in_bounds(vec3 point) {
-    return point.x >= 0 && point.x <= voxels.size.x && point.y >= 0 && point.y <= voxels.size.y && point.z >= 0 &&
-           point.z <= voxels.size.z;
 }
 
 float intersect_cube(inout Ray ray) {
@@ -95,24 +96,29 @@ float intersect_cube(inout Ray ray) {
     return tmax >= tmin ? tmin : 1.0e34;
 }
 
+bool point_in_bounds(vec3 point) {
+    return point.x >= 0 && point.x <= voxels.size.x && point.y >= 0 &&
+           point.y <= voxels.size.y && point.z >= 0 && point.z <= voxels.size.z;
+}
+
 bool setup_dda(inout Ray ray, inout DDAState state) {
     state.t = 0;
     bool start_in_grid = point_in_bounds(ray.origin);
     if (!start_in_grid) {
         state.t = intersect_cube(ray);
-        if (state.t == 1.0e34) return false;
+        if (state.t > 1.0e33) return false;
     }
     state.step = ivec3(1 - ray.d_sign * 2);
-    vec3 pos_in_grid = ray.origin + ray.dir * (state.t + 0.005);
+    vec3 pos_in_grid = ray.origin + ray.dir * (state.t + 0.0001);
     vec3 grid_planes = ceil(pos_in_grid) - ray.d_sign;
-    ivec3 P = clamp(ivec3(grid_planes), ivec3(0), voxels.size.xyz - 1);
+    ivec3 P = clamp(ivec3(floor(pos_in_grid)), ivec3(0), voxels.size.xyz - 1);
     state.X = uint(P.x);
     state.Y = uint(P.y);
     state.Z = uint(P.z);
     state.tDelta = vec3(state.step) * ray.rdir;
     state.tMax = ray.rdir * (grid_planes - ray.origin);
     Voxel cell = get_voxel(P.x, P.y, P.z);
-    ray.inside = start_in_grid && (cell.data.x > 0);
+    ray.inside = start_in_grid && (cell.data.x > 0.5);
     return true;
 }
 
@@ -125,10 +131,14 @@ void find_nearest(inout Ray ray) {
     if (!setup_dda(ray, state)) return;
     Voxel cell, lastCell;
     int axis = ray.axis;
+    bool hit = false;
     if (ray.inside) {
+        hit = true;
         while (true) {
             cell = get_voxel(int(state.X), int(state.Y), int(state.Z));
-            if (cell.data.x > 0) break;
+            if (cell.data.x < 0.5) {
+                break;
+            }
             lastCell = cell;
             if (state.tMax.x < state.tMax.y) {
                 if (state.tMax.x < state.tMax.z) {
@@ -162,12 +172,13 @@ void find_nearest(inout Ray ray) {
         }
         if (state.t > 0.0) {
             ray.voxel = lastCell;
-            ray.hit = true;
+            ray.hit = hit;
         }
     } else {
         while (true) {
             cell = get_voxel(int(state.X), int(state.Y), int(state.Z));
-            if (cell.data.x > 0) {
+            if (cell.data.x > 0.5) {
+                hit = true;
                 break;
             }
             if (state.tMax.x < state.tMax.y) {
@@ -202,7 +213,7 @@ void find_nearest(inout Ray ray) {
         }
         if (state.t > 0) {
             ray.voxel = cell;
-            ray.hit = true;
+            ray.hit = hit;
         }
     }
     ray.t = state.t;
@@ -214,10 +225,10 @@ vec4 trace_ray(Ray ray) {
     if (ray.hit) {
         return get_albedo(ray);
     }
-    return vec4(ray.dir, 1.0);
     vec3 sun_dir = normalize(vec3(1, 1, 1));
-    float sun_intensity = max(0.0, pow(dot(sun_dir, ray.dir), 3));
-    return vec4(0.7 * sun_intensity, 0.7 * sun_intensity, 0.7 * sun_intensity, 1.0);
+    float sun_intensity = max(0.0, pow(dot(sun_dir, ray.dir), 7));
+    return vec4(
+        0.7 * sun_intensity, 0.7 * sun_intensity, 0.7 * sun_intensity, 1.0);
 }
 
 void main() {

@@ -3,6 +3,7 @@
 #include <pixel_engine/asset_server_gl/resources.h>
 #include <pixel_engine/prelude.h>
 #include <pixel_engine/render_gl/components.h>
+#include <pixel_engine/window/window.h>
 
 #include <vector>
 
@@ -12,9 +13,10 @@ namespace path {
     using namespace pixel_engine::render_gl::components;
     using namespace pixel_engine::camera;
     using namespace pixel_engine::transform;
+    using namespace pixel_engine::window::components;
 
     struct Voxel {
-        float occupied = 0;
+        float occupied = 0.0f;
         float color[3] = {0.0f, 0.0f, 0.0f};
     };
 
@@ -83,16 +85,18 @@ namespace path {
                         world.set(
                             x, y, z,
                             Voxel{
-                                .occupied = 1,
+                                .occupied = 1.0f,
                                 .color{1.0f, 1.0f, 1.0f},
                             });
-                    else
-                        world.set(
-                            x, y, z,
-                            Voxel{
-                                .occupied = 1,
-                                .color{(float)x / world.size.x, (float)y / world.size.y, (float)z / world.size.z},
-                            });
+                    else {
+                        if (x > 10 && x < 90 && y > 10 && y < 90 && z > 10 && z < 90)
+                            world.set(
+                                x, y, z,
+                                Voxel{
+                                    .occupied = 1.0f,
+                                    .color{(float)x / world.size.x, (float)y / world.size.y, (float)z / world.size.z},
+                                });
+                    }
                 }
             }
         }
@@ -117,7 +121,57 @@ namespace path {
             .position = {0.0f, 0.0f, -20.0f, 1.0},
             .direction = {0.0f, 0.0f, 1.0f, 1.0},
             .up = {0.0f, 1.0f, 0.0f, 1.0},
+            .proj = {glm::radians(45.0f), 16.0f / 9.0f, 0.1f, 100.0f},
         });
+    }
+
+    void handle_cam_input(
+        Query<Get<CameraPath>> camera_query, Query<Get<WindowHandle, WindowSize>, With<PrimaryWindow>> window_query) {
+        static float x_angle = 0.0f;
+        static float y_angle = 0.0f;
+        float amount = 1.0f;
+        auto c = camera_query.single();
+        auto ws = window_query.single();
+        if (!c || !ws) {
+            return;
+        }
+        auto [cam] = c.value();
+        auto [window_handle, window_size] = ws.value();
+        glm::vec4 move_dir = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        if (glfwGetKey(window_handle.window_handle, GLFW_KEY_W) == GLFW_PRESS) {
+            move_dir += cam.direction;
+        }
+        if (glfwGetKey(window_handle.window_handle, GLFW_KEY_S) == GLFW_PRESS) {
+            move_dir -= cam.direction;
+        }
+        if (glfwGetKey(window_handle.window_handle, GLFW_KEY_A) == GLFW_PRESS) {
+            move_dir += glm::vec4(glm::cross(glm::vec3(cam.direction), glm::vec3(cam.up)), 0.0f);
+        }
+        if (glfwGetKey(window_handle.window_handle, GLFW_KEY_D) == GLFW_PRESS) {
+            move_dir -= glm::vec4(glm::cross(glm::vec3(cam.direction), glm::vec3(cam.up)), 0.0f);
+        }
+        if (glfwGetKey(window_handle.window_handle, GLFW_KEY_UP) == GLFW_PRESS) {
+            x_angle += amount;
+        }
+        if (glfwGetKey(window_handle.window_handle, GLFW_KEY_DOWN) == GLFW_PRESS) {
+            x_angle -= amount;
+        }
+        if (glfwGetKey(window_handle.window_handle, GLFW_KEY_LEFT) == GLFW_PRESS) {
+            y_angle += amount;
+        }
+        if (glfwGetKey(window_handle.window_handle, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+            y_angle -= amount;
+        }
+        x_angle = glm::clamp(x_angle, -89.9f, 89.9f);
+
+        cam.direction = glm::rotate(glm::mat4(1.0f), -glm::radians(y_angle), glm::vec3(0.0f, 1.0f, 0.0f)) *
+                        glm::rotate(glm::mat4(1.0f), -glm::radians(x_angle), glm::vec3(1.0f, 0.0f, 0.0f)) *
+                        glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+        cam.up = glm::rotate(glm::mat4(1.0f), -glm::radians(y_angle), glm::vec3(0.0f, 1.0f, 0.0f)) *
+                 glm::rotate(glm::mat4(1.0f), -glm::radians(x_angle), glm::vec3(1.0f, 0.0f, 0.0f)) *
+                 glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
+        cam.position += glm::vec4(glm::vec3(move_dir) * 0.1f, 0.0f);
+        cam.proj.y = (float)window_size.width / window_size.height;
     }
 
     void render_world(
@@ -132,8 +186,6 @@ namespace path {
         auto [pipeline, buffers] = bs.value();
         auto [world] = w.value();
         auto [cam] = c.value();
-        cam.position += glm::vec4(-0.0003f, 0.0003f, -0.0001f, 0.0f);
-        cam.direction = glm::rotate(glm::mat4(1.0f), 0.001f, glm::vec3(0.0f, 1.0f, 0.0f)) * cam.direction;
         glUseProgram(pipeline.program);
         glBindVertexArray(pipeline.vertex_array);
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, buffers.uniform_buffers[0].buffer);
@@ -141,8 +193,9 @@ namespace path {
         buffers.uniform_buffers[0].write(&cam.position, sizeof(cam.position), 0);
         buffers.uniform_buffers[0].write(&cam.direction, sizeof(cam.direction), sizeof(cam.direction));
         buffers.uniform_buffers[0].write(&cam.up, sizeof(cam.up), sizeof(cam.direction) * 2);
+        buffers.uniform_buffers[0].write(&cam.proj, sizeof(cam.proj), sizeof(cam.direction) * 3);
         glNamedBufferData(
-            buffers.uniform_buffers[0].buffer, 3 * sizeof(glm::vec4), buffers.uniform_buffers[0].data.data(),
+            buffers.uniform_buffers[0].buffer, 4 * sizeof(glm::vec4), buffers.uniform_buffers[0].data.data(),
             GL_DYNAMIC_DRAW);
         glBindBuffer(GL_ARRAY_BUFFER, pipeline.vertex_buffer.buffer);
         float vertices[] = {
@@ -158,6 +211,7 @@ namespace path {
             app.add_system(Startup{}, create_camera_path);
             app.add_system(Startup{}, create_world);
             app.add_system_main(Startup{}, create_pipeline);
+            app.add_system_main(Update{}, handle_cam_input);
             app.add_system_main(PostStartup{}, upload_world_to_gpu);
             app.add_system_main(Render{}, render_world);
         }

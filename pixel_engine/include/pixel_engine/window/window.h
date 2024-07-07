@@ -38,12 +38,13 @@ namespace pixel_engine {
            private:
             int primary_window_width = 480 * 3;
             int primary_window_height = 270 * 3;
+            bool primary_window_vsync = true;
             const char* primary_window_title = "Pixel Engine";
 
             std::function<void(Command)> insert_primary_window = [&](Command command) {
                 command.spawn(
                     WindowBundle{
-                        .window_handle = {.vsync = false},
+                        .window_handle = {.vsync = primary_window_vsync},
                         .window_size = {.width = primary_window_width, .height = primary_window_height},
                         .window_title = {.title = primary_window_title}},
                     PrimaryWindow{});
@@ -52,6 +53,7 @@ namespace pixel_engine {
            public:
             void set_primary_window_size(int width, int height);
             void set_primary_window_title(const std::string& title);
+            void set_primary_window_vsync(bool vsync);
             void build(App& app) override;
         };
     }  // namespace window
