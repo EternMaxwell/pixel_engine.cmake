@@ -8,7 +8,7 @@ layout(std140, binding = 0) uniform Camera {
     vec4 pos;
     vec4 dir;
     vec4 up;
-    vec4 proj;
+    vec4 proj;  // x is fov, y is aspect ratio, z is near, w is far
 }
 camera;
 
@@ -74,6 +74,12 @@ vec4 get_albedo(Ray ray) {
     }
     return vec4(0);
 }
+
+vec3 get_normal(Ray ray) {
+    return vec3(ray.axis == 0, ray.axis == 1, ray.axis == 2);
+}
+
+vec3 get_intersection(Ray ray) { return ray.origin + ray.dir * ray.t; }
 
 float intersect_cube(inout Ray ray) {
     float tx1 = -ray.origin.x * ray.rdir.x;
@@ -220,18 +226,28 @@ void find_nearest(inout Ray ray) {
     ray.axis = axis;
 }
 
-vec4 trace_ray(Ray ray) {
+vec4 trace_ray(inout Ray ray) {
     find_nearest(ray);
     if (ray.hit) {
         return get_albedo(ray);
     }
     vec3 sun_dir = normalize(vec3(1, 1, 1));
-    float sun_intensity = max(0.0, pow(dot(sun_dir, ray.dir), 7));
+    float sun_intensity = max(0.0, pow(dot(sun_dir, ray.dir), 24));
     return vec4(
-        0.7 * sun_intensity, 0.7 * sun_intensity, 0.7 * sun_intensity, 1.0);
+        1.7 * sun_intensity, 1.7 * sun_intensity, 1.7 * sun_intensity, 1.0);
 }
 
 void main() {
     Ray ray = get_ray();
     out_color = trace_ray(ray);
+    vec3 dir = camera.dir.xyz +
+               tan(camera.proj.x) * (in_pos.y * camera.up.xyz -
+                                     camera.proj.y * in_pos.x *
+                                         cross(camera.dir.xyz, camera.up.xyz));
+    float z = ray.hit ? ray.t / length(dir) : camera.proj.w;
+    float near = camera.proj.z;
+    float far = camera.proj.w;
+    float depth =
+        z * (far + near) / (far - near) - 2.0 * far * near / (far - near);
+    gl_FragDepth = (depth + 1) / 2;
 }
