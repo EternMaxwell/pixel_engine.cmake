@@ -1,16 +1,6 @@
 #version 450 core
 
-layout(location = 0) in vec2 in_pos;  // pos on the screen (-1, 1).
-
-layout(location = 0) out vec4 out_color;  // color of the pixel.
-
-layout(std140, binding = 0) uniform Camera {
-    vec4 pos;
-    vec4 dir;
-    vec4 up;
-    vec4 proj;  // x is fov, y is aspect ratio, z is near, w is far
-}
-camera;
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 struct Voxel {
     vec4 data;
@@ -34,6 +24,16 @@ struct DDAState {
     float t;
     vec3 tMax, tDelta;
 };
+
+layout(std140, binding = 0) uniform Camera {
+    vec4 pos;
+    vec4 dir;
+    vec4 up;
+    vec4 proj;  // x is fov, y is aspect ratio, z is near, w is far
+}
+camera;
+
+layout(binding = 1, rgba32f) uniform image2D u_output_image;
 
 layout(std140, binding = 0) readonly buffer Voxels {
     ivec4 size;
@@ -59,6 +59,10 @@ Ray create_ray(vec3 origin, vec3 dir) {
 
 Ray get_ray() {
     vec3 origin = camera.pos.xyz;
+    vec2 in_pos = ((vec2(gl_GlobalInvocationID.xy) + 0.5) /
+                   vec2(imageSize(u_output_image))) *
+                      2 -
+                  1;
     vec3 dir = normalize(
         camera.dir.xyz +
         tan(camera.proj.x) *
@@ -140,8 +144,11 @@ void find_nearest(inout Ray ray) {
     bool hit = false;
     if (ray.inside) {
         hit = true;
-        cell = get_voxel(int(state.X), int(state.Y), int(state.Z));
-        while (cell.data.x > 0.5) {
+        while (true) {
+            cell = get_voxel(int(state.X), int(state.Y), int(state.Z));
+            if (cell.data.x < 0.5) {
+                break;
+            }
             lastCell = cell;
             if (state.tMax.x < state.tMax.y) {
                 if (state.tMax.x < state.tMax.z) {
@@ -172,7 +179,6 @@ void find_nearest(inout Ray ray) {
                     state.tMax.z += state.tDelta.z;
                 }
             }
-            cell = get_voxel(int(state.X), int(state.Y), int(state.Z));
         }
         if (state.t > 0.0) {
             ray.voxel = lastCell;
@@ -237,15 +243,7 @@ vec4 trace_ray(inout Ray ray) {
 
 void main() {
     Ray ray = get_ray();
-    out_color = trace_ray(ray);
-    vec3 dir = camera.dir.xyz +
-               tan(camera.proj.x) * (in_pos.y * camera.up.xyz -
-                                     camera.proj.y * in_pos.x *
-                                         cross(camera.dir.xyz, camera.up.xyz));
-    float z = ray.hit ? ray.t / length(dir) : camera.proj.w;
-    float near = camera.proj.z;
-    float far = camera.proj.w;
-    float depth =
-        z * (far + near) / (far - near) - 2.0 * far * near / (far - near);
-    //gl_FragDepth = (depth + 1) / 2;
+    vec4 color = trace_ray(ray);
+    ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
+    imageStore(u_output_image, coords, color);
 }

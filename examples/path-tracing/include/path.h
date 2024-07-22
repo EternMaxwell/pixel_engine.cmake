@@ -76,11 +76,11 @@ namespace path {
 
     void create_world(Command command) {
         Voxel_World world;
-        world.resize(100, 100, 100);
+        world.resize(500, 500, 500);
         for (int x = 0; x < world.size.x; x++) {
             for (int y = 0; y < world.size.y; y++) {
                 for (int z = 0; z < world.size.z; z++) {
-                    if ((y == 0 || y == world.size.z - 1) && (x == 0 || x == world.size.x - 1) &&
+                    if ((y == 0 || y == world.size.y - 1) && (x == 0 || x == world.size.x - 1) &&
                         (z == 0 || z == world.size.z - 1))
                         world.set(
                             x, y, z,
@@ -89,7 +89,7 @@ namespace path {
                                 .color{1.0f, 1.0f, 1.0f},
                             });
                     else {
-                        if (x > 10 && x < 90 && y > 10 && y < 90 && z > 10 && z < 90)
+                        if (x > 20 && x < world.size.x - 20 && y > 20 && y < world.size.y - 20 && z > 20 && z < world.size.z - 20)
                             world.set(
                                 x, y, z,
                                 Voxel{
@@ -170,7 +170,7 @@ namespace path {
         cam.up = glm::rotate(glm::mat4(1.0f), -glm::radians(y_angle), glm::vec3(0.0f, 1.0f, 0.0f)) *
                  glm::rotate(glm::mat4(1.0f), -glm::radians(x_angle), glm::vec3(1.0f, 0.0f, 0.0f)) *
                  glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
-        cam.position += glm::vec4(glm::vec3(move_dir) * 0.1f, 0.0f);
+        cam.position += glm::vec4(glm::vec3(move_dir) * 0.3f, 0.0f);
         cam.proj.y = (float)window_size.width / window_size.height;
     }
 
