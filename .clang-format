@@ -2,7 +2,7 @@
  BasedOnStyle: Google
  IndentWidth: 4
  PointerAlignment: Left
- NamespaceIndentation: All
+ # NamespaceIndentation: All
  ColumnLimit: 120
  AllowAllArgumentsOnNextLine: true
  AllowShortBlocksOnASingleLine: Empty
