@@ -1,9 +1,34 @@
-﻿#include "pixel_engine/render_gl/render_gl.h"
-
-#include "pixel_engine/render_gl/components.h"
+﻿#include "pixel_engine/render_gl/components.h"
+#include "pixel_engine/render_gl/render_gl.h"
 #include "pixel_engine/render_gl/systems.h"
 
 using namespace pixel_engine::render_gl::systems;
+using namespace pixel_engine::render_gl::components;
+using namespace pipeline;
+
+void VertexArray::create() { glCreateVertexArrays(1, &id); }
+
+bool VertexArray::valid() const { return id != 0; }
+
+void pipeline::Buffer::create() { glCreateBuffers(1, &id); }
+
+bool pipeline::Buffer::valid() const { return id != 0; }
+
+void Texture::create(int type) { glCreateTextures(type, 1, &id); }
+
+bool Texture::valid() const { return id != 0; }
+
+void Sampler::create() { glCreateSamplers(1, &id); }
+
+bool Sampler::valid() const { return id != 0; }
+
+pipeline::Buffer& UniformBufferBindings::operator[](size_t index) { return buffers[index]; }
+
+pipeline::Buffer& StorageBufferBindings::operator[](size_t index) { return buffers[index]; }
+
+pipeline::Image& TextureBindings::operator[](size_t index) { return textures[index]; }
+
+pipeline::Texture& ImageTextureBindings::operator[](size_t index) { return images[index]; }
 
 void pixel_engine::render_gl::components::Buffer::write(const void* rdata, size_t size, size_t offset) {
     if (offset + size > data.size()) {
