@@ -3,7 +3,7 @@
  IndentWidth: 4
  PointerAlignment: Left
  # NamespaceIndentation: All
- ColumnLimit: 120
+ ColumnLimit: 80
  AllowAllArgumentsOnNextLine: true
  AllowShortBlocksOnASingleLine: Empty
  AlignAfterOpenBracket: AlwaysBreak
