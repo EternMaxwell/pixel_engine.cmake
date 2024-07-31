@@ -553,6 +553,15 @@ struct LogicOp {
     int op;
 };
 
+/**
+ * @brief Pipeline shader attachments.
+ *
+ * @param vertex_shader `ShaderPtr` The vertex shader.
+ * @param fragment_shader `ShaderPtr` The fragment shader.
+ * @param geometry_shader `ShaderPtr` The geometry shader.
+ * @param tess_control_shader `ShaderPtr` The tessellation control shader.
+ * @param tess_evaluation_shader `ShaderPtr` The tessellation evaluation shader.
+ */
 struct ProgramShaderAttachments {
     ShaderPtr vertex_shader;
     ShaderPtr fragment_shader;
@@ -561,7 +570,18 @@ struct ProgramShaderAttachments {
     ShaderPtr tess_evaluation_shader;
 };
 
-struct BufferBindings{
+/**
+ * @brief Buffer bindings.
+ *
+ * This struct represents a bundle of buffer objects in OpenGL.
+ *
+ * Used in `PipelineBundle` to bind the buffers.
+ *
+ * @param vertex_buffer `BufferPtr` The vertex buffer object.
+ * @param index_buffer `BufferPtr` The index buffer object.
+ * @param draw_indirect_buffer `BufferPtr` The draw indirect buffer object.
+ */
+struct BufferBindings {
     BufferPtr vertex_buffer;
     BufferPtr index_buffer;
     BufferPtr draw_indirect_buffer;
@@ -569,10 +589,15 @@ struct BufferBindings{
 };
 
 /**
+ * @brief Pipeline creation. Indicates the entity is a pipeline creation entity.
+ */
+struct PipelineCreation {};
+
+/**
  * @brief Pipeline creation bundle.
  *
  * This struct represents a bundle of pipeline creation objects in OpenGL.
- * 
+ *
  * @param shaders `ProgramShaderAttachments` The shaders.
  * @param buffers `PipelineBuffersCreation` The buffers this pipeline will use.
  * @param attribs `VertexAttribs` The vertex attributes.
@@ -580,10 +605,17 @@ struct BufferBindings{
 struct PipelineCreationBundle {
     Bundle bundle;
 
+    PipelineCreation creation;
+
     ProgramShaderAttachments shaders;
 
     VertexAttribs attribs;
 };
+
+/**
+ * @brief Pipeline. Indicates the entity is a pipeline entity.
+ */
+struct Pipeline {};
 
 /**
  * @brief Pipeline bundle.
@@ -609,24 +641,103 @@ struct PipelineCreationBundle {
 struct PipelineBundle {
     Bundle bundle;
 
+    Pipeline pipeline;
+
     VertexArrayPtr vertex_array;
     BufferBindings buffers;
 
+    ProgramPtr program;
+};
+
+struct PipelineLayout {
     UniformBufferBindings uniform_buffers;
     StorageBufferBindings storage_buffers;
     TextureBindings textures;
     ImageTextureBindings images;
+};
 
-    ProgramPtr program;
-
-    ViewPort view_port;
-    DepthRange depth_range;
-
+struct PerSampleOperations {
     ScissorTest scissor_test;
     DepthTest depth_test;
     StencilTest stencil_test;
     Blending blending;
     LogicOp logic_op;
+};
+
+struct RenderBufferPtr {
+    uint32_t id = 0;
+    void create();
+    void storage(int internal_format, int width, int height);
+    bool check();
+    bool valid() const;
+};
+
+struct FrameBufferPtr {
+    uint32_t id = 0;
+    void create();
+    void bind() const;
+    void attachTexture(
+        uint32_t attachment, const TexturePtr& texture, int level);
+    void attachTextureLayer(
+        uint32_t attachment, const TexturePtr& texture, int level, int layer);
+    void attachRenderBuffer(
+        uint32_t attachment, const RenderBufferPtr& render_buffer);
+    bool check();
+    bool unique() const;
+};
+
+/**
+ * @brief Pipeline entity ptr.
+ *
+ * This struct points to a pipeline entity in entity component system.
+ */
+struct PipelinePtr {
+    entt::entity pipeline;
+};
+
+/**
+ * @brief Render pass. Indicates the entity is a render pass entity.
+ */
+struct RenderPass {};
+
+/**
+ * @brief Render pass bundle.
+ *
+ * Used to tell the engine how to render.
+ *
+ * @param render_pass `RenderPass` The render pass object.
+ * @param pipeline `PipelinePtr` The pipeline object.
+ */
+struct RenderPassBundle {
+    Bundle bundle;
+
+    RenderPass render_pass;
+
+    PipelinePtr pipeline;
+    FrameBufferPtr frame_buffer;
+
+    ViewPort view_port;
+    DepthRange depth_range;
+
+    PipelineLayout layout;
+    PerSampleOperations per_sample_operations;
+};
+
+struct RenderPassPtr {
+    entt::entity render_pass;
+};
+
+struct DrawArrays {
+    uint32_t mode;
+    int first;
+    int count;
+};
+
+struct DrawArraysBundle {
+    Bundle bundle;
+
+    RenderPassPtr render_pass;
+    DrawArrays draw_arrays;
 };
 }  // namespace pipeline
 

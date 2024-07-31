@@ -156,6 +156,46 @@ void BufferBindings::bind() const {
     }
 }
 
+void RenderBufferPtr::create() { glCreateRenderbuffers(1, &id); }
+
+bool RenderBufferPtr::valid() const { return id != 0; }
+
+void RenderBufferPtr::storage(int internal_format, int width, int height) {
+    glNamedRenderbufferStorage(id, internal_format, width, height);
+}
+
+bool RenderBufferPtr::check() {
+    auto status = glCheckNamedFramebufferStatus(id, GL_RENDERBUFFER);
+    return status == GL_FRAMEBUFFER_COMPLETE;
+}
+
+void FrameBufferPtr::create() { glCreateFramebuffers(1, &id); }
+
+void FrameBufferPtr::bind() const { glBindFramebuffer(GL_FRAMEBUFFER, id); }
+
+bool FrameBufferPtr::check() {
+    auto status = glCheckNamedFramebufferStatus(id, GL_FRAMEBUFFER);
+    return status == GL_FRAMEBUFFER_COMPLETE;
+}
+
+bool FrameBufferPtr::unique() const { return id != 0; }
+
+void FrameBufferPtr::attachTexture(
+    uint32_t attachment, const TexturePtr& texture, int level) {
+    glNamedFramebufferTexture(id, attachment, texture.id, level);
+}
+
+void FrameBufferPtr::attachTextureLayer(
+    uint32_t attachment, const TexturePtr& texture, int level, int layer) {
+    glNamedFramebufferTextureLayer(id, attachment, texture.id, level, layer);
+}
+
+void FrameBufferPtr::attachRenderBuffer(
+    uint32_t attachment, const RenderBufferPtr& render_buffer) {
+    glNamedFramebufferRenderbuffer(
+        id, attachment, GL_RENDERBUFFER, render_buffer.id);
+}
+
 void pixel_engine::render_gl::components::Buffer::write(
     const void* rdata, size_t size, size_t offset) {
     if (offset + size > data.size()) {
@@ -216,10 +256,11 @@ void pixel_engine::render_gl::systems::context_creation(
 }
 
 void pixel_engine::render_gl::systems::create_pipelines(
-    Command command, Query<
-                         Get<entt::entity, Pipeline, Shaders, Attribs>, With<>,
-                         Without<ProgramLinked>>
-                         query) {
+    Command command,
+    Query<
+        Get<entt::entity, components::Pipeline, Shaders, Attribs>, With<>,
+        Without<ProgramLinked>>
+        query) {
     for (auto [id, pipeline, shaders, attribs] : query.iter()) {
         spdlog::debug("Creating new pipeline");
         pipeline.program = glCreateProgram();
@@ -266,7 +307,7 @@ void pixel_engine::render_gl::systems::complete_pipeline(
     Command command, Query<
                          Get<entt::entity, pipeline::ProgramShaderAttachments,
                              pipeline::VertexAttribs>,
-                         With<>, Without<>>
+                         With<pipeline::PipelineCreation>, Without<>>
                          query) {
     for (auto [id, shaders, attribs] : query.iter()) {
         spdlog::debug("Completing pipeline");
@@ -322,96 +363,20 @@ void pixel_engine::render_gl::systems::complete_pipeline(
 void pixel_engine::render_gl::systems::use_pipeline(
     const pipeline::VertexArrayPtr& vertex_array,
     const pipeline::BufferBindings& buffers,
-    const pipeline::UniformBufferBindings& uniform_buffers,
-    const pipeline::StorageBufferBindings& storage_buffers,
-    const pipeline::TextureBindings& textures,
-    const pipeline::ImageTextureBindings& images,
-    const pipeline::ProgramPtr& program, const pipeline::ViewPort& viewport,
-    const pipeline::DepthRange& depth_range,
-    const pipeline::ScissorTest& scissor_test,
-    const pipeline::DepthTest& depth_test,
-    const pipeline::StencilTest& stencil_test,
-    const pipeline::Blending& blending, const pipeline::LogicOp& logic_op) {
+    const pipeline::ProgramPtr& program) {
     vertex_array.bind();
     program.use();
     buffers.bind();
-    uniform_buffers.bind();
-    storage_buffers.bind();
-    textures.bind();
-    images.bind();
-    glViewport(viewport.x, viewport.y, viewport.width, viewport.height);
-    glDepthRange(depth_range.nearf, depth_range.farf);
-    if (scissor_test.enable) {
-        glEnable(GL_SCISSOR_TEST);
-        glScissor(
-            scissor_test.x, scissor_test.y, scissor_test.width,
-            scissor_test.height);
-    } else {
-        glDisable(GL_SCISSOR_TEST);
-    }
-    if (depth_test.enable) {
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(depth_test.func.func);
-    } else {
-        glDisable(GL_DEPTH_TEST);
-    }
-    if (stencil_test.enable) {
-        glEnable(GL_STENCIL_TEST);
-        glStencilFuncSeparate(
-            GL_FRONT, stencil_test.func_front.func, stencil_test.func_front.ref,
-            stencil_test.func_front.mask);
-        glStencilOpSeparate(
-            GL_FRONT, stencil_test.op_front.sfail, stencil_test.op_front.dpfail,
-            stencil_test.op_front.dppass);
-        glStencilFuncSeparate(
-            GL_BACK, stencil_test.func_back.func, stencil_test.func_back.ref,
-            stencil_test.func_back.mask);
-        glStencilOpSeparate(
-            GL_BACK, stencil_test.op_back.sfail, stencil_test.op_back.dpfail,
-            stencil_test.op_back.dppass);
-    } else {
-        glDisable(GL_STENCIL_TEST);
-    }
-    if (blending.enable) {
-        glEnable(GL_BLEND);
-        glBlendEquationSeparate(
-            blending.blend_equation.mode_rgb,
-            blending.blend_equation.mode_alpha);
-        glBlendFuncSeparate(
-            blending.blend_func.src_rgb, blending.blend_func.dst_rgb,
-            blending.blend_func.src_alpha, blending.blend_func.dst_alpha);
-        glBlendColor(
-            blending.blend_color.red, blending.blend_color.green,
-            blending.blend_color.blue, blending.blend_color.alpha);
-    } else {
-        glDisable(GL_BLEND);
-    }
-    if (logic_op.enable) {
-        glEnable(GL_COLOR_LOGIC_OP);
-        glLogicOp(logic_op.op);
-    } else {
-        glDisable(GL_COLOR_LOGIC_OP);
-    }
 }
 
 void pixel_engine::render_gl::systems::use_pipeline(
     entt::entity pipeline_entity,
     Query<
         Get<const pipeline::VertexArrayPtr, const pipeline::BufferBindings,
-            const pipeline::UniformBufferBindings,
-            const pipeline::StorageBufferBindings,
-            const pipeline::TextureBindings,
-            const pipeline::ImageTextureBindings, const pipeline::ProgramPtr,
-            const pipeline::ViewPort, pipeline::DepthRange,
-            const pipeline::ScissorTest, const pipeline::DepthTest,
-            pipeline::StencilTest, const pipeline::Blending,
-            const pipeline::LogicOp>,
-        With<>, Without<>>& query) {
+            const pipeline::ProgramPtr>,
+        With<pipeline::Pipeline>, Without<>>& query) {
     auto pipeline = query.get(pipeline_entity);
-    auto& [vertex_array, buffers, uniform_buffers, storage_buffers, textures, images, program, viewport, depth_range, scissor_test, depth_test, stencil_test, blending, logic_op] =
-        pipeline;
+    auto& [vertex_array, buffers, program] = pipeline;
     pixel_engine::render_gl::systems::use_pipeline(
-        vertex_array, buffers, uniform_buffers, storage_buffers, textures,
-        images, program, viewport, depth_range, scissor_test, depth_test,
-        stencil_test, blending, logic_op);
+        vertex_array, buffers, program);
 }

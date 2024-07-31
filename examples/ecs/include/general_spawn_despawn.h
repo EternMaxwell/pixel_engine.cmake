@@ -17,8 +17,14 @@ namespace test_spawn_despawn {
         float x, y;
     };
 
+    struct InnerBundle {
+        Bundle tag;
+        int a;
+    };
+
     struct HealthPositionBundle {
         Bundle tag;
+        InnerBundle inner;
         Health health{.life = 100.0f};
         Position position{.x = 0.0f, .y = 0.0f};
     };

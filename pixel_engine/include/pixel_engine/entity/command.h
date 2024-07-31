@@ -52,7 +52,7 @@ namespace pixel_engine {
                             emplace_internal(registry, entity, field);
                         }
                     });
-                } else {
+                } else if constexpr (!std::is_same_v<Bundle, std::remove_reference_t<T>>) {
                     registry->emplace<T>(entity, arg);
                 }
                 if constexpr (sizeof...(Args) > 0) {

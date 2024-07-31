@@ -85,35 +85,20 @@ void complete_pipeline(
     Command command, Query<
                          Get<entt::entity, pipeline::ProgramShaderAttachments,
                              pipeline::VertexAttribs>,
-                         With<>, Without<>>
+                         With<pipeline::PipelineCreation>, Without<>>
                          query);
 
 void use_pipeline(
-    const pipeline::VertexArrayPtr& vertex_array, const pipeline::BufferBindings& buffers,
-    const pipeline::UniformBufferBindings& uniform_buffers,
-    const pipeline::StorageBufferBindings& storage_buffers,
-    const pipeline::TextureBindings& textures,
-    const pipeline::ImageTextureBindings& images,
-    const pipeline::ProgramPtr& program, const pipeline::ViewPort& viewport,
-    const pipeline::DepthRange& depth_range,
-    const pipeline::ScissorTest& scissor_test,
-    const pipeline::DepthTest& depth_test,
-    const pipeline::StencilTest& stencil_test,
-    const pipeline::Blending& blending, const pipeline::LogicOp& logic_op);
+    const pipeline::VertexArrayPtr& vertex_array,
+    const pipeline::BufferBindings& buffers,
+    const pipeline::ProgramPtr& program);
 
 void use_pipeline(
     entt::entity pipeline_entity,
     Query<
         Get<const pipeline::VertexArrayPtr, const pipeline::BufferBindings,
-            const pipeline::UniformBufferBindings,
-            const pipeline::StorageBufferBindings,
-            const pipeline::TextureBindings,
-            const pipeline::ImageTextureBindings, const pipeline::ProgramPtr,
-            const pipeline::ViewPort, pipeline::DepthRange,
-            const pipeline::ScissorTest, const pipeline::DepthTest,
-            pipeline::StencilTest, const pipeline::Blending,
-            const pipeline::LogicOp>,
-        With<>, Without<>>& query);
+            const pipeline::ProgramPtr>,
+        With<pipeline::Pipeline>, Without<>>& query);
 }  // namespace systems
 }  // namespace render_gl
 }  // namespace pixel_engine
