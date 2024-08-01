@@ -99,6 +99,22 @@ void use_pipeline(
         Get<const pipeline::VertexArrayPtr, const pipeline::BufferBindings,
             const pipeline::ProgramPtr>,
         With<pipeline::Pipeline>, Without<>>& query);
+
+void draw_arrays(
+    Query<Get<const pipeline::RenderPassPtr, const pipeline::DrawArrays>>
+        draw_query,
+    Query<
+        Get<const pipeline::PipelinePtr, const pipeline::FrameBufferPtr,
+            const pipeline::ViewPort, const pipeline::DepthRange,
+            const pipeline::PipelineLayout,
+            const pipeline::PerSampleOperations>,
+        With<pipeline::RenderPass>, Without<>>
+        render_pass_query,
+    Query<
+        Get<const pipeline::VertexArrayPtr, const pipeline::BufferBindings,
+            const pipeline::ProgramPtr>,
+        With<pipeline::Pipeline>, Without<>>
+        pipeline_query);
 }  // namespace systems
 }  // namespace render_gl
 }  // namespace pixel_engine

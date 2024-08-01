@@ -654,6 +654,8 @@ struct PipelineLayout {
     StorageBufferBindings storage_buffers;
     TextureBindings textures;
     ImageTextureBindings images;
+
+    void bind() const;
 };
 
 struct PerSampleOperations {
@@ -662,6 +664,8 @@ struct PerSampleOperations {
     StencilTest stencil_test;
     Blending blending;
     LogicOp logic_op;
+
+    void use() const;
 };
 
 struct RenderBufferPtr {

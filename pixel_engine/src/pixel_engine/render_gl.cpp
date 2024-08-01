@@ -156,6 +156,67 @@ void BufferBindings::bind() const {
     }
 }
 
+void PipelineLayout::bind() const {
+    uniform_buffers.bind();
+    storage_buffers.bind();
+    textures.bind();
+    images.bind();
+}
+
+void PerSampleOperations::use() const {
+    if (scissor_test.enable) {
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(
+            scissor_test.x, scissor_test.y, scissor_test.width,
+            scissor_test.height);
+    } else {
+        glDisable(GL_SCISSOR_TEST);
+    }
+    if (stencil_test.enable) {
+        glEnable(GL_STENCIL_TEST);
+        glStencilFuncSeparate(
+            GL_FRONT, stencil_test.func_front.func, stencil_test.func_front.ref,
+            stencil_test.func_front.mask);
+        glStencilFuncSeparate(
+            GL_BACK, stencil_test.func_back.func, stencil_test.func_back.ref,
+            stencil_test.func_back.mask);
+        glStencilOpSeparate(
+            GL_FRONT, stencil_test.op_front.sfail, stencil_test.op_front.dpfail,
+            stencil_test.op_front.dppass);
+        glStencilOpSeparate(
+            GL_BACK, stencil_test.op_back.sfail, stencil_test.op_back.dpfail,
+            stencil_test.op_back.dppass);
+    } else {
+        glDisable(GL_STENCIL_TEST);
+    }
+    if (depth_test.enable) {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(depth_test.func.func);
+    } else {
+        glDisable(GL_DEPTH_TEST);
+    }
+    if (blending.enable) {
+        glEnable(GL_BLEND);
+        glBlendFuncSeparate(
+            blending.blend_func.src_rgb, blending.blend_func.dst_rgb,
+            blending.blend_func.src_alpha, blending.blend_func.dst_alpha);
+        glBlendEquationSeparate(
+            blending.blend_equation.mode_rgb,
+            blending.blend_equation.mode_alpha);
+        glBlendColor(
+            blending.blend_color.red, blending.blend_color.green,
+            blending.blend_color.blue, blending.blend_color.alpha);
+    } else {
+        glDisable(GL_BLEND);
+    }
+    if (logic_op.enable) {
+        glEnable(GL_COLOR_LOGIC_OP);
+        glLogicOp(logic_op.op);
+    } else {
+        glDisable(GL_COLOR_LOGIC_OP);
+    }
+}
+
 void RenderBufferPtr::create() { glCreateRenderbuffers(1, &id); }
 
 bool RenderBufferPtr::valid() const { return id != 0; }
@@ -222,7 +283,12 @@ void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
             PreRender{}, create_pipelines,
             in_set(RenderGLPreRenderSets::create_pipelines))
         .add_system_main(PreRender{}, clear_color)
-        .add_system_main(PreRender{}, update_viewport);
+        .add_system_main(PreRender{}, update_viewport)
+        .add_system_main(PostStartup{}, complete_pipeline)
+        .add_system_main(
+            PreRender{}, complete_pipeline,
+            in_set(RenderGLPreRenderSets::create_pipelines))
+        .add_system_main(PostRender{}, draw_arrays);
 }
 
 void pixel_engine::render_gl::systems::clear_color(
@@ -379,4 +445,33 @@ void pixel_engine::render_gl::systems::use_pipeline(
     auto& [vertex_array, buffers, program] = pipeline;
     pixel_engine::render_gl::systems::use_pipeline(
         vertex_array, buffers, program);
+}
+
+void pixel_engine::render_gl::systems::draw_arrays(
+    Query<Get<const pipeline::RenderPassPtr, const pipeline::DrawArrays>>
+        draw_query,
+    Query<
+        Get<const pipeline::PipelinePtr, const pipeline::FrameBufferPtr,
+            const pipeline::ViewPort, const pipeline::DepthRange,
+            const pipeline::PipelineLayout,
+            const pipeline::PerSampleOperations>,
+        With<pipeline::RenderPass>, Without<>>
+        render_pass_query,
+    Query<
+        Get<const pipeline::VertexArrayPtr, const pipeline::BufferBindings,
+            const pipeline::ProgramPtr>,
+        With<pipeline::Pipeline>, Without<>>
+        pipeline_query) {
+    for (auto [render_pass, draw_arrays] : draw_query.iter()) {
+        auto
+            [pipeline, frame_buffer, view_port, depth_range, layout,
+             per_sample_operations] =
+                render_pass_query.get(render_pass.render_pass);
+        use_pipeline(pipeline.pipeline, pipeline_query);
+        frame_buffer.bind();
+        glViewport(view_port.x, view_port.y, view_port.width, view_port.height);
+        glDepthRange(depth_range.nearf, depth_range.farf);
+        layout.bind();
+        per_sample_operations.use();
+    }
 }
