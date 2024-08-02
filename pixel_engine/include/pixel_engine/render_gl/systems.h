@@ -100,13 +100,22 @@ void use_pipeline(
             const pipeline::ProgramPtr>,
         With<pipeline::Pipeline>, Without<>>& query);
 
+void use_layout(
+    entt::entity layout_entity,
+    Query<
+        Get<const pipeline::UniformBufferBindings,
+            const pipeline::StorageBufferBindings,
+            const pipeline::TextureBindings,
+            const pipeline::ImageTextureBindings>,
+        With<pipeline::PipelineLayout>, Without<>>& query);
+
 void draw_arrays(
     Query<Get<const pipeline::RenderPassPtr, const pipeline::DrawArrays>>
         draw_query,
     Query<
         Get<const pipeline::PipelinePtr, const pipeline::FrameBufferPtr,
             const pipeline::ViewPort, const pipeline::DepthRange,
-            const pipeline::PipelineLayout,
+            const pipeline::PipelineLayoutPtr,
             const pipeline::PerSampleOperations>,
         With<pipeline::RenderPass>, Without<>>
         render_pass_query,
@@ -114,7 +123,14 @@ void draw_arrays(
         Get<const pipeline::VertexArrayPtr, const pipeline::BufferBindings,
             const pipeline::ProgramPtr>,
         With<pipeline::Pipeline>, Without<>>
-        pipeline_query);
+        pipeline_query,
+    Query<
+        Get<const pipeline::UniformBufferBindings,
+            const pipeline::StorageBufferBindings,
+            const pipeline::TextureBindings,
+            const pipeline::ImageTextureBindings>,
+        With<pipeline::PipelineLayout>, Without<>>
+        layout_query);
 }  // namespace systems
 }  // namespace render_gl
 }  // namespace pixel_engine

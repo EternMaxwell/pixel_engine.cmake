@@ -12,6 +12,11 @@ namespace pixel_engine {
             after_context_creation,
         };
 
+        enum class RenderGLPipelineCompletionSets {
+            pipeline_completion,
+            after_pipeline_completion,
+        };
+
         enum class RenderGLPreRenderSets {
             create_pipelines,
             after_create_pipelines,

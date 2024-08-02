@@ -156,13 +156,6 @@ void BufferBindings::bind() const {
     }
 }
 
-void PipelineLayout::bind() const {
-    uniform_buffers.bind();
-    storage_buffers.bind();
-    textures.bind();
-    images.bind();
-}
-
 void PerSampleOperations::use() const {
     if (scissor_test.enable) {
         glEnable(GL_SCISSOR_TEST);
@@ -271,6 +264,9 @@ void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
     app.configure_sets(
            RenderGLStartupSets::context_creation,
            RenderGLStartupSets::after_context_creation)
+        .configure_sets(
+            RenderGLPipelineCompletionSets::pipeline_completion,
+            RenderGLPipelineCompletionSets::after_pipeline_completion)
         .add_system_main(
             PreStartup{}, context_creation,
             in_set(
@@ -284,7 +280,9 @@ void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
             in_set(RenderGLPreRenderSets::create_pipelines))
         .add_system_main(PreRender{}, clear_color)
         .add_system_main(PreRender{}, update_viewport)
-        .add_system_main(PostStartup{}, complete_pipeline)
+        .add_system_main(
+            PostStartup{}, complete_pipeline,
+            in_set(RenderGLPipelineCompletionSets::pipeline_completion))
         .add_system_main(
             PreRender{}, complete_pipeline,
             in_set(RenderGLPreRenderSets::create_pipelines))
@@ -447,13 +445,30 @@ void pixel_engine::render_gl::systems::use_pipeline(
         vertex_array, buffers, program);
 }
 
+void pixel_engine::render_gl::systems::use_layout(
+    entt::entity layout_entity,
+    Query<
+        Get<const pipeline::UniformBufferBindings,
+            const pipeline::StorageBufferBindings,
+            const pipeline::TextureBindings,
+            const pipeline::ImageTextureBindings>,
+        With<pipeline::PipelineLayout>, Without<>>& query) {
+    auto
+        [uniform_buffer_bindings, storage_buffer_bindings, texture_bindings,
+         image_texture_bindings] = query.get(layout_entity);
+    uniform_buffer_bindings.bind();
+    storage_buffer_bindings.bind();
+    texture_bindings.bind();
+    image_texture_bindings.bind();
+}
+
 void pixel_engine::render_gl::systems::draw_arrays(
     Query<Get<const pipeline::RenderPassPtr, const pipeline::DrawArrays>>
         draw_query,
     Query<
         Get<const pipeline::PipelinePtr, const pipeline::FrameBufferPtr,
             const pipeline::ViewPort, const pipeline::DepthRange,
-            const pipeline::PipelineLayout,
+            const pipeline::PipelineLayoutPtr,
             const pipeline::PerSampleOperations>,
         With<pipeline::RenderPass>, Without<>>
         render_pass_query,
@@ -461,17 +476,24 @@ void pixel_engine::render_gl::systems::draw_arrays(
         Get<const pipeline::VertexArrayPtr, const pipeline::BufferBindings,
             const pipeline::ProgramPtr>,
         With<pipeline::Pipeline>, Without<>>
-        pipeline_query) {
+        pipeline_query,
+    Query<
+        Get<const pipeline::UniformBufferBindings,
+            const pipeline::StorageBufferBindings,
+            const pipeline::TextureBindings,
+            const pipeline::ImageTextureBindings>,
+        With<pipeline::PipelineLayout>, Without<>>
+        layout_query) {
     for (auto [render_pass, draw_arrays] : draw_query.iter()) {
         auto
             [pipeline, frame_buffer, view_port, depth_range, layout,
              per_sample_operations] =
                 render_pass_query.get(render_pass.render_pass);
         use_pipeline(pipeline.pipeline, pipeline_query);
+        use_layout(layout.layout, layout_query);
         frame_buffer.bind();
         glViewport(view_port.x, view_port.y, view_port.width, view_port.height);
         glDepthRange(depth_range.nearf, depth_range.farf);
-        layout.bind();
         per_sample_operations.use();
     }
 }

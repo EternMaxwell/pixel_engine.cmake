@@ -649,13 +649,21 @@ struct PipelineBundle {
     ProgramPtr program;
 };
 
-struct PipelineLayout {
+struct PipelineLayout {};
+
+struct PipelineLayoutBundle {
+    Bundle bundle;
+
+    PipelineLayout layout;
+
     UniformBufferBindings uniform_buffers;
     StorageBufferBindings storage_buffers;
     TextureBindings textures;
     ImageTextureBindings images;
+};
 
-    void bind() const;
+struct PipelineLayoutPtr {
+    entt::entity layout;
 };
 
 struct PerSampleOperations {
@@ -723,7 +731,7 @@ struct RenderPassBundle {
     ViewPort view_port;
     DepthRange depth_range;
 
-    PipelineLayout layout;
+    PipelineLayoutPtr layout;
     PerSampleOperations per_sample_operations;
 };
 
