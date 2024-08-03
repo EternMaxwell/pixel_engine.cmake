@@ -38,6 +38,10 @@ void ProgramPtr::use() const { glUseProgram(id); }
 
 bool ProgramPtr::valid() const { return id != 0; }
 
+pipeline::VertexAttrib& pipeline::VertexAttribs::operator[](size_t index) {
+    return attribs[index];
+}
+
 void VertexAttribs::add(
     uint32_t location, uint32_t size, int type, bool normalized,
     uint32_t stride, uint64_t offset) {

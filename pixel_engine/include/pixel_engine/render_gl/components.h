@@ -99,6 +99,16 @@ struct ProgramPtr {
     bool valid() const;
 };
 
+/**
+ * @brief Vertex attribute.
+ *
+ * @param location `uint32_t` The location of the attribute in the shader.
+ * @param size `uint32_t` The number of components in the attribute.
+ * @param type `int` The data type of the attribute.
+ * @param normalized `bool` Whether the attribute is normalized.
+ * @param stride `uint32_t` The byte offset between consecutive attributes.
+ * @param offset `uint64_t` The byte offset of the first component of the attribute.
+ */
 struct VertexAttrib {
     uint32_t location;
     uint32_t size;
@@ -649,8 +659,21 @@ struct PipelineBundle {
     ProgramPtr program;
 };
 
+/**
+ * @brief Pipeline layout. Indicates the entity is a pipeline layout entity.
+ */
 struct PipelineLayout {};
 
+/**
+ * @brief Pipeline layout bundle.
+ *
+ * This struct represents a bundle of pipeline layout objects in OpenGL.
+ *
+ * @param uniform_buffers `UniformBufferBindings` The uniform buffer bindings.
+ * @param storage_buffers `StorageBufferBindings` The storage buffer bindings.
+ * @param textures `TextureBindings` The texture bindings.
+ * @param images `ImageTextureBindings` The image texture bindings.
+ */
 struct PipelineLayoutBundle {
     Bundle bundle;
 
@@ -662,10 +685,22 @@ struct PipelineLayoutBundle {
     ImageTextureBindings images;
 };
 
+/**
+ * @brief Pipeline layout entity ptr. Points to a pipeline layout entity.
+ */
 struct PipelineLayoutPtr {
     entt::entity layout;
 };
 
+/**
+ * @brief Per sample operations.
+ *
+ * @param scissor_test `ScissorTest` The scissor test.
+ * @param depth_test `DepthTest` The depth test.
+ * @param stencil_test `StencilTest` The stencil test.
+ * @param blending `Blending` The blending.
+ * @param logic_op `LogicOp` The logic operation.
+ */
 struct PerSampleOperations {
     ScissorTest scissor_test;
     DepthTest depth_test;
@@ -676,6 +711,11 @@ struct PerSampleOperations {
     void use() const;
 };
 
+/**
+ * @brief Render buffer object ptr. Points to a render buffer object in OpenGL.
+ *
+ * @param id `uint32_t` The OpenGL render buffer id.
+ */
 struct RenderBufferPtr {
     uint32_t id = 0;
     void create();
@@ -684,6 +724,11 @@ struct RenderBufferPtr {
     bool valid() const;
 };
 
+/**
+ * @brief Frame buffer object ptr. Points to a frame buffer object in OpenGL.
+ *
+ * @param id `uint32_t` The OpenGL frame buffer id.
+ */
 struct FrameBufferPtr {
     uint32_t id = 0;
     void create();
@@ -735,16 +780,33 @@ struct RenderPassBundle {
     PerSampleOperations per_sample_operations;
 };
 
+/**
+ * @brief Render pass entity ptr. Points to a render pass entity.
+ */
 struct RenderPassPtr {
     entt::entity render_pass;
 };
 
+/**
+ * @brief Draw arrays.
+ *
+ * @param mode `uint32_t` The drawing mode.
+ * @param first `int` The first vertex to draw.
+ * @param count `int` The number of vertices to draw.
+ */
 struct DrawArrays {
     uint32_t mode;
     int first;
     int count;
 };
 
+/**
+ * @brief Draw arrays bundle.
+ *
+ * @param render_pass `RenderPassPtr` The render pass object this draw call
+ * uses.
+ * @param draw_arrays `DrawArrays` The draw arrays object.
+ */
 struct DrawArraysBundle {
     Bundle bundle;
 
