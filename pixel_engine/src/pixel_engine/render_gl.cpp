@@ -418,13 +418,17 @@ void pixel_engine::render_gl::systems::complete_pipeline(
         }
         program.link();
 
-        command.spawn(pipeline::PipelineBundle{
+        auto entity_command = command.entity(id);
+
+        entity_command.emplace(pipeline::PipelineBundle{
             .vertex_array = vertex_array,
             .buffers = buffer_bindings,
             .program = program,
         });
 
-        command.entity(id).despawn();
+        entity_command.erase<pipeline::PipelineCreation>();
+        entity_command.erase<pipeline::ProgramShaderAttachments>();
+        entity_command.erase<pipeline::VertexAttribs>();
     }
 }
 
