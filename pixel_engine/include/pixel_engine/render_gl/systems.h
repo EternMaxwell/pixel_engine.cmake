@@ -96,7 +96,7 @@ void use_pipeline(
 void use_pipeline(
     entt::entity pipeline_entity,
     Query<
-        Get<const pipeline::VertexArrayPtr, const pipeline::BufferBindings,
+        Get<const pipeline::VertexArrayPtr, pipeline::BufferBindings,
             const pipeline::ProgramPtr>,
         With<pipeline::Pipeline>, Without<>>& query);
 
@@ -110,7 +110,9 @@ void use_layout(
         With<pipeline::PipelineLayout>, Without<>>& query);
 
 void draw_arrays(
-    Query<Get<const pipeline::RenderPassPtr, const pipeline::DrawArrays>>
+    Query<
+        Get<entt::entity, const pipeline::RenderPassPtr,
+            const pipeline::DrawArrays>>
         draw_query,
     Query<
         Get<const pipeline::PipelinePtr, const pipeline::FrameBufferPtr,
@@ -120,7 +122,7 @@ void draw_arrays(
         With<pipeline::RenderPass>, Without<>>
         render_pass_query,
     Query<
-        Get<const pipeline::VertexArrayPtr, const pipeline::BufferBindings,
+        Get<const pipeline::VertexArrayPtr, pipeline::BufferBindings,
             const pipeline::ProgramPtr>,
         With<pipeline::Pipeline>, Without<>>
         pipeline_query,
@@ -130,7 +132,14 @@ void draw_arrays(
             const pipeline::TextureBindings,
             const pipeline::ImageTextureBindings>,
         With<pipeline::PipelineLayout>, Without<>>
-        layout_query);
+        layout_query,
+    Query<Get<const pipeline::DrawArraysData>> draw_arrays_data_query);
+
+void update_viewports(
+    Query<Get<WindowSize>, With<WindowCreated>, Without<>>
+        window_query,
+    Query<Get<pipeline::ViewPort>, With<pipeline::RenderPass>, Without<>>
+        viewport_query);
 }  // namespace systems
 }  // namespace render_gl
 }  // namespace pixel_engine

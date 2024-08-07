@@ -9,7 +9,9 @@ void pixel_engine::sprite_render_gl::SpriteRenderGLPlugin::build(App& app) {
         .configure_sets(
             SpriteRenderGLSets::before_draw, SpriteRenderGLSets::draw,
             SpriteRenderGLSets::after_draw)
-        .add_system_main(Render{}, draw, in_set(SpriteRenderGLSets::draw));
+        .add_system_main(PreRender{}, create_render_pass)
+        .add_system_main(
+            Render{}, update_uniform, in_set(SpriteRenderGLSets::draw));
 }
 
 void pixel_engine::sprite_render_gl::systems::create_pipeline(
@@ -70,102 +72,67 @@ void pixel_engine::sprite_render_gl::systems::create_render_pass(
             .pipeline{pipeline_entity},
             .layout{layout},
         });
+        Vertex vertices[] = {
+            {{-sprite.size[0] / 2, -sprite.size[1] / 2, 0.0f},
+             {sprite.color[0], sprite.color[1], sprite.color[2],
+              sprite.color[3]},
+             {0.0f, 0.0f}},
+            {{sprite.size[0] / 2, -sprite.size[1] / 2, 0.0f},
+             {sprite.color[0], sprite.color[1], sprite.color[2],
+              sprite.color[3]},
+             {1.0f, 0.0f}},
+            {{sprite.size[0] / 2, sprite.size[1] / 2, 0.0f},
+             {sprite.color[0], sprite.color[1], sprite.color[2],
+              sprite.color[3]},
+             {1.0f, 1.0f}},
+            {{-sprite.size[0] / 2, sprite.size[1] / 2, 0.0f},
+             {sprite.color[0], sprite.color[1], sprite.color[2],
+              sprite.color[3]},
+             {0.0f, 1.0f}},
+        };
+        pipeline::DrawArraysData draw_arrays_data;
+        draw_arrays_data.write(vertices, sizeof(vertices), 0);
+        command.entity(entity).spawn(
+            pipeline::DrawArraysBundle{
+                .render_pass{entity},
+                .draw_arrays{
+                    .mode = GL_TRIANGLE_FAN,
+                    .first = 0,
+                    .count = 4,
+                },
+            },
+            draw_arrays_data);
     }
 }
 
-void pixel_engine::sprite_render_gl::systems::draw(
-    Query<Get<const Sprite, const Transform>> sprite_query,
+void pixel_engine::sprite_render_gl::systems::update_uniform(
     Query<
         Get<const Transform, const OrthoProjection>, With<Camera2d>, Without<>>
         camera_query,
     Query<
-        Get<const Pipeline, Buffers, Images>,
-        With<SpritePipeline, ProgramLinked>, Without<>>
-        pipeline_query) {
-    for (auto [pipeline, buffers, images] : pipeline_query.iter()) {
-        for (auto [camera_transform, projection] : camera_query.iter()) {
-            for (auto [sprite, transform] : sprite_query.iter()) {
-                Vertex vertices[] = {
-                    {{-sprite.size[0] / 2, -sprite.size[1] / 2, 0.0f},
-                     {sprite.color[0], sprite.color[1], sprite.color[2],
-                      sprite.color[3]},
-                     {0.0f, 0.0f}},
-                    {{sprite.size[0] / 2, -sprite.size[1] / 2, 0.0f},
-                     {sprite.color[0], sprite.color[1], sprite.color[2],
-                      sprite.color[3]},
-                     {1.0f, 0.0f}},
-                    {{sprite.size[0] / 2, sprite.size[1] / 2, 0.0f},
-                     {sprite.color[0], sprite.color[1], sprite.color[2],
-                      sprite.color[3]},
-                     {1.0f, 1.0f}},
-                    {{-sprite.size[0] / 2, sprite.size[1] / 2, 0.0f},
-                     {sprite.color[0], sprite.color[1], sprite.color[2],
-                      sprite.color[3]},
-                     {0.0f, 1.0f}},
-                };
-                glNamedBufferData(
-                    pipeline.vertex_buffer.buffer, sizeof(vertices), vertices,
-                    GL_DYNAMIC_DRAW);
-                glUseProgram(pipeline.program);
-                glBindBuffer(GL_ARRAY_BUFFER, pipeline.vertex_buffer.buffer);
-                glBindVertexArray(pipeline.vertex_array);
-                images.images[0].texture = sprite.texture;
-                images.images[0].sampler = sprite.sampler;
-                glm::mat4 model, view, proj;
-                projection.get_matrix(&proj);
-                camera_transform.get_matrix(&view);
-                transform.get_matrix(&model);
-                buffers.uniform_buffers[0].write(
-                    glm::value_ptr(proj), sizeof(glm::mat4), 0);
-                buffers.uniform_buffers[0].write(
-                    glm::value_ptr(view), sizeof(glm::mat4), sizeof(glm::mat4));
-                buffers.uniform_buffers[0].write(
-                    glm::value_ptr(model), sizeof(glm::mat4),
-                    2 * sizeof(glm::mat4));
-                int index = 0;
-                for (auto& image : images.images) {
-                    glBindTextureUnit(index, image.texture);
-                    glBindSampler(index, image.sampler);
-                    index++;
-                }
-                index = 0;
-                for (auto& buffer : buffers.uniform_buffers) {
-                    glBindBufferBase(GL_UNIFORM_BUFFER, index, buffer.buffer);
-                    int size;
-                    glGetNamedBufferParameteriv(
-                        buffer.buffer, GL_BUFFER_SIZE, &size);
-                    if (size < buffer.data.size()) {
-                        glNamedBufferData(
-                            buffer.buffer, buffer.data.size(),
-                            buffer.data.data(), GL_DYNAMIC_DRAW);
-                    } else {
-                        glNamedBufferSubData(
-                            buffer.buffer, 0, buffer.data.size(),
-                            buffer.data.data());
-                    }
-                    index++;
-                }
-                index = 0;
-                for (auto& buffer : buffers.storage_buffers) {
-                    glBindBufferBase(
-                        GL_SHADER_STORAGE_BUFFER, index, buffer.buffer);
-                    int size;
-                    glGetNamedBufferParameteriv(
-                        buffer.buffer, GL_BUFFER_SIZE, &size);
-                    if (size < buffer.data.size()) {
-                        glNamedBufferData(
-                            buffer.buffer, buffer.data.size(),
-                            buffer.data.data(), GL_DYNAMIC_DRAW);
-                    } else {
-                        glNamedBufferSubData(
-                            buffer.buffer, 0, buffer.data.size(),
-                            buffer.data.data());
-                    }
-                    index++;
-                }
-                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-            }
-            return;
+        Get<pipeline::PipelineLayoutPtr, const Transform>,
+        With<SpritePipeline, Sprite>>
+        layout_query,
+    Query<Get<pipeline::UniformBufferBindings>, With<pipeline::PipelineLayout>>
+        uniform_buffer_query) {
+    for (auto [layout, transform] : layout_query.iter()) {
+        for (auto [camera_transform, ortho_projection] : camera_query.iter()) {
+            glm::mat4 proj;
+            glm::mat4 view;
+            glm::mat4 model;
+            transform.get_matrix(&model);
+            camera_transform.get_matrix(&view);
+            ortho_projection.get_matrix(&proj);
+            auto [uniform_buffer_bindings] =
+                uniform_buffer_query.get(layout.layout);
+            uniform_buffer_bindings.buffers[0].data(
+                NULL, 3 * sizeof(glm::mat4), GL_DYNAMIC_DRAW);
+            uniform_buffer_bindings.buffers[0].subData(
+                &proj, sizeof(glm::mat4), 0);
+            uniform_buffer_bindings.buffers[0].subData(
+                &view, sizeof(glm::mat4), sizeof(glm::mat4));
+            uniform_buffer_bindings.buffers[0].subData(
+                &model, sizeof(glm::mat4), 2 * sizeof(glm::mat4));
         }
     }
 }

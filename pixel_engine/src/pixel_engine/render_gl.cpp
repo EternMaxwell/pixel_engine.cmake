@@ -64,6 +64,15 @@ void pipeline::BufferPtr::bindBase(int target, int index) {
 
 bool pipeline::BufferPtr::valid() const { return id != 0; }
 
+void pipeline::BufferPtr::data(const void* data, size_t size, int usage) {
+    glNamedBufferData(id, size, data, usage);
+}
+
+void pipeline::BufferPtr::subData(
+    const void* data, size_t size, size_t offset) {
+    glNamedBufferSubData(id, offset, size, data);
+}
+
 void UniformBufferBindings::bind() const {
     for (size_t i = 0; i < buffers.size(); i++) {
         glBindBufferBase(GL_UNIFORM_BUFFER, i, buffers[i].id);
@@ -254,6 +263,13 @@ void FrameBufferPtr::attachRenderBuffer(
         id, attachment, GL_RENDERBUFFER, render_buffer.id);
 }
 
+void DrawArraysData::write(const void* rdata, size_t size, size_t offset) {
+    if (offset + size > data.size()) {
+        data.resize(offset + size);
+    }
+    memcpy(data.data() + offset, rdata, size);
+}
+
 void pixel_engine::render_gl::components::Buffer::write(
     const void* rdata, size_t size, size_t offset) {
     if (offset + size > data.size()) {
@@ -290,7 +306,8 @@ void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
         .add_system_main(
             PreRender{}, complete_pipeline,
             in_set(RenderGLPreRenderSets::create_pipelines))
-        .add_system_main(PostRender{}, draw_arrays);
+        .add_system_main(PostRender{}, draw_arrays)
+        .add_system_main(PreRender{}, update_viewports);
 }
 
 void pixel_engine::render_gl::systems::clear_color(
@@ -318,6 +335,14 @@ void pixel_engine::render_gl::systems::context_creation(
         if (glfwGetCurrentContext() != window_handle.window_handle)
             glfwMakeContextCurrent(window_handle.window_handle);
         gladLoadGL();
+        glad_set_post_callback(
+            [](const char* name, void* funcptr, int len_args, ...) {
+                auto error = glad_glGetError();
+                if (error != GL_NO_ERROR) {
+                    spdlog::warn(
+                        "OpenGL error: {} at {}", error, name);
+                }
+            });
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
     }
@@ -380,15 +405,15 @@ void pixel_engine::render_gl::systems::complete_pipeline(
     for (auto [id, shaders, attribs] : query.iter()) {
         spdlog::debug("Completing pipeline");
 
+        BufferPtr vertex_buffer;
+        vertex_buffer.create();
+        vertex_buffer.bind(GL_ARRAY_BUFFER);
+
         VertexArrayPtr vertex_array;
         vertex_array.create();
         vertex_array.bind();
 
         BufferBindings buffer_bindings;
-
-        BufferPtr vertex_buffer;
-        vertex_buffer.create();
-        vertex_buffer.bind(GL_ARRAY_BUFFER);
 
         buffer_bindings.vertex_buffer = vertex_buffer;
 
@@ -444,7 +469,7 @@ void pixel_engine::render_gl::systems::use_pipeline(
 void pixel_engine::render_gl::systems::use_pipeline(
     entt::entity pipeline_entity,
     Query<
-        Get<const pipeline::VertexArrayPtr, const pipeline::BufferBindings,
+        Get<const pipeline::VertexArrayPtr, pipeline::BufferBindings,
             const pipeline::ProgramPtr>,
         With<pipeline::Pipeline>, Without<>>& query) {
     auto pipeline = query.get(pipeline_entity);
@@ -471,7 +496,9 @@ void pixel_engine::render_gl::systems::use_layout(
 }
 
 void pixel_engine::render_gl::systems::draw_arrays(
-    Query<Get<const pipeline::RenderPassPtr, const pipeline::DrawArrays>>
+    Query<
+        Get<entt::entity, const pipeline::RenderPassPtr,
+            const pipeline::DrawArrays>>
         draw_query,
     Query<
         Get<const pipeline::PipelinePtr, const pipeline::FrameBufferPtr,
@@ -481,7 +508,7 @@ void pixel_engine::render_gl::systems::draw_arrays(
         With<pipeline::RenderPass>, Without<>>
         render_pass_query,
     Query<
-        Get<const pipeline::VertexArrayPtr, const pipeline::BufferBindings,
+        Get<const pipeline::VertexArrayPtr, pipeline::BufferBindings,
             const pipeline::ProgramPtr>,
         With<pipeline::Pipeline>, Without<>>
         pipeline_query,
@@ -491,8 +518,9 @@ void pixel_engine::render_gl::systems::draw_arrays(
             const pipeline::TextureBindings,
             const pipeline::ImageTextureBindings>,
         With<pipeline::PipelineLayout>, Without<>>
-        layout_query) {
-    for (auto [render_pass, draw_arrays] : draw_query.iter()) {
+        layout_query,
+    Query<Get<const pipeline::DrawArraysData>> draw_arrays_data_query) {
+    for (auto [entity, render_pass, draw_arrays] : draw_query.iter()) {
         auto
             [pipeline, frame_buffer, view_port, depth_range, layout,
              per_sample_operations] =
@@ -503,5 +531,29 @@ void pixel_engine::render_gl::systems::draw_arrays(
         glViewport(view_port.x, view_port.y, view_port.width, view_port.height);
         glDepthRange(depth_range.nearf, depth_range.farf);
         per_sample_operations.use();
+
+        if (draw_arrays_data_query.contains(entity)) {
+            auto [draw_arrays_data] = draw_arrays_data_query.get(entity);
+            auto [vertex_array, buffers, program] =
+                pipeline_query.get(pipeline.pipeline);
+            glNamedBufferData(
+                buffers.vertex_buffer.id, draw_arrays_data.data.size(),
+                draw_arrays_data.data.data(), GL_STATIC_DRAW);
+        }
+        glDrawArrays(draw_arrays.mode, draw_arrays.first, draw_arrays.count);
+    }
+}
+
+void pixel_engine::render_gl::systems::update_viewports(
+    Query<Get<WindowSize>, With<WindowCreated>, Without<>> window_query,
+    Query<Get<pipeline::ViewPort>, With<pipeline::RenderPass>, Without<>>
+        viewport_query) {
+    for (auto [window_size] : window_query.iter()) {
+        for (auto [view_port] : viewport_query.iter()) {
+            view_port.width = window_size.width;
+            view_port.height = window_size.height;
+            view_port.x = 0;
+            view_port.y = 0;
+        }
     }
 }

@@ -29,15 +29,16 @@ void create_render_pass(
         sprite_query,
     Query<Get<entt::entity>, With<SpritePipeline>> pipeline_query);
 
-void draw(
-    Query<Get<const Sprite, const Transform>> sprite_query,
+void update_uniform(
     Query<
         Get<const Transform, const OrthoProjection>, With<Camera2d>, Without<>>
         camera_query,
     Query<
-        Get<const Pipeline, Buffers, Images>,
-        With<SpritePipeline, ProgramLinked>, Without<>>
-        pipeline_query);
+        Get<pipeline::PipelineLayoutPtr, const Transform>,
+        With<SpritePipeline, Sprite>>
+        layout_query,
+    Query<Get<pipeline::UniformBufferBindings>, With<pipeline::PipelineLayout>>
+        uniform_buffer_query);
 }  // namespace systems
 }  // namespace sprite_render_gl
 }  // namespace pixel_engine

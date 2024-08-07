@@ -190,6 +190,10 @@ struct BufferPtr {
      * @return `bool` True if the buffer object is valid.
      */
     bool valid() const;
+
+    void data(const void* data, size_t size, int usage);
+
+    void subData(const void* data, size_t size, size_t offset);
 };
 
 /**
@@ -634,20 +638,9 @@ struct Pipeline {};
  * This struct represents a bundle of pipeline objects in OpenGL.
  *
  * @param vertex_array `VertexArrayPtr` The vertex array object.
- * @param vertex_buffer `BufferPtr` The vertex buffer object.
- * @param index_buffer `BufferPtr` The index buffer object.
- * @param draw_indirect_buffer `BufferPtr` The draw indirect buffer object.
- * @param uniform_buffers `UniformBufferBindings` The uniform buffer bindings.
- * @param storage_buffers `StorageBufferBindings` The storage buffer bindings.
- * @param textures `TextureBindings` The texture bindings.
- * @param images `ImageTextureBindings` The image texture bindings.
- * @param view_port `ViewPort` The viewport.
- * @param depth_range `DepthRange` The depth range.
- * @param scissor_test `ScissorTest` The scissor test.
- * @param stencil_test `StencilTest` The stencil test.
- * @param depth_test `DepthTest` The depth test.
- * @param blending `Blending` The blending.
- * @param logic_op `LogicOp` The logic operation.
+ * @param buffers `BufferBindings` The buffer bindings for vertex, index and
+ * draw indirect buffers.
+ * @param program `ProgramPtr` The program object.
  */
 struct PipelineBundle {
     Bundle bundle;
@@ -656,7 +649,6 @@ struct PipelineBundle {
 
     VertexArrayPtr vertex_array;
     BufferBindings buffers;
-
     ProgramPtr program;
 };
 
@@ -802,8 +794,13 @@ struct RenderPassPtr {
  */
 struct DrawArrays {
     uint32_t mode;
-    int first;
-    int count;
+    int first = 0;
+    int count = 0;
+};
+
+struct DrawArraysData {
+    std::vector<uint8_t> data;
+    void write(const void* rdata, size_t size, size_t offset);
 };
 
 /**
