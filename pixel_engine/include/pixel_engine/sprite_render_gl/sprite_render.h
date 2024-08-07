@@ -5,18 +5,18 @@
 #include "systems.h"
 
 namespace pixel_engine {
-    namespace sprite_render_gl {
-        using namespace prelude;
+namespace sprite_render_gl {
+using namespace prelude;
 
-        enum class SpriteRenderGLSets {
-            before_draw,
-            draw,
-            after_draw,
-        };
+enum class SpriteRenderGLSets {
+    before_draw,
+    draw,
+    after_draw,
+};
 
-        struct SpriteRenderGLPlugin : public Plugin {
-           public:
-            void build(App& app) override;
-        };
-    }  // namespace sprite_render_gl
+struct SpriteRenderGLPlugin : public Plugin {
+   public:
+    void build(App& app) override;
+};
+}  // namespace sprite_render_gl
 }  // namespace pixel_engine

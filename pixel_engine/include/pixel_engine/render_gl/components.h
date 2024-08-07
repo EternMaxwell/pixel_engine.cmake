@@ -107,7 +107,8 @@ struct ProgramPtr {
  * @param type `int` The data type of the attribute.
  * @param normalized `bool` Whether the attribute is normalized.
  * @param stride `uint32_t` The byte offset between consecutive attributes.
- * @param offset `uint64_t` The byte offset of the first component of the attribute.
+ * @param offset `uint64_t` The byte offset of the first component of the
+ * attribute.
  */
 struct VertexAttrib {
     uint32_t location;
@@ -764,6 +765,11 @@ struct RenderPass {};
  *
  * @param render_pass `RenderPass` The render pass object.
  * @param pipeline `PipelinePtr` The pipeline object.
+ * @param frame_buffer `FrameBufferPtr` The frame buffer object.
+ * @param view_port `ViewPort` The viewport.
+ * @param depth_range `DepthRange` The depth range.
+ * @param layout `PipelineLayoutPtr` The pipeline layout object.
+ * @param per_sample_operations `PerSampleOperations` The per sample operations.
  */
 struct RenderPassBundle {
     Bundle bundle;
@@ -867,11 +873,11 @@ struct Pipeline {
  * @brief 0 if no shader assigned. Assign shader by asset server is recommended.
  */
 struct Shaders {
-    int vertex_shader = 0;
-    int fragment_shader = 0;
-    int geometry_shader = 0;
-    int tess_control_shader = 0;
-    int tess_evaluation_shader = 0;
+    uint32_t vertex_shader = 0;
+    uint32_t fragment_shader = 0;
+    uint32_t geometry_shader = 0;
+    uint32_t tess_control_shader = 0;
+    uint32_t tess_evaluation_shader = 0;
 };
 
 /*! @brief Buffers used in a pipeline.
@@ -892,8 +898,8 @@ struct Buffers {
  * @brief 0 if no image assigned. Assign image by asset server is recommended.
  */
 struct Image {
-    unsigned int texture = 0;
-    int sampler = 0;
+    uint32_t texture = 0;
+    uint32_t sampler = 0;
 };
 
 /*! @brief Images used in a pipeline.
