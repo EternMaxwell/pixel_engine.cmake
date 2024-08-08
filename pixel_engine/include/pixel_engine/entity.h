@@ -79,5 +79,12 @@ namespace pixel_engine {
         // plugins
         using Plugin = entity::Plugin;
         using LoopPlugin = entity::LoopPlugin;
+
+        // tools
+        template <typename T>
+        struct Ref {
+            entt::entity entity;
+            void operator=(entt::entity entity) { this->entity = entity; }
+        };
     }  // namespace prelude
 }  // namespace pixel_engine
