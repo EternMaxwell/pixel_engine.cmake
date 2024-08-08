@@ -87,59 +87,6 @@ void complete_pipeline(
                              pipeline::VertexAttribs>,
                          With<pipeline::PipelineCreation>, Without<>>
                          query);
-
-void use_pipeline(
-    const pipeline::VertexArrayPtr& vertex_array,
-    const pipeline::BufferBindings& buffers,
-    const pipeline::ProgramPtr& program);
-
-void use_pipeline(
-    entt::entity pipeline_entity,
-    Query<
-        Get<const pipeline::VertexArrayPtr, pipeline::BufferBindings,
-            const pipeline::ProgramPtr>,
-        With<pipeline::Pipeline>, Without<>>& query);
-
-void use_layout(
-    entt::entity layout_entity,
-    Query<
-        Get<const pipeline::UniformBufferBindings,
-            const pipeline::StorageBufferBindings,
-            const pipeline::TextureBindings,
-            const pipeline::ImageTextureBindings>,
-        With<pipeline::PipelineLayout>, Without<>>& query);
-
-void draw_arrays(
-    Query<
-        Get<entt::entity, const pipeline::RenderPassPtr,
-            const pipeline::DrawArrays>>
-        draw_query,
-    Query<
-        Get<const pipeline::PipelinePtr, const pipeline::FrameBufferPtr,
-            const pipeline::ViewPort, const pipeline::DepthRange,
-            const pipeline::PipelineLayoutPtr,
-            const pipeline::PerSampleOperations>,
-        With<pipeline::RenderPass>, Without<>>
-        render_pass_query,
-    Query<
-        Get<const pipeline::VertexArrayPtr, pipeline::BufferBindings,
-            const pipeline::ProgramPtr>,
-        With<pipeline::Pipeline>, Without<>>
-        pipeline_query,
-    Query<
-        Get<const pipeline::UniformBufferBindings,
-            const pipeline::StorageBufferBindings,
-            const pipeline::TextureBindings,
-            const pipeline::ImageTextureBindings>,
-        With<pipeline::PipelineLayout>, Without<>>
-        layout_query,
-    Query<Get<const pipeline::DrawArraysData>> draw_arrays_data_query);
-
-void update_viewports(
-    Query<Get<WindowSize>, With<WindowCreated>, Without<>>
-        window_query,
-    Query<Get<pipeline::ViewPort>, With<pipeline::RenderPass>, Without<>>
-        viewport_query);
 }  // namespace systems
 }  // namespace render_gl
 }  // namespace pixel_engine
