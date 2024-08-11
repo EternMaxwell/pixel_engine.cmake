@@ -41,10 +41,14 @@ void create_sprite(Command command, Resource<AssetServerGL> asset_server) {
 
     command.spawn(SpriteBundle{
         .sprite{
-            .texture =
-                asset_server->load_image_2d("../assets/textures/test.png"),
-            .sampler = asset_server->create_sampler(
-                GL_CLAMP, GL_CLAMP, GL_LINEAR, GL_LINEAR),
+            .texture{
+                .texture{
+                    .id = asset_server->load_image_2d(
+                        "../assets/textures/test.png")},
+                .sampler{
+                    .id = asset_server->create_sampler(
+                        GL_CLAMP, GL_CLAMP, GL_LINEAR, GL_LINEAR)},
+            },
         },
         .transform{
             .translation = {0.0f, 0.0f, 0.0f},

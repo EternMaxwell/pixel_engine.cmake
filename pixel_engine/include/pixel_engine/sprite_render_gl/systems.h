@@ -19,26 +19,16 @@ using namespace render_gl::components;
 using namespace sprite_render_gl::components;
 using namespace camera;
 
+using sprite_query_type = Query<Get<Transform, Sprite>, With<>, Without<>>;
+
 void create_pipeline(Command command, Resource<AssetServerGL> asset_server);
 
-void create_render_pass(
-    Command command,
-    Query<
-        Get<entt::entity, Sprite>, With<Transform>,
-        Without<pipeline::RenderPass>>
-        sprite_query,
-    Query<Get<entt::entity>, With<SpritePipeline>> pipeline_query);
-
-void update_uniform(
+void draw_sprite(
+    render_gl::PipelineQuery::query_type<SpritePipeline> pipeline_query,
     Query<
         Get<const Transform, const OrthoProjection>, With<Camera2d>, Without<>>
         camera_query,
-    Query<
-        Get<pipeline::PipelineLayoutPtr, const Transform>,
-        With<SpritePipeline, Sprite>>
-        layout_query,
-    Query<Get<pipeline::UniformBufferBindings>, With<pipeline::PipelineLayout>>
-        uniform_buffer_query);
+    sprite_query_type sprite_query);
 }  // namespace systems
 }  // namespace sprite_render_gl
 }  // namespace pixel_engine

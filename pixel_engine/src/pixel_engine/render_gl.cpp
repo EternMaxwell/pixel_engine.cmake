@@ -169,6 +169,10 @@ pipeline::ImageTexture& ImageTextureBindings::operator[](size_t index) {
     return images[index];
 }
 
+void pipeline::ViewPort::use() const { glViewport(x, y, width, height); }
+
+void pipeline::DepthRange::use() const { glDepthRange(nearf, farf); }
+
 void pipeline::PipelineLayout::use() const {
     vertex_array.bind();
     vertex_buffer.bind(GL_ARRAY_BUFFER);
@@ -337,15 +341,22 @@ void pixel_engine::render_gl::systems::context_creation(
         if (glfwGetCurrentContext() != window_handle.window_handle)
             glfwMakeContextCurrent(window_handle.window_handle);
         gladLoadGL();
-        glad_set_post_callback(
-            [](const char* name, void* funcptr, int len_args, ...) {
-                auto error = glad_glGetError();
-                if (error != GL_NO_ERROR) {
-                    spdlog::warn("OpenGL error: {} at {}", error, name);
+        glEnable(GL_DEBUG_OUTPUT);
+        glDebugMessageCallback(
+            [](GLenum source, GLenum type, GLuint id, GLenum severity,
+               GLsizei length, const GLchar* message, const void* userParam) {
+                if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
+                    spdlog::debug(
+                        "OpenGL debug message: source: {}, type: {}, id: {}, "
+                        "severity: {}, message: {}",
+                        source, type, id, severity, message);
                 }
-            });
-        glEnable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND);
+                spdlog::warn(
+                    "OpenGL debug message: source: {}, type: {}, id: {}, "
+                    "severity: {}, message: {}",
+                    source, type, id, severity, message);
+            },
+            nullptr);
     }
 }
 
@@ -417,6 +428,7 @@ void pixel_engine::render_gl::systems::complete_pipeline(
         PipelineLayout layout;
 
         layout.vertex_buffer = vertex_buffer;
+        layout.vertex_array = vertex_array;
 
         for (auto& attrib : attribs.attribs) {
             glEnableVertexAttribArray(attrib.location);
@@ -442,17 +454,17 @@ void pixel_engine::render_gl::systems::complete_pipeline(
         if (shaders.tess_evaluation_shader.valid()) {
             program.attach(shaders.tess_evaluation_shader);
         }
-        program.link();
+        auto success = program.link();
 
         auto entity_command = command.entity(id);
+
+        entity_command.erase<pipeline::PipelineCreation>();
+        entity_command.erase<pipeline::ProgramShaderAttachments>();
+        entity_command.erase<pipeline::VertexAttribs>();
 
         entity_command.emplace(pipeline::PipelineBundle{
             .layout = layout,
             .program = program,
         });
-
-        entity_command.erase<pipeline::PipelineCreation>();
-        entity_command.erase<pipeline::ProgramShaderAttachments>();
-        entity_command.erase<pipeline::VertexAttribs>();
     }
 }

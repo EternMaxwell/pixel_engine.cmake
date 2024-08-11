@@ -3,15 +3,15 @@
 
 using namespace pixel_engine::sprite_render_gl::components;
 using namespace pixel_engine::sprite_render_gl::systems;
+using namespace pixel_engine::prelude;
 
 void pixel_engine::sprite_render_gl::SpriteRenderGLPlugin::build(App& app) {
     app.add_system_main(Startup{}, create_pipeline)
         .configure_sets(
             SpriteRenderGLSets::before_draw, SpriteRenderGLSets::draw,
             SpriteRenderGLSets::after_draw)
-        .add_system_main(PreRender{}, create_render_pass)
         .add_system_main(
-            Render{}, update_uniform, in_set(SpriteRenderGLSets::draw));
+            Render{}, draw_sprite, in_set(SpriteRenderGLSets::draw));
 }
 
 void pixel_engine::sprite_render_gl::systems::create_pipeline(
@@ -24,11 +24,10 @@ void pixel_engine::sprite_render_gl::systems::create_pipeline(
         "../assets/shaders/sprite/shader.frag", GL_FRAGMENT_SHADER);
     command.spawn(
         pipeline::PipelineCreationBundle{
-            .shaders =
-                {
-                    .vertex_shader = vertex_shader,
-                    .fragment_shader = fragment_shader,
-                },
+            .shaders{
+                .vertex_shader = vertex_shader,
+                .fragment_shader = fragment_shader,
+            },
             .attribs{{
                 {0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0},
                 {1, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), 3 * sizeof(float)},
@@ -38,101 +37,74 @@ void pixel_engine::sprite_render_gl::systems::create_pipeline(
         SpritePipeline{});
 }
 
-void pixel_engine::sprite_render_gl::systems::create_render_pass(
-    Command command,
-    Query<
-        Get<entt::entity, Sprite>, With<Transform>,
-        Without<pipeline::RenderPass>>
-        sprite_query,
-    Query<Get<entt::entity>, With<SpritePipeline>> pipeline_query) {
-    if (!pipeline_query.single().has_value()) {
-        return;
-    }
-    auto [pipeline_entity] = pipeline_query.single().value();
-    for (auto [entity, sprite] : sprite_query.iter()) {
-        pipeline::TextureBindings texture_bindings;
-        texture_bindings.set(
-            0, pipeline::Image{
-                   .texture{
-                       .id = sprite.texture,
-                   },
-                   .sampler{
-                       .id = sprite.sampler,
-                   },
-               });
-        pipeline::UniformBufferBindings uniform_buffer_bindings;
-        pipeline::BufferPtr uniform_buffer;
-        uniform_buffer.create();
-        uniform_buffer_bindings.set(0, uniform_buffer);
-        auto layout = command.spawn(pipeline::PipelineLayoutBundle{
-            .uniform_buffers = uniform_buffer_bindings,
-            .textures = texture_bindings,
-        });
-        command.entity(entity).emplace(pipeline::RenderPassBundle{
-            .pipeline{pipeline_entity},
-            .layout{layout},
-        });
-        Vertex vertices[] = {
-            {{-sprite.size[0] / 2, -sprite.size[1] / 2, 0.0f},
-             {sprite.color[0], sprite.color[1], sprite.color[2],
-              sprite.color[3]},
-             {0.0f, 0.0f}},
-            {{sprite.size[0] / 2, -sprite.size[1] / 2, 0.0f},
-             {sprite.color[0], sprite.color[1], sprite.color[2],
-              sprite.color[3]},
-             {1.0f, 0.0f}},
-            {{sprite.size[0] / 2, sprite.size[1] / 2, 0.0f},
-             {sprite.color[0], sprite.color[1], sprite.color[2],
-              sprite.color[3]},
-             {1.0f, 1.0f}},
-            {{-sprite.size[0] / 2, sprite.size[1] / 2, 0.0f},
-             {sprite.color[0], sprite.color[1], sprite.color[2],
-              sprite.color[3]},
-             {0.0f, 1.0f}},
-        };
-        pipeline::DrawArraysData draw_arrays_data;
-        draw_arrays_data.write(vertices, sizeof(vertices), 0);
-        command.entity(entity).spawn(
-            pipeline::DrawArraysBundle{
-                .render_pass{entity},
-                .draw_arrays{
-                    .mode = GL_TRIANGLE_FAN,
-                    .first = 0,
-                    .count = 4,
-                },
-            },
-            draw_arrays_data);
-    }
+void pixel_engine::sprite_render_gl::components::Sprite::vertex_data(
+    Vertex* vertices) const {
+    std::memcpy(&vertices[0].color, &color, 4 * sizeof(float));
+    std::memcpy(&vertices[1].color, &color, 4 * sizeof(float));
+    std::memcpy(&vertices[2].color, &color, 4 * sizeof(float));
+    std::memcpy(&vertices[3].color, &color, 4 * sizeof(float));
+    vertices[0].tex_coords[0] = 0.0f;
+    vertices[0].tex_coords[1] = 0.0f;
+    vertices[1].tex_coords[0] = 1.0f;
+    vertices[1].tex_coords[1] = 0.0f;
+    vertices[2].tex_coords[0] = 1.0f;
+    vertices[2].tex_coords[1] = 1.0f;
+    vertices[3].tex_coords[0] = 0.0f;
+    vertices[3].tex_coords[1] = 1.0f;
+    vertices[0].position[0] = -center[0] * size[0];
+    vertices[0].position[1] = -center[1] * size[1];
+    vertices[0].position[2] = 0.0f;
+    vertices[1].position[0] = (1.0f - center[0]) * size[0];
+    vertices[1].position[1] = -center[1] * size[1];
+    vertices[1].position[2] = 0.0f;
+    vertices[2].position[0] = (1.0f - center[0]) * size[0];
+    vertices[2].position[1] = (1.0f - center[1]) * size[1];
+    vertices[2].position[2] = 0.0f;
+    vertices[3].position[0] = -center[0] * size[0];
+    vertices[3].position[1] = (1.0f - center[1]) * size[1];
+    vertices[3].position[2] = 0.0f;
 }
 
-void pixel_engine::sprite_render_gl::systems::update_uniform(
+void pixel_engine::sprite_render_gl::systems::draw_sprite(
+    render_gl::PipelineQuery::query_type<SpritePipeline> pipeline_query,
     Query<
         Get<const Transform, const OrthoProjection>, With<Camera2d>, Without<>>
         camera_query,
-    Query<
-        Get<pipeline::PipelineLayoutPtr, const Transform>,
-        With<SpritePipeline, Sprite>>
-        layout_query,
-    Query<Get<pipeline::UniformBufferBindings>, With<pipeline::PipelineLayout>>
-        uniform_buffer_query) {
-    for (auto [layout, transform] : layout_query.iter()) {
-        for (auto [camera_transform, ortho_projection] : camera_query.iter()) {
-            glm::mat4 proj;
-            glm::mat4 view;
-            glm::mat4 model;
-            transform.get_matrix(&model);
-            camera_transform.get_matrix(&view);
-            ortho_projection.get_matrix(&proj);
-            auto [uniform_buffer_bindings] =
-                uniform_buffer_query.get(layout.layout);
-            uniform_buffer_bindings.buffers[0].data(
-                NULL, 3 * sizeof(glm::mat4), GL_DYNAMIC_DRAW);
-            uniform_buffer_bindings.buffers[0].subData(
-                &proj, sizeof(glm::mat4), 0);
-            uniform_buffer_bindings.buffers[0].subData(
-                &view, sizeof(glm::mat4), sizeof(glm::mat4));
-            uniform_buffer_bindings.buffers[0].subData(
-                &model, sizeof(glm::mat4), 2 * sizeof(glm::mat4));
-        }
+    sprite_query_type sprite_query) {
+    if (!pipeline_query.single().has_value()) return;
+    if (!camera_query.single().has_value()) return;
+    auto
+        [pipeline_layout, program, view_port, depth_range,
+         per_sample_operations, frame_buffer] = pipeline_query.single().value();
+    auto [camera_transform, ortho_projection] = camera_query.single().value();
+    if (!pipeline_layout.uniform_buffers[0].valid())
+        pipeline_layout.uniform_buffers[0].create();
+    program.use();
+    // view_port.use();
+    depth_range.use();
+    per_sample_operations.use();
+    frame_buffer.bind();
+    glm::mat4 view, proj;
+    camera_transform.get_matrix(&view);
+    ortho_projection.get_matrix(&proj);
+    pipeline_layout.uniform_buffers[0].data(
+        NULL, 3 * sizeof(glm::mat4), GL_DYNAMIC_DRAW);
+    pipeline_layout.uniform_buffers[0].subData(
+        glm::value_ptr(proj), 0, sizeof(glm::mat4));
+    pipeline_layout.uniform_buffers[0].subData(
+        glm::value_ptr(view), sizeof(glm::mat4), sizeof(glm::mat4));
+    Vertex vertices[4];
+    pipeline_layout.vertex_buffer.data(
+        NULL, 4 * sizeof(Vertex), GL_DYNAMIC_DRAW);
+    for (auto [transform, sprite] : sprite_query.iter()) {
+        glm::mat4 model;
+        transform.get_matrix(&model);
+        pipeline_layout.uniform_buffers[0].subData(
+            glm::value_ptr(model), 2 * sizeof(glm::mat4), sizeof(glm::mat4));
+        sprite.vertex_data(vertices);
+        pipeline_layout.vertex_buffer.subData(vertices, 0, 4 * sizeof(Vertex));
+        pipeline_layout.textures[0] = sprite.texture;
+        pipeline_layout.use();
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     }
 }
