@@ -350,6 +350,7 @@ void pixel_engine::render_gl::systems::context_creation(
                         "OpenGL debug message: source: {}, type: {}, id: {}, "
                         "severity: {}, message: {}",
                         source, type, id, severity, message);
+                    return;
                 }
                 spdlog::warn(
                     "OpenGL debug message: source: {}, type: {}, id: {}, "

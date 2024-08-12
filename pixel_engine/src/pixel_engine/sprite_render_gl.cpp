@@ -90,7 +90,7 @@ void pixel_engine::sprite_render_gl::systems::draw_sprite(
     pipeline_layout.uniform_buffers[0].data(
         NULL, 3 * sizeof(glm::mat4), GL_DYNAMIC_DRAW);
     pipeline_layout.uniform_buffers[0].subData(
-        glm::value_ptr(proj), 0, sizeof(glm::mat4));
+        glm::value_ptr(proj), sizeof(glm::mat4), 0);
     pipeline_layout.uniform_buffers[0].subData(
         glm::value_ptr(view), sizeof(glm::mat4), sizeof(glm::mat4));
     Vertex vertices[4];
@@ -100,9 +100,9 @@ void pixel_engine::sprite_render_gl::systems::draw_sprite(
         glm::mat4 model;
         transform.get_matrix(&model);
         pipeline_layout.uniform_buffers[0].subData(
-            glm::value_ptr(model), 2 * sizeof(glm::mat4), sizeof(glm::mat4));
+            glm::value_ptr(model), sizeof(glm::mat4), 2 * sizeof(glm::mat4));
         sprite.vertex_data(vertices);
-        pipeline_layout.vertex_buffer.subData(vertices, 0, 4 * sizeof(Vertex));
+        pipeline_layout.vertex_buffer.subData(vertices, 4 * sizeof(Vertex), 0);
         pipeline_layout.textures[0] = sprite.texture;
         pipeline_layout.use();
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
