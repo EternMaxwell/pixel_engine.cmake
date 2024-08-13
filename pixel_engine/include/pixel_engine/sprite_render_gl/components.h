@@ -9,7 +9,7 @@ namespace sprite_render_gl {
 namespace components {
 using namespace prelude;
 using namespace transform;
-using namespace render_gl::components::pipeline;
+using namespace render_gl::components;
 
 struct Vertex {
     float position[3];

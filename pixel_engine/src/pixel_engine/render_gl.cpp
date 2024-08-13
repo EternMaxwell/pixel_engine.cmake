@@ -4,7 +4,6 @@
 
 using namespace pixel_engine::render_gl::systems;
 using namespace pixel_engine::render_gl::components;
-using namespace pipeline;
 
 void ShaderPtr::create(int type) { id = glCreateShader(type); }
 
@@ -38,9 +37,7 @@ void ProgramPtr::use() const { glUseProgram(id); }
 
 bool ProgramPtr::valid() const { return id != 0; }
 
-pipeline::VertexAttrib& pipeline::VertexAttribs::operator[](size_t index) {
-    return attribs[index];
-}
+VertexAttrib& VertexAttribs::operator[](size_t index) { return attribs[index]; }
 
 void VertexAttribs::add(
     uint32_t location, uint32_t size, int type, bool normalized,
@@ -54,22 +51,21 @@ void VertexArrayPtr::bind() const { glBindVertexArray(id); }
 
 bool VertexArrayPtr::valid() const { return id != 0; }
 
-void pipeline::BufferPtr::create() { glCreateBuffers(1, &id); }
+void BufferPtr::create() { glCreateBuffers(1, &id); }
 
-void pipeline::BufferPtr::bind(int target) const { glBindBuffer(target, id); }
+void BufferPtr::bind(int target) const { glBindBuffer(target, id); }
 
-void pipeline::BufferPtr::bindBase(int target, int index) const {
+void BufferPtr::bindBase(int target, int index) const {
     glBindBufferBase(target, index, id);
 }
 
-bool pipeline::BufferPtr::valid() const { return id != 0; }
+bool BufferPtr::valid() const { return id != 0; }
 
-void pipeline::BufferPtr::data(const void* data, size_t size, int usage) {
+void BufferPtr::data(const void* data, size_t size, int usage) {
     glNamedBufferData(id, size, data, usage);
 }
 
-void pipeline::BufferPtr::subData(
-    const void* data, size_t size, size_t offset) {
+void BufferPtr::subData(const void* data, size_t size, size_t offset) {
     glNamedBufferSubData(id, offset, size, data);
 }
 
@@ -99,14 +95,14 @@ void StorageBufferBindings::set(size_t index, const BufferPtr& buffer) {
     buffers[index] = buffer;
 }
 
-pipeline::BufferPtr& UniformBufferBindings::operator[](size_t index) {
+BufferPtr& UniformBufferBindings::operator[](size_t index) {
     if (index >= buffers.size()) {
         buffers.resize(index + 1);
     }
     return buffers[index];
 }
 
-pipeline::BufferPtr& StorageBufferBindings::operator[](size_t index) {
+BufferPtr& StorageBufferBindings::operator[](size_t index) {
     if (index >= buffers.size()) {
         buffers.resize(index + 1);
     }
@@ -138,7 +134,7 @@ void TextureBindings::set(size_t index, const Image& texture) {
     textures[index] = texture;
 }
 
-pipeline::Image& TextureBindings::operator[](size_t index) {
+Image& TextureBindings::operator[](size_t index) {
     if (index >= textures.size()) {
         textures.resize(index + 1);
     }
@@ -162,18 +158,18 @@ void ImageTextureBindings::set(
     images[index] = {texture, level, layered, layer, access, format};
 }
 
-pipeline::ImageTexture& ImageTextureBindings::operator[](size_t index) {
+ImageTexture& ImageTextureBindings::operator[](size_t index) {
     if (index >= images.size()) {
         images.resize(index + 1);
     }
     return images[index];
 }
 
-void pipeline::ViewPort::use() const { glViewport(x, y, width, height); }
+void ViewPort::use() const { glViewport(x, y, width, height); }
 
-void pipeline::DepthRange::use() const { glDepthRange(nearf, farf); }
+void DepthRange::use() const { glDepthRange(nearf, farf); }
 
-void pipeline::PipelineLayout::use() const {
+void PipelineLayout::use() const {
     vertex_array.bind();
     vertex_buffer.bind(GL_ARRAY_BUFFER);
     index_buffer.bind(GL_ELEMENT_ARRAY_BUFFER);
@@ -278,14 +274,6 @@ void FrameBufferPtr::attachRenderBuffer(
         id, attachment, GL_RENDERBUFFER, render_buffer.id);
 }
 
-void pixel_engine::render_gl::components::Buffer::write(
-    const void* rdata, size_t size, size_t offset) {
-    if (offset + size > data.size()) {
-        data.resize(offset + size);
-    }
-    memcpy(data.data() + offset, rdata, size);
-}
-
 void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
     using namespace render_gl;
     using namespace window;
@@ -300,20 +288,11 @@ void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
             in_set(
                 window::WindowStartUpSets::after_window_creation,
                 RenderGLStartupSets::context_creation))
-        .configure_sets(
-            RenderGLPreRenderSets::create_pipelines,
-            RenderGLPreRenderSets::after_create_pipelines)
-        .add_system_main(
-            PreRender{}, create_pipelines,
-            in_set(RenderGLPreRenderSets::create_pipelines))
         .add_system_main(PreRender{}, clear_color)
         .add_system_main(PreRender{}, update_viewport)
         .add_system_main(
-            PostStartup{}, complete_pipeline,
-            in_set(RenderGLPipelineCompletionSets::pipeline_completion))
-        .add_system_main(
             PreRender{}, complete_pipeline,
-            in_set(RenderGLPreRenderSets::create_pipelines));
+            in_set(RenderGLPipelineCompletionSets::pipeline_completion));
 }
 
 void pixel_engine::render_gl::systems::clear_color(
@@ -361,60 +340,12 @@ void pixel_engine::render_gl::systems::context_creation(
     }
 }
 
-void pixel_engine::render_gl::systems::create_pipelines(
+void pixel_engine::render_gl::systems::complete_pipeline(
     Command command,
     Query<
-        Get<entt::entity, components::Pipeline, Shaders, Attribs>, With<>,
-        Without<ProgramLinked>>
+        Get<entt::entity, ProgramShaderAttachments, VertexAttribs>,
+        With<PipelineCreation>, Without<>>
         query) {
-    for (auto [id, pipeline, shaders, attribs] : query.iter()) {
-        spdlog::debug("Creating new pipeline");
-        pipeline.program = glCreateProgram();
-        glCreateBuffers(1, &pipeline.vertex_buffer.buffer);
-        glBindBuffer(GL_ARRAY_BUFFER, pipeline.vertex_buffer.buffer);
-        glCreateVertexArrays(1, &pipeline.vertex_array);
-        glBindVertexArray(pipeline.vertex_array);
-        if (shaders.vertex_shader) {
-            glAttachShader(pipeline.program, shaders.vertex_shader);
-        }
-        if (shaders.fragment_shader) {
-            glAttachShader(pipeline.program, shaders.fragment_shader);
-        }
-        if (shaders.geometry_shader) {
-            glAttachShader(pipeline.program, shaders.geometry_shader);
-        }
-        if (shaders.tess_control_shader) {
-            glAttachShader(pipeline.program, shaders.tess_control_shader);
-        }
-        if (shaders.tess_evaluation_shader) {
-            glAttachShader(pipeline.program, shaders.tess_evaluation_shader);
-        }
-        for (auto& attrib : attribs.attribs) {
-            glEnableVertexAttribArray(attrib.location);
-            glVertexAttribPointer(
-                attrib.location, attrib.size, attrib.type, attrib.normalized,
-                attrib.stride, (void*)attrib.offset);
-        }
-        glLinkProgram(pipeline.program);
-        int success;
-        glGetProgramiv(pipeline.program, GL_LINK_STATUS, &success);
-        if (!success) {
-            char info_log[512];
-            glGetProgramInfoLog(pipeline.program, 512, NULL, info_log);
-            throw std::runtime_error(
-                "Failed to link program: " + std::string(info_log));
-        }
-        command.entity(id).emplace(ProgramLinked{});
-        spdlog::debug("End creating new pipeline.");
-    }
-}
-
-void pixel_engine::render_gl::systems::complete_pipeline(
-    Command command, Query<
-                         Get<entt::entity, pipeline::ProgramShaderAttachments,
-                             pipeline::VertexAttribs>,
-                         With<pipeline::PipelineCreation>, Without<>>
-                         query) {
     for (auto [id, shaders, attribs] : query.iter()) {
         spdlog::debug("Completing pipeline");
 
@@ -459,11 +390,11 @@ void pixel_engine::render_gl::systems::complete_pipeline(
 
         auto entity_command = command.entity(id);
 
-        entity_command.erase<pipeline::PipelineCreation>();
-        entity_command.erase<pipeline::ProgramShaderAttachments>();
-        entity_command.erase<pipeline::VertexAttribs>();
+        entity_command.erase<PipelineCreation>();
+        entity_command.erase<ProgramShaderAttachments>();
+        entity_command.erase<VertexAttribs>();
 
-        entity_command.emplace(pipeline::PipelineBundle{
+        entity_command.emplace(PipelineBundle{
             .layout = layout,
             .program = program,
         });

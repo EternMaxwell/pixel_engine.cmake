@@ -16,7 +16,7 @@ void pixel_engine::pixel_render_gl::systems::create_pipeline(
     unsigned int uniform_buffer;
     glCreateBuffers(1, &uniform_buffer);
     command.spawn(
-        pipeline::PipelineCreationBundle{
+        PipelineCreationBundle{
             .shaders{
                 .vertex_shader{
                     .id = asset_server->load_shader(

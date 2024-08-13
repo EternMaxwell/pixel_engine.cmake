@@ -18,11 +18,6 @@ enum class RenderGLPipelineCompletionSets {
     after_pipeline_completion,
 };
 
-enum class RenderGLPreRenderSets {
-    create_pipelines,
-    after_create_pipelines,
-};
-
 class RenderGLPlugin : public entity::Plugin {
    public:
     void build(App& app) override;
@@ -44,14 +39,12 @@ struct PipelineQuery {
      */
     template <typename... Args>
     using query_type = Query<
-        Get<pipeline::PipelineLayout, pipeline::ProgramPtr, pipeline::ViewPort,
-            pipeline::DepthRange, pipeline::PerSampleOperations,
-            pipeline::FrameBufferPtr>,
-        With<pipeline::Pipeline, Args...>, Without<>>;
+        Get<PipelineLayout, ProgramPtr, ViewPort, DepthRange,
+            PerSampleOperations, FrameBufferPtr>,
+        With<Pipeline, Args...>, Without<>>;
     using bundle_type = std::tuple<
-        pipeline::PipelineLayout&, pipeline::ProgramPtr&, pipeline::ViewPort&,
-        pipeline::DepthRange&, pipeline::PerSampleOperations&,
-        pipeline::FrameBufferPtr&>;
+        PipelineLayout&, ProgramPtr&, ViewPort&, DepthRange&,
+        PerSampleOperations&, FrameBufferPtr&>;
 };
 }  // namespace render_gl
 }  // namespace pixel_engine
