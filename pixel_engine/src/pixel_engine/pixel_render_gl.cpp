@@ -4,6 +4,35 @@
 using namespace pixel_engine::pixel_render_gl::components;
 using namespace pixel_engine::pixel_render_gl::systems;
 
+namespace pixel_shader_source {
+const char* vertex_shader = R"(#version 450 core
+
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec4 color;
+
+layout(location = 0) out vec4 outColor;
+
+layout(binding = 0, std140) uniform UniformBufferObject {
+    mat4 proj;
+    mat4 view;
+    mat4 model;
+};
+
+void main() {
+    mat4 mvp = proj * view * model;
+    gl_Position = mvp * vec4(position, 1.0);
+    outColor = color;
+})";
+
+const char* fragment_shader = R"(#version 450 core
+
+layout(location = 0) in vec4 color;
+
+layout(location = 0) out vec4 fragColor;
+
+void main() { fragColor = color; })";
+}  // namespace pixel_shader_source
+
 void pixel_engine::pixel_render_gl::PixelRenderGLPlugin::build(App& app) {
     app.add_system_main(
            PreStartup{}, create_pipeline,
@@ -15,17 +44,19 @@ void pixel_engine::pixel_render_gl::systems::create_pipeline(
     Command command, Resource<AssetServerGL> asset_server) {
     unsigned int uniform_buffer;
     glCreateBuffers(1, &uniform_buffer);
+    ShaderPtr vertex_shader;
+    vertex_shader.create(GL_VERTEX_SHADER);
+    vertex_shader.source(pixel_shader_source::vertex_shader);
+    vertex_shader.compile();
+    ShaderPtr fragment_shader;
+    fragment_shader.create(GL_FRAGMENT_SHADER);
+    fragment_shader.source(pixel_shader_source::fragment_shader);
+    fragment_shader.compile();
     command.spawn(
         PipelineCreationBundle{
             .shaders{
-                .vertex_shader{
-                    .id = asset_server->load_shader(
-                        "../assets/shaders/pixel/shader.vert",
-                        GL_VERTEX_SHADER)},
-                .fragment_shader{
-                    .id = asset_server->load_shader(
-                        "../assets/shaders/pixel/shader.frag",
-                        GL_FRAGMENT_SHADER)}},
+                .vertex_shader = vertex_shader,
+                .fragment_shader = fragment_shader},
             .attribs{{
                 {0, 3, GL_FLOAT, GL_FALSE, sizeof(Pixel),
                  offsetof(Pixel, position)},

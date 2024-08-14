@@ -17,10 +17,10 @@ void pixel_engine::sprite_render_gl::SpriteRenderGLPlugin::build(App& app) {
 void pixel_engine::sprite_render_gl::systems::create_pipeline(
     Command command, Resource<AssetServerGL> asset_server) {
     ShaderPtr vertex_shader;
-    vertex_shader.id = asset_server->load_shader(
+    vertex_shader = asset_server->load_shader(
         "../assets/shaders/sprite/shader.vert", GL_VERTEX_SHADER);
     ShaderPtr fragment_shader;
-    fragment_shader.id = asset_server->load_shader(
+    fragment_shader = asset_server->load_shader(
         "../assets/shaders/sprite/shader.frag", GL_FRAGMENT_SHADER);
     command.spawn(
         PipelineCreationBundle{

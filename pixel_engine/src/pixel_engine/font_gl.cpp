@@ -27,22 +27,13 @@ void pixel_engine::font_gl::systems::insert_ft2_library(Command command) {
 
 void pixel_engine::font_gl::systems::create_pipeline(
     Command command, Resource<AssetServerGL> asset_server) {
-    unsigned int uniform_buffer;
-    glCreateBuffers(1, &uniform_buffer);
-    unsigned int texture;
-    glCreateTextures(GL_TEXTURE_2D, 1, &texture);
-    glTextureStorage2D(texture, 1, GL_R32F, 4096, 512);
     command.spawn(
         PipelineCreationBundle{
             .shaders{
-                .vertex_shader{
-                    .id = asset_server->load_shader(
-                        "../assets/shaders/text/shader.vert",
-                        GL_VERTEX_SHADER)},
-                .fragment_shader{
-                    .id = asset_server->load_shader(
-                        "../assets/shaders/text/shader.frag",
-                        GL_FRAGMENT_SHADER)}},
+                .vertex_shader = asset_server->load_shader(
+                    "../assets/shaders/text/shader.vert", GL_VERTEX_SHADER),
+                .fragment_shader = asset_server->load_shader(
+                    "../assets/shaders/text/shader.frag", GL_FRAGMENT_SHADER)},
             .attribs{{
                 {0, 3, GL_FLOAT, GL_FALSE, sizeof(TextVertex),
                  offsetof(TextVertex, position)},

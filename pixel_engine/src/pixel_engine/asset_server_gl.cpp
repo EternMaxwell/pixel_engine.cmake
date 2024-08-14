@@ -1,8 +1,14 @@
 ﻿#include "pixel_engine/asset_server_gl/asset_server_gl.h"
 #include "pixel_engine/asset_server_gl/resources.h"
+#include "pixel_engine/render_gl/render_gl.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+using namespace pixel_engine::asset_server_gl::resources;
+using namespace pixel_engine::asset_server_gl;
+using namespace pixel_engine::prelude;
+using namespace pixel_engine::render_gl::components;
 
 std::vector<char>
 pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader_source(
@@ -18,42 +24,45 @@ pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader_source(
     return buffer;
 }
 
-uint32_t pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
+ShaderPtr pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
     const std::vector<char>& source, int type) {
     const char* source_ptr = source.data();
-    uint32_t shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source_ptr, NULL);
-    glCompileShader(shader);
+    ShaderPtr shader;
+    shader.create(type);
+    shader.source(source_ptr);
+    shader.compile();
     int success;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+    glGetShaderiv(shader.id, GL_COMPILE_STATUS, &success);
     if (!success) {
         char info_log[512];
-        glGetShaderInfoLog(shader, 512, NULL, info_log);
+        glGetShaderInfoLog(shader.id, 512, NULL, info_log);
         throw std::runtime_error(
             "Failed to link program: " + std::string(info_log));
     }
     return shader;
 }
 
-uint32_t pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
+ShaderPtr pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
     const std::string& path, int type) {
     std::vector<char> source = load_shader_source(path);
     const char* source_ptr = source.data();
-    uint32_t shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source_ptr, NULL);
-    glCompileShader(shader);
+    ShaderPtr shader;
+    shader.create(type);
+    shader.source(source_ptr);
+    shader.compile();
     int success;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+    glGetShaderiv(shader.id, GL_COMPILE_STATUS, &success);
     if (!success) {
         char info_log[512];
-        glGetShaderInfoLog(shader, 512, NULL, info_log);
+        glGetShaderInfoLog(shader.id, 512, NULL, info_log);
         throw std::runtime_error(
             "Failed to link program: " + std::string(info_log));
     }
     return shader;
 }
 
-uint32_t pixel_engine::asset_server_gl::resources::AssetServerGL::load_image_2d(
+TexturePtr
+pixel_engine::asset_server_gl::resources::AssetServerGL::load_image_2d(
     const std::string& path) {
     stbi_set_flip_vertically_on_load(true);
     int width, height, channels;
@@ -74,10 +83,10 @@ uint32_t pixel_engine::asset_server_gl::resources::AssetServerGL::load_image_2d(
     }
     glGenerateMipmap(GL_TEXTURE_2D);
     stbi_image_free(data);
-    return texture;
+    return TexturePtr{.id = texture};
 }
 
-uint32_t
+SamplerPtr
 pixel_engine::asset_server_gl::resources::AssetServerGL::create_sampler(
     int wrap_s, int wrap_t, int min_filter, int mag_filter) {
     uint32_t sampler;
@@ -86,7 +95,7 @@ pixel_engine::asset_server_gl::resources::AssetServerGL::create_sampler(
     glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, wrap_t);
     glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, min_filter);
     glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, mag_filter);
-    return sampler;
+    return SamplerPtr{.id = sampler};
 }
 
 FT_Face pixel_engine::asset_server_gl::resources::AssetServerGL::load_font(
