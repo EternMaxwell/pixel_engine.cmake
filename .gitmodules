@@ -16,3 +16,6 @@
 [submodule "libs/freetype"]
 	path = libs/freetype
 	url = git@github.com:freetype/freetype2.git
+[submodule "libs/pixel_engine_app"]
+	path = libs/pixel_engine_app
+	url = git@github.com:EternMaxwell/pixel_engine_app.git
