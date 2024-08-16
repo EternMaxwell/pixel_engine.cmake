@@ -3,7 +3,6 @@
 #include "pixel_engine/entity.h"
 #include "pixel_engine/transform/components.h"
 
-
 namespace pixel_engine {
 namespace pixel_render_gl {
 namespace components {
@@ -35,11 +34,12 @@ struct PixelSize {
     float height = 1.0f;
 };
 
-struct PixelGroupBundle {
-    Bundle bundle;
+struct PixelGroupBundle : entity::Bundle {
     Pixels pixels;
     PixelSize size;
     Transform transform;
+
+    auto unpack() { return std::tie(pixels, size, transform); }
 };
 
 struct PixelPipeline {};

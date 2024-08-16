@@ -4,21 +4,22 @@
 #include "pixel_engine/transform/components.h"
 
 namespace pixel_engine {
-    namespace camera {
-        namespace components {
-            using namespace transform;
+namespace camera {
+namespace components {
+using namespace transform;
 
-            struct Camera2d {};
+struct Camera2d {};
 
-            struct Camera2dBundle {
-                entity::Bundle bundle;
-                Transform transform = Transform();
-                OrthoProjection projection = OrthoProjection();
-                Camera2d camera;
-            };
-        }  // namespace components
+struct Camera2dBundle : entity::Bundle {
+    Transform transform = Transform();
+    OrthoProjection projection = OrthoProjection();
+    Camera2d camera;
 
-        using Camera2d = components::Camera2d;
-        using Camera2dBundle = components::Camera2dBundle;
-    }  // namespace camera
+    auto unpack() { return std::tie(transform, projection, camera); }
+};
+}  // namespace components
+
+using Camera2d = components::Camera2d;
+using Camera2dBundle = components::Camera2dBundle;
+}  // namespace camera
 }  // namespace pixel_engine

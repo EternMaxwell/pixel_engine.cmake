@@ -613,14 +613,12 @@ struct PipelineCreation {};
  * @param buffers `PipelineBuffersCreation` The buffers this pipeline will use.
  * @param attribs `VertexAttribs` The vertex attributes.
  */
-struct PipelineCreationBundle {
-    Bundle bundle;
-
+struct PipelineCreationBundle : Bundle {
     PipelineCreation creation;
-
     ProgramShaderAttachments shaders;
-
     VertexAttribs attribs;
+
+    auto unpack() { return std::tie(creation, shaders, attribs); }
 };
 
 /**
@@ -705,9 +703,7 @@ struct Pipeline {};
  * draw indirect buffers.
  * @param program `ProgramPtr` The program object.
  */
-struct PipelineBundle {
-    Bundle bundle;
-
+struct PipelineBundle : Bundle {
     Pipeline pipeline;
 
     PipelineLayout layout;
@@ -716,6 +712,12 @@ struct PipelineBundle {
     DepthRange depth_range;
     PerSampleOperations per_sample_operations;
     FrameBufferPtr frame_buffer;
+
+    auto unpack() {
+        return std::tie(
+            pipeline, layout, program, viewport, depth_range,
+            per_sample_operations, frame_buffer);
+    }
 };
 }  // namespace components
 }  // namespace render_gl

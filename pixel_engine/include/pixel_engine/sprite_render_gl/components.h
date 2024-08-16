@@ -26,10 +26,11 @@ struct Sprite {
     void vertex_data(Vertex* vertices) const;
 };
 
-struct SpriteBundle {
-    Bundle bundle;
+struct SpriteBundle : Bundle {
     Sprite sprite;
     Transform transform;
+
+    auto unpack() { return std::tie(sprite, transform); }
 };
 
 struct SpritePipeline {};
