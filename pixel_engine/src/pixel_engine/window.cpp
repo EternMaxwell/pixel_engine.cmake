@@ -22,7 +22,7 @@ void pixel_engine::window::systems::insert_primary_window(
             window_plugin->primary_window_height},
         .window_title{window_plugin->primary_window_title},
         .window_hints{window_plugin->window_hints},
-    });
+    }, PrimaryWindow{});
 }
 
 void pixel_engine::window::systems::create_window(
