@@ -39,6 +39,7 @@ class WindowPlugin : public entity::Plugin {
     int primary_window_width = 480 * 3;
     int primary_window_height = 270 * 3;
     const char* primary_window_title = "Pixel Engine";
+    bool primary_window_vsync = true;
     WindowHints window_hints;
 
     void set_primary_window_size(int width, int height);

@@ -16,13 +16,18 @@ void pixel_engine::window::systems::init_glfw() {
 void pixel_engine::window::systems::insert_primary_window(
     Command command, Resource<WindowPlugin> window_plugin) {
     using namespace pixel_engine::window::components;
-    command.spawn(WindowBundle{
-        .window_size{
-            window_plugin->primary_window_width,
-            window_plugin->primary_window_height},
-        .window_title{window_plugin->primary_window_title},
-        .window_hints{window_plugin->window_hints},
-    }, PrimaryWindow{});
+    command.spawn(
+        WindowBundle{
+            .window_handle{
+                .window_handle = nullptr,
+                .vsync = window_plugin->primary_window_vsync},
+            .window_size{
+                window_plugin->primary_window_width,
+                window_plugin->primary_window_height},
+            .window_title{window_plugin->primary_window_title},
+            .window_hints{window_plugin->window_hints},
+        },
+        PrimaryWindow{});
 }
 
 void pixel_engine::window::systems::create_window(
