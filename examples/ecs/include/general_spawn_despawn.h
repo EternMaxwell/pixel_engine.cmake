@@ -49,7 +49,7 @@ void spawn(Command command) {
     std::cout << std::endl;
 }
 
-void print(Query<Get<Entity, Health, Position>, With<>, Without<>> query) {
+void print_1(Query<Get<Entity, Health, Position>, With<>, Without<>> query) {
     std::cout << "print" << std::endl;
     for (auto [entity, health, position] : query.iter()) {
         std::string id = std::format("{:#05x}", static_cast<int>(entity));
@@ -60,7 +60,38 @@ void print(Query<Get<Entity, Health, Position>, With<>, Without<>> query) {
     std::cout << std::endl;
 }
 
-void print_count(Query<Get<Entity, Health>, With<>, Without<>> query) {
+void print_2(Query<Get<Entity, Health, Position>, With<>, Without<>> query) {
+    std::cout << "print" << std::endl;
+    for (auto [entity, health, position] : query.iter()) {
+        std::string id = std::format("{:#05x}", static_cast<int>(entity));
+        std::cout << "entity: " << id << " [health: " << health.life
+                  << " position: " << position.x << ", " << position.y << "]"
+                  << " " << query.contains(entity) << std::endl;
+    }
+    std::cout << std::endl;
+}
+
+void print_count_1(Query<Get<Entity, Health>, With<>, Without<>> query) {
+    std::cout << "print_count" << std::endl;
+    int count = 0;
+    for (auto [entity, health] : query.iter()) {
+        count++;
+    }
+    std::cout << "entity count: " << count << std::endl;
+    std::cout << std::endl;
+}
+
+void print_count_2(Query<Get<Entity, Health>, With<>, Without<>> query) {
+    std::cout << "print_count" << std::endl;
+    int count = 0;
+    for (auto [entity, health] : query.iter()) {
+        count++;
+    }
+    std::cout << "entity count: " << count << std::endl;
+    std::cout << std::endl;
+}
+
+void print_count_3(Query<Get<Entity, Health>, With<>, Without<>> query) {
     std::cout << "print_count" << std::endl;
     int count = 0;
     for (auto [entity, health] : query.iter()) {
@@ -92,15 +123,14 @@ void despawn(
 class SpawnDespawnPlugin : public Plugin {
    public:
     void build(App& app) override {
-        SystemNode node;
-        app.add_system(Startup{}, spawn, &node)
-            .add_system(Startup{}, print_count, &node, after(node))
-            .add_system(Startup{}, print, &node, after(node))
-            .add_system(Startup{}, change_component_data, &node, after(node))
-            .add_system(Startup{}, print_count, &node, after(node))
-            .add_system(Startup{}, print, &node, after(node))
-            .add_system(Startup{}, despawn, &node, after(node))
-            .add_system(Update{}, print_count, &node, after(node));
+        app.add_system(Startup{}, spawn)
+            .add_system(Startup{}, print_count_1, after(spawn))
+            .add_system(Startup{}, print_1, after(print_count_1))
+            .add_system(Startup{}, change_component_data, after(print_1))
+            .add_system(Startup{}, print_count_2, after(change_component_data))
+            .add_system(Startup{}, print_2, after(print_count_2))
+            .add_system(Startup{}, despawn, after(print_2))
+            .add_system(Update{}, print_count_3);
     }
 };
 

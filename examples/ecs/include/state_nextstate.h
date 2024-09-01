@@ -64,14 +64,13 @@ void exit(EventWriter<AppExit> exit) {
 class StateTestPlugin : public Plugin {
    public:
     void build(App& app) override {
-        SystemNode node;
         app.init_state<States>()
             .add_system(Startup{}, is_state_start)
             .add_system(OnEnter(States::Start), set_state_middle)
             .add_system(OnEnter(States::Middle), set_state_end)
-            .add_system(Update{}, is_state_middle, &node)
-            .add_system(Update{}, is_state_end, &node, after(node))
-            .add_system(Update{}, exit, &node, after(node));
+            .add_system(Update{}, is_state_middle)
+            .add_system(Update{}, is_state_end, after(is_state_middle))
+            .add_system(Update{}, exit, after(is_state_end));
     }
 };
 
