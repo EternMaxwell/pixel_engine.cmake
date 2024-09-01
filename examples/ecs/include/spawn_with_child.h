@@ -46,7 +46,27 @@ void print(Query<Get<Entity, Health>, With<>, Without<>> query) {
     std::cout << std::endl;
 }
 
-void print_count(Query<Get<Health>, With<>, Without<>> query) {
+void print_count1(Query<Get<Health>, With<>, Without<>> query) {
+    std::cout << "print_count" << std::endl;
+    int count = 0;
+    for (auto [health] : query.iter()) {
+        count++;
+    }
+    std::cout << "entity count: " << count << std::endl;
+    std::cout << std::endl;
+}
+
+void print_count2(Query<Get<Health>, With<>, Without<>> query) {
+    std::cout << "print_count" << std::endl;
+    int count = 0;
+    for (auto [health] : query.iter()) {
+        count++;
+    }
+    std::cout << "entity count: " << count << std::endl;
+    std::cout << std::endl;
+}
+
+void print_count3(Query<Get<Health>, With<>, Without<>> query) {
     std::cout << "print_count" << std::endl;
     int count = 0;
     for (auto [health] : query.iter()) {
@@ -68,13 +88,12 @@ void despawn_recurese(
 class SpawnWithChildPlugin : public entity::Plugin {
    public:
     void build(entity::App& app) override {
-        SystemNode node;
-        app.add_system(Startup{}, spawn, &node)
-            .add_system(Startup{}, print_count, &node, after(node))
-            .add_system(Startup{}, create_child, &node, after(node))
-            .add_system(Startup{}, print_count, &node, after(node))
-            .add_system(Startup{}, despawn_recurese, &node, after(node))
-            .add_system(Update{}, print_count);
+        app.add_system(Startup{}, spawn)
+            .add_system(Startup{}, print_count1, after(spawn))
+            .add_system(Startup{}, create_child, after(print_count1))
+            .add_system(Startup{}, print_count2, after(create_child))
+            .add_system(Startup{}, despawn_recurese, after(print_count2))
+            .add_system(Update{}, print_count3);
     }
 };
 

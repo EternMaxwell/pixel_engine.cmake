@@ -13,7 +13,27 @@ struct Res {
     int data;
 };
 
-void access_resource(Resource<Res> resource) {
+void access_resource1(Resource<Res> resource) {
+    std::cout << "access_resource" << std::endl;
+    if (resource.has_value()) {
+        std::cout << "resource: " << resource->data << std::endl;
+    } else {
+        std::cout << "resource: null" << std::endl;
+    }
+    std::cout << std::endl;
+}
+
+void access_resource2(Resource<Res> resource) {
+    std::cout << "access_resource" << std::endl;
+    if (resource.has_value()) {
+        std::cout << "resource: " << resource->data << std::endl;
+    } else {
+        std::cout << "resource: null" << std::endl;
+    }
+    std::cout << std::endl;
+}
+
+void access_resource3(Resource<Res> resource) {
     std::cout << "access_resource" << std::endl;
     if (resource.has_value()) {
         std::cout << "resource: " << resource->data << std::endl;
@@ -35,7 +55,13 @@ void set_resource_with_init(Command command) {
     std::cout << std::endl;
 }
 
-void remove_resource(Command command) {
+void remove_resource1(Command command) {
+    std::cout << "remove_resource" << std::endl;
+    command.remove_resource<Res>();
+    std::cout << std::endl;
+}
+
+void remove_resource2(Command command) {
     std::cout << "remove_resource" << std::endl;
     command.remove_resource<Res>();
     std::cout << std::endl;
@@ -50,15 +76,16 @@ void change_resource(Resource<Res> resource) {
 class ResourceTestPlugin : public entity::Plugin {
    public:
     void build(App& app) override {
-        SystemNode node;
-        app.add_system(Startup{}, set_resource, &node)
-            .add_system(Startup{}, access_resource, &node, after(node))
-            .add_system(Startup{}, remove_resource, &node, after(node))
-            .add_system(Startup{}, set_resource_with_init, &node, after(node))
-            .add_system(Startup{}, access_resource, &node, after(node))
-            .add_system(Startup{}, change_resource, &node, after(node))
-            .add_system(Startup{}, access_resource, &node, after(node))
-            .add_system(Startup{}, remove_resource, &node, after(node));
+        app.add_system(Startup{}, set_resource)
+            .add_system(Startup{}, access_resource1, after(set_resource))
+            .add_system(Startup{}, remove_resource1, after(access_resource1))
+            .add_system(
+                Startup{}, set_resource_with_init, after(remove_resource1))
+            .add_system(
+                Startup{}, access_resource2, after(set_resource_with_init))
+            .add_system(Startup{}, change_resource, after(access_resource2))
+            .add_system(Startup{}, access_resource3, after(change_resource))
+            .add_system(Startup{}, remove_resource2, after(access_resource3));
     }
 };
 

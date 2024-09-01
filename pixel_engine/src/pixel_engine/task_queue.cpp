@@ -42,5 +42,5 @@ std::shared_ptr<BS::thread_pool> pixel_engine::task_queue::resources::TaskQueue:
 
 void pixel_engine::task_queue::TaskQueuePlugin::build(App& app) {
     app.configure_sets(TaskQueueSets::insert_task_queue, TaskQueueSets::after_insertion)
-        .add_system(PreStartup{}, insert_task_queue, in_set(TaskQueueSets::insert_task_queue));
+        .add_system(PreStartup{}, systems::insert_task_queue, in_set(TaskQueueSets::insert_task_queue));
 }
