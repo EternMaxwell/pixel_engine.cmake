@@ -542,8 +542,8 @@ void create_graphics_pipeline(
     auto [render_pass] = render_pass_query.single().value();
     spdlog::info("create graphics pipeline");
     // Create the shader modules and the shader stages
-    auto vertex_code =
-        std::vector<uint32_t>(vertex_spv, vertex_spv + sizeof(vertex_spv) / sizeof(uint32_t));
+    auto vertex_code = std::vector<uint32_t>(
+        vertex_spv, vertex_spv + sizeof(vertex_spv) / sizeof(uint32_t));
     auto fragment_code = std::vector<uint32_t>(
         fragment_spv, fragment_spv + sizeof(fragment_spv) / sizeof(uint32_t));
     vk::ShaderModule vertex_shader_module =
@@ -977,116 +977,74 @@ struct VK_TrialPlugin : Plugin {
         window_plugin->set_primary_window_hints(
             {{GLFW_CLIENT_API, GLFW_NO_API}});
 
-        SystemNode n_init_instance;
-        SystemNode n_get_physical_device;
-        SystemNode n_destroy_instance;
-        SystemNode n_destroy_device;
-        SystemNode n_create_device;
-        SystemNode n_create_surface;
-        SystemNode n_query_swap_chain_support;
-        SystemNode n_create_swap_chain;
-        SystemNode n_get_swap_chain_images;
-        SystemNode n_create_image_views;
-        SystemNode n_create_render_pass;
-        SystemNode n_create_graphics_pipeline;
-        SystemNode n_create_framebuffer;
-        SystemNode n_create_command_pool;
-        SystemNode n_create_command_buffer;
-        SystemNode n_create_sync_object;
-
-        SystemNode n_begin_draw;
-        SystemNode n_record_command_buffer;
-        SystemNode n_end_draw;
-
-        SystemNode n_wait_for_device;
-        SystemNode n_destroy_surface;
-
         app.add_plugin(LoopPlugin{});
-        app.add_system_main(Startup{}, init_instance, &n_init_instance);
+        app.add_system_main(Startup{}, init_instance);
         app.add_system_main(PreStartup{}, add_resources);
         app.add_system_main(
-            Startup{}, get_physical_device, after(n_init_instance),
-            &n_get_physical_device);
+            Startup{}, get_physical_device, after(init_instance));
         app.add_system_main(
-            Startup{}, create_window_surface, after(n_get_physical_device),
-            &n_create_surface);
+            Startup{}, create_window_surface, after(get_physical_device));
         app.add_system_main(
-            Startup{}, create_device, after(n_create_surface),
-            &n_create_device);
+            Startup{}, create_device, after(create_window_surface));
         app.add_system_main(
-            Startup{}, query_swap_chain_support, after(n_create_device),
-            &n_query_swap_chain_support);
+            Startup{}, query_swap_chain_support, after(create_device));
         app.add_system_main(
-            Startup{}, create_swap_chain, after(n_query_swap_chain_support),
-            &n_create_swap_chain);
+            Startup{}, create_swap_chain, after(query_swap_chain_support));
         app.add_system_main(
-            Startup{}, get_swap_chain_images, after(n_create_swap_chain),
-            &n_get_swap_chain_images);
+            Startup{}, get_swap_chain_images, after(create_swap_chain));
         app.add_system_main(
-            Startup{}, create_image_views, after(n_get_swap_chain_images),
-            &n_create_image_views);
+            Startup{}, create_image_views, after(get_swap_chain_images));
         app.add_system_main(
-            Startup{}, create_render_pass, after(n_create_image_views),
-            &n_create_render_pass);
+            Startup{}, create_render_pass, after(create_image_views));
         app.add_system_main(
-            Startup{}, create_graphics_pipeline, after(n_create_render_pass),
-            &n_create_graphics_pipeline);
+            Startup{}, create_graphics_pipeline, after(create_render_pass));
         app.add_system_main(
-            Startup{}, create_framebuffer, after(n_create_graphics_pipeline),
-            &n_create_framebuffer);
+            Startup{}, create_framebuffer, after(create_graphics_pipeline));
         app.add_system_main(
-            Startup{}, create_command_pool, after(n_create_framebuffer),
-            &n_create_command_pool);
+            Startup{}, create_command_pool, after(create_framebuffer));
         app.add_system_main(
-            Startup{}, create_command_buffer, after(n_create_command_pool),
-            &n_create_command_buffer);
+            Startup{}, create_command_buffer, after(create_command_pool));
         app.add_system_main(
-            Startup{}, create_sync_object, after(n_create_command_buffer),
-            &n_create_sync_object);
-        app.add_system_main(Render{}, begin_draw, &n_begin_draw);
+            Startup{}, create_sync_object, after(create_command_buffer));
+        app.add_system_main(Render{}, begin_draw);
+        app.add_system_main(Render{}, record_command_buffer, after(begin_draw));
+        app.add_system_main(Render{}, end_draw, after(record_command_buffer));
+        app.add_system_main(Exit{}, wait_for_device);
+        app.add_system_main(Exit{}, destroy_instance);
         app.add_system_main(
-            Render{}, record_command_buffer, &n_record_command_buffer,
-            after(n_begin_draw));
+            Exit{}, destroy_device, before(destroy_instance),
+            after(wait_for_device));
         app.add_system_main(
-            Render{}, end_draw, &n_end_draw, after(n_record_command_buffer));
-        app.add_system_main(Exit{}, wait_for_device, &n_wait_for_device);
-        app.add_system_main(Exit{}, destroy_instance, &n_destroy_instance);
+            Exit{}, destroy_surface, before(destroy_instance),
+            after(wait_for_device));
         app.add_system_main(
-            Exit{}, destroy_device, before(n_destroy_instance),
-            &n_destroy_device, after(n_wait_for_device));
+            Exit{}, destroy_pipeline, before(destroy_device),
+            after(wait_for_device));
         app.add_system_main(
-            Exit{}, destroy_surface, before(n_destroy_instance),
-            &n_destroy_surface, after(n_wait_for_device));
+            Exit{}, destroy_image_views, before(destroy_device),
+            after(wait_for_device));
         app.add_system_main(
-            Exit{}, destroy_pipeline, before(n_destroy_device),
-            after(n_wait_for_device));
+            Exit{}, destroy_pipeline_layout, before(destroy_device),
+            after(wait_for_device));
         app.add_system_main(
-            Exit{}, destroy_image_views, before(n_destroy_device),
-            after(n_wait_for_device));
+            Exit{}, destroy_render_pass, before(destroy_device),
+            after(wait_for_device));
         app.add_system_main(
-            Exit{}, destroy_pipeline_layout, before(n_destroy_device),
-            after(n_wait_for_device));
+            Exit{}, destroy_framebuffers, before(destroy_device),
+            after(wait_for_device));
         app.add_system_main(
-            Exit{}, destroy_render_pass, before(n_destroy_device),
-            after(n_wait_for_device));
+            Exit{}, destroy_swap_chain, before(destroy_device, destroy_surface),
+            after(wait_for_device));
         app.add_system_main(
-            Exit{}, destroy_framebuffers, before(n_destroy_device),
-            after(n_wait_for_device));
-        app.add_system_main(
-            Exit{}, destroy_swap_chain,
-            before(n_destroy_device, n_destroy_surface),
-            after(n_wait_for_device));
-        SystemNode n_destroy_command_pool;
-        app.add_system_main(
-            Exit{}, destroy_command_pool, before(n_destroy_device),
-            after(n_wait_for_device), &n_destroy_command_pool);
+            Exit{}, destroy_command_pool, before(destroy_device),
+            after(wait_for_device));
         app.add_system_main(
             Exit{}, destroy_command_buffer,
-            before(n_destroy_device, n_destroy_command_pool),
-            after(n_wait_for_device));
+            before(destroy_device, destroy_command_pool),
+            after(wait_for_device));
         app.add_system_main(
-            Exit{}, destroy_sync_objects, before(n_destroy_device),
-            after(n_wait_for_device));
+            Exit{}, destroy_sync_objects, before(destroy_device),
+            after(wait_for_device));
     }
 };
 
