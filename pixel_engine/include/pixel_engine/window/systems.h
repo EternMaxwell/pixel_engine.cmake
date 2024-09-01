@@ -20,7 +20,13 @@ using namespace prelude;
 void init_glfw();
 void insert_primary_window(
     Command command, Resource<window::WindowPlugin> window_plugin);
-void create_window(
+void create_window_startup(
+    Command command, Query<
+                         Get<entt::entity, WindowHandle, const WindowSize,
+                             const WindowTitle, const WindowHints>,
+                         With<>, Without<WindowCreated>>
+                         query);
+void create_window_prerender(
     Command command, Query<
                          Get<entt::entity, WindowHandle, const WindowSize,
                              const WindowTitle, const WindowHints>,

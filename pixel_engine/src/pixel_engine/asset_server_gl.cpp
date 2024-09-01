@@ -1,6 +1,8 @@
 ﻿#include "pixel_engine/asset_server_gl/asset_server_gl.h"
 #include "pixel_engine/asset_server_gl/resources.h"
+#include "pixel_engine/asset_server_gl/systems.h"
 #include "pixel_engine/render_gl/render_gl.h"
+
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -118,6 +120,6 @@ void pixel_engine::asset_server_gl::AssetServerGLPlugin::build(App& app) {
            AssetServerGLSets::insert_asset_server,
            AssetServerGLSets::after_insertion)
         .add_system(
-            PreStartup{}, insert_asset_server,
+            PreStartup{}, systems::insert_asset_server,
             in_set(AssetServerGLSets::insert_asset_server));
 }

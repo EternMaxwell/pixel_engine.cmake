@@ -30,7 +30,41 @@ void pixel_engine::window::systems::insert_primary_window(
         PrimaryWindow{});
 }
 
-void pixel_engine::window::systems::create_window(
+void pixel_engine::window::systems::create_window_startup(
+    Command command, Query<
+                         Get<entt::entity, WindowHandle, const WindowSize,
+                             const WindowTitle, const WindowHints>,
+                         With<>, Without<WindowCreated>>
+                         query) {
+    for (auto [id, window_handle, window_size, window_title, window_hints] :
+         query.iter()) {
+        spdlog::debug("Creating window");
+        glfwDefaultWindowHints();
+
+        for (auto& [hint, value] : window_hints.hints) {
+            glfwWindowHint(hint, value);
+        }
+
+        window_handle.window_handle = glfwCreateWindow(
+            window_size.width, window_size.height, window_title.title.c_str(),
+            nullptr, nullptr);
+        if (!window_handle.window_handle) {
+            glfwTerminate();
+            throw std::runtime_error("Failed to create GLFW window");
+        }
+
+        command.entity(id).emplace(WindowCreated{});
+
+        glfwShowWindow(window_handle.window_handle);
+        if (glfwGetWindowAttrib(window_handle.window_handle, GLFW_CLIENT_API) ==
+            GLFW_NO_API)
+            continue;
+        glfwMakeContextCurrent(window_handle.window_handle);
+        glfwSwapInterval(window_handle.vsync ? 1 : 0);
+    }
+}
+
+void pixel_engine::window::systems::create_window_prerender(
     Command command, Query<
                          Get<entt::entity, WindowHandle, const WindowSize,
                              const WindowTitle, const WindowHints>,
@@ -166,18 +200,16 @@ void pixel_engine::window::WindowPlugin::set_primary_window_hints(
 }
 
 void pixel_engine::window::WindowPlugin::build(App& app) {
-    SystemNode no_window_exists_node, insert_primary_node;
     app.configure_sets(
            WindowStartUpSets::glfw_initialization,
            WindowStartUpSets::window_creation,
            WindowStartUpSets::after_window_creation)
-        .add_system_main(
-            PreStartup{}, insert_primary_window, &insert_primary_node)
+        .add_system_main(PreStartup{}, insert_primary_window)
         .add_system_main(
             PreStartup{}, init_glfw,
             in_set(WindowStartUpSets::glfw_initialization))
         .add_system_main(
-            PreStartup{}, create_window, after(insert_primary_node),
+            PreStartup{}, create_window_startup, after(insert_primary_window),
             in_set(WindowStartUpSets::window_creation))
         .configure_sets(
             WindowPreUpdateSets::poll_events,
@@ -195,7 +227,7 @@ void pixel_engine::window::WindowPlugin::build(App& app) {
             WindowPreRenderSets::window_creation,
             WindowPreRenderSets::after_create)
         .add_system_main(
-            PreRender{}, create_window,
+            PreRender{}, create_window_prerender,
             in_set(WindowPreRenderSets::window_creation))
         .configure_sets(
             WindowPostRenderSets::before_swap_buffers,
@@ -212,9 +244,9 @@ void pixel_engine::window::WindowPlugin::build(App& app) {
             PostRender{}, window_close,
             in_set(WindowPostRenderSets::window_close))
         .add_system(
-            PostRender{}, no_window_exists, &no_window_exists_node,
+            PostRender{}, no_window_exists,
             in_set(WindowPostRenderSets::after_close_window))
         .add_system(
-            PostRender{}, exit_on_no_window, after(no_window_exists_node),
+            PostRender{}, exit_on_no_window, after(no_window_exists),
             in_set(WindowPostRenderSets::after_close_window));
 }
