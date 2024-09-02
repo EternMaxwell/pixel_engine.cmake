@@ -38,7 +38,7 @@ void pixel_engine::window::systems::create_window_startup(
                          query) {
     for (auto [id, window_handle, window_size, window_title, window_hints] :
          query.iter()) {
-        spdlog::debug("Creating window");
+        spdlog::debug("Creating window startup");
         glfwDefaultWindowHints();
 
         for (auto& [hint, value] : window_hints.hints) {
@@ -72,7 +72,7 @@ void pixel_engine::window::systems::create_window_prerender(
                          query) {
     for (auto [id, window_handle, window_size, window_title, window_hints] :
          query.iter()) {
-        spdlog::debug("Creating window");
+        spdlog::debug("Creating window prerender");
         glfwDefaultWindowHints();
 
         for (auto& [hint, value] : window_hints.hints) {
