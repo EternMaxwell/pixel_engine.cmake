@@ -1,6 +1,6 @@
 ﻿cmake_minimum_required (VERSION 3.21)
 
-project (pixel_engine VERSION 0.1.0)
+add_subdirectory(app)
 
 file(GLOB_RECURSE ENGINE_HEADERS "include/*.h" "include/*.hpp")
 file(GLOB_RECURSE ENGINE_SOURCES "src/*.c" "src/*.cpp")

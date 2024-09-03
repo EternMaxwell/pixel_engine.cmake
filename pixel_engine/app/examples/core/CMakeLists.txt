@@ -1,0 +1,4 @@
+cmake_minimum_required(VERSION 3.21)
+
+add_executable(app_example_core main.cpp)
+target_link_libraries(app_example_core pixel_engine_app_v1)
