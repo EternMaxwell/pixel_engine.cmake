@@ -7,7 +7,7 @@ using namespace pixel_engine::app;
 void function(Command command) { std::cout << "Hello, World!" << std::endl; }
 
 int main() {
-    App app;
+    World app;
     app.run_system(function);
     return 0;
 }

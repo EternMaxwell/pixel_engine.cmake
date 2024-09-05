@@ -2,6 +2,7 @@
 
 #include <BS_thread_pool.hpp>
 #include <entt/entity/registry.hpp>
+#include <queue>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -75,6 +76,9 @@ struct SystemNode {
     std::unordered_set<std::weak_ptr<SystemNode>> m_temp_after;
     std::optional<double> m_reach_time;
 
+    size_t m_prev_cout;
+    size_t m_next_cout;
+
     double reach_time() {
         if (m_reach_time.has_value()) {
             return m_reach_time.value();
@@ -91,202 +95,20 @@ struct SystemNode {
     }
 
     void reset_reach_time() { m_reach_time.reset(); }
+
+    void clear_temp() {
+        m_temp_before.clear();
+        m_temp_after.clear();
+    }
 };
 
-struct StageRunner {
+struct World {
    private:
-    App* m_app;
-    size_t m_stage_type_hash;
-    size_t m_stage_value;
-    std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>*
-        m_workers;
-    std::vector<std::weak_ptr<SystemNode>> m_systems;
-    std::unordered_map<std::weak_ptr<SystemNode>, std::future<void>> m_futures;
-    std::mutex* m_system_mutex;
-
-   public:
-    template <typename StageT>
-    StageRunner(
-        App* app, StageT stage,
-        std::shared_ptr<
-            std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>>
-            workers,
-        std::unordered_map<void*, std::shared_ptr<SystemNode>> systems)
-        : m_app(app),
-          m_stage_type_hash(typeid(StageT).hash_code()),
-          m_stage_value(static_cast<size_t>(stage)),
-          m_workers(workers) {
-        m_app = app;
-        for (auto& [addr, system] : systems) {
-            if (system->m_schedule.m_stage_type_hash == m_stage_type_hash &&
-                system->m_schedule.m_stage_value == m_stage_value) {
-                m_systems.push_back(system);
-            }
-        }
-    }
-
-    void prepare() {
-        m_system_mutex->lock();
-        std::erase_if(m_systems, [](auto system) { return system.expired(); });
-        for (auto system : m_systems) {
-            if (auto system_ptr = system.lock()) {
-                system_ptr->reset_reach_time();
-            }
-        }
-        std::sort(m_systems.begin(), m_systems.end(), [](auto a, auto b) {
-            auto a_ptr = a.lock();
-            auto b_ptr = b.lock();
-            return a_ptr->reach_time() < b_ptr->reach_time();
-        });
-        m_system_mutex->unlock();
-        m_futures.clear();
-    }
-
-    void wait() {
-        for (auto& [name, worker] : *m_workers) {
-            worker->wait();
-        }
-    }
-
-    std::mutex m_mutex;
-
-    void run() {
-        std::unordered_set<std::weak_ptr<SystemNode>> systems_all(
-            m_systems.begin(), m_systems.end());
-        std::deque<std::weak_ptr<SystemNode>> to_run;
-        std::condition_variable cv;
-        for (auto system : m_systems) {
-            if (auto system_ptr = system.lock()) {
-                if (system_ptr->m_systems_before.size() ||
-                    system_ptr->m_temp_before.size()) {
-                    continue;
-                }
-                if (m_futures.find(system) != m_futures.end()) continue;
-                auto worker = m_workers->at(system_ptr->m_worker_name);
-                m_futures[system] = worker->submit_task([&]() {
-                    bool run = !system_ptr->m_schedule.m_condition ||
-                               system_ptr->m_schedule.m_condition->run();
-                    system_ptr->m_system->run();
-                    std::unique_lock<std::mutex> lk(m_mutex);
-                    for (auto& after : system_ptr->m_systems_after) {
-                        if (auto after_ptr = after.lock()) {
-                            to_run.push_back(after);
-                        }
-                    }
-                    for (auto& after : system_ptr->m_temp_after) {
-                        if (auto after_ptr = after.lock()) {
-                            to_run.push_back(after);
-                        }
-                    }
-                    cv.notify_all();
-                });
-                systems_all.erase(system);
-            }
-        }
-        while (systems_all.size()) {
-            for (auto system : to_run) {
-                if (auto system_ptr = system.lock()) {
-                    if (m_futures.find(system) != m_futures.end()) continue;
-                    bool can_run = true;
-                    std::unique_lock<std::mutex> lk(m_mutex);
-                    for (auto& before : system_ptr->m_systems_before) {
-                        if (auto before_ptr = before.lock()) {
-                            if (m_futures.find(before) == m_futures.end()) {
-                                can_run = false;
-                                break;
-                            }
-                            auto& future = m_futures[before];
-                            if (future.wait_for(std::chrono::seconds(0)) !=
-                                std::future_status::ready) {
-                                can_run = false;
-                                break;
-                            }
-                        }
-                    }
-                    for (auto& before : system_ptr->m_temp_before) {
-                        if (auto before_ptr = before.lock()) {
-                            if (m_futures.find(before) == m_futures.end()) {
-                                can_run = false;
-                                break;
-                            }
-                            auto& future = m_futures[before];
-                            if (future.wait_for(std::chrono::seconds(0)) !=
-                                std::future_status::ready) {
-                                can_run = false;
-                                break;
-                            }
-                        }
-                    }
-                    lk.unlock();
-                    if (!can_run) continue;
-                    auto worker = m_workers->at(system_ptr->m_worker_name);
-                    m_futures[system] = worker->submit_task([&]() {
-                        bool run = !system_ptr->m_schedule.m_condition ||
-                                   system_ptr->m_schedule.m_condition->run();
-                        system_ptr->m_system->run();
-                        std::unique_lock<std::mutex> lk(m_mutex);
-                        for (auto& after : system_ptr->m_systems_after) {
-                            if (auto after_ptr = after.lock()) {
-                                to_run.push_back(after);
-                            }
-                        }
-                        for (auto& after : system_ptr->m_temp_after) {
-                            if (auto after_ptr = after.lock()) {
-                                to_run.push_back(after);
-                            }
-                        }
-                        cv.notify_all();
-                    });
-                    systems_all.erase(system);
-                }
-            }
-            std::unique_lock<std::mutex> lk(m_mutex);
-            cv.wait(lk);
-        }
-    }
-};
-
-struct Runner {
-    std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>> m_workers;
-    std::unordered_map<BasicStage, std::vector<StageRunner>> m_stages;
-    std::unordered_map<void*, std::shared_ptr<SystemNode>>* m_systems;
-    void add_worker(std::string name, size_t num_threads) {
-        m_workers.insert(
-            {name, std::make_shared<BS::thread_pool>(num_threads)});
-    }
-    Runner(
-        std::vector<std::pair<std::string, size_t>> workers,
-        std::unordered_map<void*, std::shared_ptr<SystemNode>>* systems)
-        : m_systems(systems) {
-        for (auto worker : workers) {
-            add_worker(worker.first, worker.second);
-        }
-    }
-    template <typename... SubStages>
-    void configure_stage(App* app, BasicStage stage, SubStages... stages) {
-        std::vector<StageRunner> stage_runners = {
-            StageRunner(app, stages, &m_workers, m_systems)...};
-        m_stages[stage] = stage_runners;
-    }
-    void run_stage(BasicStage stage) {
-        for (auto& stage_runner : m_stages[stage]) {
-            stage_runner.prepare();
-
-            stage_runner.wait();
-        }
-    }
-};
-
-struct App {
-   private:
-    bool m_loop = false;
     entt::registry m_registry;
     std::unordered_map<entt::entity, std::unordered_set<entt::entity>>
         m_entity_tree;
     std::unordered_map<size_t, std::shared_ptr<void>> m_resources;
     std::unordered_map<size_t, std::shared_ptr<void>> m_events;
-    std::unordered_map<void*, std::shared_ptr<SystemNode>> m_systems;
-    Runner m_runner = Runner({{"default", 4}, {"single", 1}}, &m_systems);
 
     template <typename T, typename... Args>
     T tuple_get(std::tuple<Args...> tuple) {
@@ -311,12 +133,12 @@ struct App {
 
     template <typename T>
     struct value_type {
-        static T get(App* app) { static_assert(1, "value type not valid."); }
+        static T get(World* app) { static_assert(1, "value type not valid."); }
     };
 
     template <>
     struct value_type<Command> {
-        static Command get(App* app) {
+        static Command get(World* app) {
             return Command(
                 &app->m_registry, &app->m_resources, &app->m_entity_tree);
         }
@@ -325,7 +147,7 @@ struct App {
     template <typename... Gets, typename... Withs, typename... Exs>
     struct value_type<Query<Get<Gets...>, With<Withs...>, Without<Exs...>>> {
         static Query<Get<Gets...>, With<Withs...>, Without<Exs...>> get(
-            App* app) {
+            World* app) {
             return Query<Get<Gets...>, With<Withs...>, Without<Exs...>>(
                 app->m_registry);
         }
@@ -333,7 +155,7 @@ struct App {
 
     template <typename Res>
     struct value_type<Resource<Res>> {
-        static Resource<Res> get(App* app) {
+        static Resource<Res> get(World* app) {
             if (app->m_resources.find(typeid(Res).hash_code()) !=
                 app->m_resources.end()) {
                 return Resource<Res>(
@@ -346,7 +168,7 @@ struct App {
 
     template <typename Evt>
     struct value_type<EventWriter<Evt>> {
-        static EventWriter<Evt> get(App* app) {
+        static EventWriter<Evt> get(World* app) {
             if (app->m_events.find(typeid(Evt).hash_code()) ==
                 app->m_events.end()) {
                 app->m_events[typeid(Evt).hash_code()] =
@@ -359,7 +181,7 @@ struct App {
 
     template <typename Evt>
     struct value_type<EventReader<Evt>> {
-        static EventReader<Evt> get(App* app) {
+        static EventReader<Evt> get(World* app) {
             if (app->m_events.find(typeid(Evt).hash_code()) ==
                 app->m_events.end()) {
                 app->m_events[typeid(Evt).hash_code()] =
@@ -396,7 +218,7 @@ struct App {
      * @return The App object itself.
      */
     template <typename T>
-    App& insert_state(T state) {
+    World& insert_state(T state) {
         Command cmd = command();
         cmd.insert_resource(State(state));
         cmd.insert_resource(NextState(state));
@@ -410,11 +232,54 @@ struct App {
      * @return The App object itself.
      */
     template <typename T>
-    App& init_state() {
+    World& init_state() {
         Command cmd = command();
         cmd.init_resource<State<T>>();
         cmd.init_resource<NextState<T>>();
 
+        return *this;
+    }
+
+    /**
+     * @brief Insert a resource.
+     *
+     * @tparam T The type of the resource.
+     * @param res The resource to be inserted.
+     * @return World& The App object itself.
+     */
+    template <typename T>
+    World& insert_resource(T res) {
+        Command cmd = command();
+        cmd.insert_resource(res);
+        return *this;
+    }
+
+    /**
+     * @brief Insert a resource.
+     *
+     * @tparam T The type of the resource.
+     * @tparam Args The types of the arguments to be passed to the constructor
+     * of T
+     * @param args The arguments to be passed to the constructor of T
+     * @return World& The App object itself.
+     */
+    template <typename T, typename... Args>
+    World& insert_resource(Args... args) {
+        Command cmd = command();
+        cmd.insert_resource<T>(args...);
+        return *this;
+    }
+
+    /**
+     * @brief Insert a resource using default values.
+     *
+     * @tparam T The type of the resource.=
+     * @return World& The App object itself.
+     */
+    template <typename T>
+    World& init_resource() {
+        Command cmd = command();
+        cmd.init_resource<T>();
         return *this;
     }
 
@@ -424,7 +289,7 @@ struct App {
      * @return The App object itself.
      */
     template <typename... Args>
-    App& run_system(std::function<void(Args...)> func) {
+    World& run_system(std::function<void(Args...)> func) {
         std::apply(func, get_values<Args...>());
         return *this;
     }
@@ -435,7 +300,7 @@ struct App {
      * @return The App object itself.
      */
     template <typename... Args>
-    App& run_system(void (*func)(Args...)) {
+    World& run_system(void (*func)(Args...)) {
         std::apply(func, get_values<Args...>());
         return *this;
     }
@@ -463,6 +328,233 @@ struct App {
     T run_system_v(T (*func)(Args...)) {
         return std::apply(func, get_values<Args...>());
     }
+};
+
+struct MsgQueue {
+    std::queue<std::weak_ptr<SystemNode>> m_queue;
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
+    void push(std::weak_ptr<SystemNode> system) {
+        std::unique_lock<std::mutex> lk(m_mutex);
+        m_queue.push(system);
+        m_cv.notify_one();
+    }
+    std::weak_ptr<SystemNode> pop() {
+        std::unique_lock<std::mutex> lk(m_mutex);
+        m_cv.wait(lk, [&] { return !m_queue.empty(); });
+        auto system = m_queue.front();
+        m_queue.pop();
+        return system;
+    }
+    std::weak_ptr<SystemNode> front() {
+        std::unique_lock<std::mutex> lk(m_mutex);
+        return m_queue.front();
+    }
+    bool empty() {
+        std::unique_lock<std::mutex> lk(m_mutex);
+        return m_queue.empty();
+    }
+    void wait() {
+        std::unique_lock<std::mutex> lk(m_mutex);
+        m_cv.wait(lk, [&] { return !m_queue.empty(); });
+    }
+};
+
+struct StageRunner {
+   private:
+    World* m_world;
+    size_t m_stage_type_hash;
+    size_t m_stage_value;
+    std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>*
+        m_workers;
+    std::vector<std::weak_ptr<SystemNode>> m_systems;
+
+    std::shared_ptr<SystemNode> m_head;
+
+    MsgQueue m_msg_queue;
+
+   public:
+    template <typename StageT>
+    StageRunner(
+        World* world, StageT stage,
+        std::shared_ptr<
+            std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>>
+            workers)
+        : m_world(world),
+          m_stage_type_hash(typeid(StageT).hash_code()),
+          m_stage_value(static_cast<size_t>(stage)),
+          m_workers(workers) {}
+
+    void build(
+        const std::unordered_map<void*, std::shared_ptr<SystemNode>>& systems) {
+        m_systems.clear();
+        for (auto& [addr, system] : systems) {
+            if (system->m_schedule.m_stage_type_hash == m_stage_type_hash &&
+                system->m_schedule.m_stage_value == m_stage_value) {
+                m_systems.push_back(system);
+            }
+        }
+    }
+
+    void prepare() {
+        std::erase_if(m_systems, [](auto system) { return system.expired(); });
+        for (auto system : m_systems) {
+            if (auto system_ptr = system.lock()) {
+                system_ptr->reset_reach_time();
+                system_ptr->clear_temp();
+            }
+        }
+        std::sort(m_systems.begin(), m_systems.end(), [](auto a, auto b) {
+            auto a_ptr = a.lock();
+            auto b_ptr = b.lock();
+            return a_ptr->reach_time() < b_ptr->reach_time();
+        });
+        m_head->clear_temp();
+        for (auto system : m_systems) {
+            if (auto system_ptr = system.lock()) {
+                if (system_ptr->m_system_ptrs_before.empty()) {
+                    m_head->m_systems_after.insert(system);
+                    system_ptr->m_systems_before.insert(m_head);
+                    system_ptr->m_prev_cout = 1;
+                }
+            }
+        }
+        for (size_t i = 0; i < m_systems.size(); i++) {
+            for (size_t j = i + 1; j < m_systems.size(); j++) {
+                if (auto system_ptr = m_systems[i].lock()) {
+                    if (auto system_ptr2 = m_systems[j].lock()) {
+                        if (system_ptr->m_system->contrary_to(
+                                system_ptr2->m_system)) {
+                            system_ptr->m_temp_after.insert(system_ptr2);
+                            system_ptr2->m_temp_before.insert(system_ptr);
+                        }
+                    }
+                }
+            }
+        }
+        for (auto system : m_systems) {
+            if (auto system_ptr = system.lock()) {
+                system_ptr->m_prev_cout = system_ptr->m_temp_before.size() +
+                                          system_ptr->m_systems_before.size();
+            }
+        }
+    }
+
+    void wait() {
+        for (auto& [name, worker] : *m_workers) {
+            worker->wait();
+        }
+    }
+
+    void notify(std::weak_ptr<SystemNode> system) { m_msg_queue.push(system); }
+
+    void run(std::weak_ptr<SystemNode> system) {
+        if (auto system_ptr = system.lock()) {
+            auto worker = (*m_workers)[system_ptr->m_worker_name];
+            auto ftr = worker->submit_task([=] {
+                if (system_ptr->m_system &&
+                    (!system_ptr->m_schedule.m_condition ||
+                     system_ptr->m_schedule.m_condition->run())) {
+                    system_ptr->m_system->run();
+                }
+                notify(system);
+            });
+        }
+    }
+
+    void run() {
+        size_t m_unfinished_system_count;
+        run(m_head);
+        while (m_unfinished_system_count > 0) {
+            m_msg_queue.wait();
+            if (!m_msg_queue.empty()) {
+                assert(false);
+            }
+            auto system = m_msg_queue.front();
+            m_unfinished_system_count--;
+            if (auto system_ptr = system.lock()) {
+                for (auto& next : system_ptr->m_systems_after) {
+                    if (auto next_ptr = next.lock()) {
+                        next_ptr->m_prev_cout--;
+                        if (next_ptr->m_prev_cout == 0) {
+                            run(next);
+                        }
+                    }
+                }
+                for (auto& next : system_ptr->m_temp_after) {
+                    if (auto next_ptr = next.lock()) {
+                        next_ptr->m_prev_cout--;
+                        if (next_ptr->m_prev_cout == 0) {
+                            run(next);
+                        }
+                    }
+                }
+            }
+            m_msg_queue.pop();
+        }
+    }
+};
+
+struct after {
+    std::vector<void*> ptrs;
+    template <typename... Args>
+    after(Args... args) {
+        ptrs = {((void*)args)...};
+    }
+};
+
+struct before {
+    std::vector<void*> ptrs;
+    template <typename... Args>
+    before(Args... args) {
+        ptrs = {((void*)args)...};
+    }
+};
+
+struct in_set {
+    std::vector<SystemSet> sets;
+    template <typename... Args>
+    in_set(Args... args) {
+        sets = {(SystemSet(args))...};
+    }
+};
+
+struct Runner {
+    std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>> m_workers;
+    std::unordered_map<BasicStage, std::vector<StageRunner>> m_stages;
+    std::unordered_map<void*, std::shared_ptr<SystemNode>> m_systems;
+    void add_worker(std::string name, size_t num_threads) {
+        m_workers.insert(
+            {name, std::make_shared<BS::thread_pool>(num_threads)});
+    }
+    Runner(std::vector<std::pair<std::string, size_t>> workers) {
+        for (auto worker : workers) {
+            add_worker(worker.first, worker.second);
+        }
+    }
+    template <typename... SubStages>
+    void configure_stage(World* app, BasicStage stage, SubStages... stages) {
+        std::vector<StageRunner> stage_runners = {
+            StageRunner(app, stages, &m_workers, &m_systems)...};
+        m_stages[stage] = stage_runners;
+    }
+    void run_stage(BasicStage stage) {
+        for (auto& stage_runner : m_stages[stage]) {
+            stage_runner.prepare();
+            stage_runner.run();
+            stage_runner.wait();
+        }
+    }
+    void build() {
+        for (auto& stage_runner : m_stages[BasicStage::Start]) {
+            stage_runner.build(m_systems);
+        }
+    }
+};
+
+struct App {
+    World m_world;
+    Runner m_runner = Runner({{"default", 8}, {"single", 1}});
 };
 }  // namespace app
 }  // namespace pixel_engine

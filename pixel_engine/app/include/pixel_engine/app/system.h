@@ -14,12 +14,12 @@
 namespace pixel_engine {
 namespace app {
 
-struct App;
+struct World;
 
 template <typename Ret>
 struct BasicSystem {
    protected:
-    App* app;
+    World* world;
     bool has_command = false;
     bool has_query = false;
     double avg_time = 1.0;  // in milliseconds
@@ -196,7 +196,7 @@ struct BasicSystem {
     }
 
    public:
-    BasicSystem(App* app) : app(app) {}
+    BasicSystem(World* world) : world(world) {}
     bool contrary_to(std::shared_ptr<BasicSystem>& other) {
         if (has_command && (other->has_command || other->has_query))
             return true;
@@ -415,12 +415,12 @@ struct System : public BasicSystem<void> {
     std::function<void(Args...)> func;
 
    public:
-    System(App* app, std::function<void(Args...)> func)
-        : BasicSystem<void>(app), func(func) {
+    System(World* world, std::function<void(Args...)> func)
+        : BasicSystem<void>(world), func(func) {
         add_infos<Args...>();
     }
-    System(App* app, void (*func)(Args...))
-        : BasicSystem<void>(app), func(func) {
+    System(World* world, void (*func)(Args...))
+        : BasicSystem<void>(world), func(func) {
         add_infos<Args...>();
     }
     void run() override {
@@ -440,15 +440,15 @@ struct Condition : public BasicSystem<bool> {
     std::function<bool(Args...)> func;
 
    public:
-    Condition(App* app, std::function<bool(Args...)> func)
-        : BasicSystem<bool>(app), func(func) {
+    Condition(World* world, std::function<bool(Args...)> func)
+        : BasicSystem<bool>(world), func(func) {
         add_infos<Args...>();
     }
-    Condition(App* app, bool (*func)(Args...))
-        : BasicSystem<bool>(app), func(func) {
+    Condition(World* world, bool (*func)(Args...))
+        : BasicSystem<bool>(world), func(func) {
         add_infos<Args...>();
     }
-    bool run() override { return app->run_system_v(func); }
+    bool run() override { return world->run_system_v(func); }
 };
 
 }  // namespace app
