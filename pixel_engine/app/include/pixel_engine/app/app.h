@@ -1,5 +1,7 @@
 #pragma once
 
+#include <spdlog/spdlog.h>
+
 #include <BS_thread_pool.hpp>
 #include <entt/entity/registry.hpp>
 #include <queue>
@@ -23,6 +25,8 @@ enum BasicStage { Start, Loop, Exit };
 enum StartStage { PreStartup, Startup, PostStartup };
 
 enum LoopStage { StateTransition, First, PreUpdate, Update, PostUpdate, Last };
+
+enum RenderStage { Prepare, PreRender, Render, PostRender };
 
 enum ExitStage { PreShutdown, Shutdown, PostShutdown };
 
@@ -78,6 +82,13 @@ struct SystemNode {
 
     size_t m_prev_cout;
     size_t m_next_cout;
+
+    template <typename... Args>
+    SystemNode(World* world, Schedule schedule, void (*func)(Args...)) {
+        m_schedule = schedule;
+        m_system = std::make_shared<System<Args...>>(world, func);
+        m_func_addr = func;
+    }
 
     double reach_time() {
         if (m_reach_time.has_value()) {
@@ -392,6 +403,13 @@ struct StageRunner {
             if (system->m_schedule.m_stage_type_hash == m_stage_type_hash &&
                 system->m_schedule.m_stage_value == m_stage_value) {
                 m_systems.push_back(system);
+                for (auto before_ptr : system->m_system_ptrs_before) {
+                    if (systems.find(before_ptr) != systems.end()) {
+                        auto sys_before = systems.find(before_ptr)->second;
+                        system->m_systems_before.insert(sys_before);
+                        sys_before->m_systems_after.insert(system);
+                    }
+                }
             }
         }
     }
@@ -520,6 +538,7 @@ struct in_set {
 };
 
 struct Runner {
+    World* m_world;
     std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>> m_workers;
     std::unordered_map<BasicStage, std::vector<StageRunner>> m_stages;
     std::unordered_map<void*, std::shared_ptr<SystemNode>> m_systems;
@@ -533,9 +552,9 @@ struct Runner {
         }
     }
     template <typename... SubStages>
-    void configure_stage(World* app, BasicStage stage, SubStages... stages) {
+    void configure_stage(BasicStage stage, SubStages... stages) {
         std::vector<StageRunner> stage_runners = {
-            StageRunner(app, stages, &m_workers, &m_systems)...};
+            StageRunner(m_world, stages, &m_workers, &m_systems)...};
         m_stages[stage] = stage_runners;
     }
     void run_stage(BasicStage stage) {
@@ -546,15 +565,130 @@ struct Runner {
         }
     }
     void build() {
+        for (auto& [ptr, system] : m_systems) {
+            system->m_systems_after.clear();
+            system->m_systems_before.clear();
+        }
         for (auto& stage_runner : m_stages[BasicStage::Start]) {
             stage_runner.build(m_systems);
         }
     }
+
+    template <typename... Args>
+    std::weak_ptr<SystemNode> add_system(
+        Schedule schedule, void (*func)(Args...),
+        std::string worker_name = "default", after befores = after(),
+        before afters = before(), in_set sets = in_set()) {
+        if (m_systems.find(func) != m_systems.end()) {
+            spdlog::error(
+                "System {} : {} already exists.", (void*)func,
+                typeid(func).name());
+            throw std::runtime_error("System already exists.");
+        }
+        std::shared_ptr<SystemNode> node =
+            std::make_shared<SystemNode>(m_world, schedule, func);
+        node->m_in_sets = sets.sets;
+        node->m_system_ptrs_before = befores.ptrs;
+        node->m_system_ptrs_after = afters.ptrs;
+        m_systems.insert({(void*)func, node});
+        return node;
+    }
+};
+
+struct Worker {
+    std::string name;
+    Worker(std::string str) : name(str) {}
 };
 
 struct App {
+   private:
     World m_world;
     Runner m_runner = Runner({{"default", 8}, {"single", 1}});
+    bool m_loop_enabled = false;
+
+    struct AddSystemReturn {
+       private:
+        std::weak_ptr<SystemNode> m_system;
+        App* m_app;
+
+       public:
+        AddSystemReturn(App* app, std::weak_ptr<SystemNode> sys)
+            : m_app(app), m_system(sys) {}
+        App* operator->() { return m_app; }
+        template <typename... Sets>
+        AddSystemReturn& in_set(Sets... sets) {
+            if (auto sys_ptr = m_system.lock()) {
+                app::in_set sets_container = app::in_set(sets...);
+                for (auto& sys_set : sets_container.sets) {
+                    sys_ptr->m_in_sets.push_back(sys_set);
+                }
+            }
+            return *this;
+        }
+        template <typename... Addrs>
+        AddSystemReturn& before(Addrs... addrs) {
+            if (auto sys_ptr = m_system.lock()) {
+                std::vector<void*> addrs_v = {((void*)addrs)...};
+                for (auto ptr : addrs_v) {
+                    sys_ptr->m_system_ptrs_after.insert(ptr);
+                }
+            }
+        }
+        template <typename... Addrs>
+        AddSystemReturn& after(Addrs... addrs) {
+            if (auto sys_ptr = m_system.lock()) {
+                std::vector<void*> addrs_v = {((void*)addrs)...};
+                for (auto ptr : addrs_v) {
+                    sys_ptr->m_system_ptrs_before.insert(ptr);
+                }
+            }
+            return *this;
+        }
+        AddSystemReturn& use_worker(std::string name) {
+            if (auto sys_ptr = m_system.lock()) {
+                sys_ptr->m_worker_name = name;
+            }
+            return *this;
+        }
+    };
+
+   public:
+    App() {
+        m_runner.m_world = &m_world;
+        m_runner.configure_stage(
+            BasicStage::Start, StartStage::PreStartup, StartStage::Startup,
+            StartStage::PostStartup);
+        m_runner.configure_stage(
+            BasicStage::Loop, LoopStage::First, LoopStage::StateTransition,
+            LoopStage::PreUpdate, LoopStage::Update, LoopStage::PostUpdate,
+            LoopStage::Last, RenderStage::Prepare, RenderStage::PreRender,
+            RenderStage::Render, RenderStage::PostRender);
+    }
+
+    App* operator->() { return this; }
+
+    App& enable_loop() { m_loop_enabled = true; }
+
+    template <typename... Args, typename... TupleT>
+    AddSystemReturn add_system(
+        Schedule schedule, void (*func)(Args...), TupleT... modifiers) {
+        auto mod_tuple = std::make_tuple(modifiers...);
+        auto ptr = m_runner.add_system(
+            schedule, func, app_tools::tuple_get<Worker>(mod_tuple).name,
+            app_tools::tuple_get<after>(mod_tuple),
+            app_tools::tuple_get<before>(mod_tuple),
+            app_tools::tuple_get<in_set>(mod_tuple));
+        return AddSystemReturn(this, ptr);
+    }
+
+    void run() {
+        m_runner.build();
+        m_runner.run_stage(BasicStage::Start);
+        do {
+            m_runner.run_stage(BasicStage::Loop);
+        } while (m_loop_enabled);
+        m_runner.run_stage(BasicStage::Exit);
+    }
 };
 }  // namespace app
 }  // namespace pixel_engine
