@@ -10,16 +10,13 @@
 #include "query.h"
 #include "resource.h"
 #include "tools.h"
+#include "world.h"
 
 namespace pixel_engine {
 namespace app {
-
-struct World;
-
 template <typename Ret>
 struct BasicSystem {
    protected:
-    World* world;
     bool has_command = false;
     bool has_query = false;
     double avg_time = 1.0;  // in milliseconds
@@ -196,7 +193,6 @@ struct BasicSystem {
     }
 
    public:
-    BasicSystem(World* world) : world(world) {}
     bool contrary_to(std::shared_ptr<BasicSystem>& other) {
         if (has_command && (other->has_command || other->has_query))
             return true;
@@ -406,7 +402,7 @@ struct BasicSystem {
         std::cout << std::endl;
     }
     const double get_avg_time() { return avg_time; }
-    virtual Ret run() = 0;
+    virtual Ret run(World* world) = 0;
 };
 
 template <typename... Args>
@@ -415,17 +411,16 @@ struct System : public BasicSystem<void> {
     std::function<void(Args...)> func;
 
    public:
-    System(World* world, std::function<void(Args...)> func)
-        : BasicSystem<void>(world), func(func) {
+    System(std::function<void(Args...)> func)
+        : BasicSystem<void>(), func(func) {
         add_infos<Args...>();
     }
-    System(World* world, void (*func)(Args...))
-        : BasicSystem<void>(world), func(func) {
+    System(void (*func)(Args...)) : BasicSystem<void>(), func(func) {
         add_infos<Args...>();
     }
-    void run() override {
+    void run(World* world) override {
         auto start = std::chrono::high_resolution_clock::now();
-        app->run_system_v(func);
+        world->run_system_v(func);
         auto end = std::chrono::high_resolution_clock::now();
         auto delta =
             std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
@@ -440,15 +435,14 @@ struct Condition : public BasicSystem<bool> {
     std::function<bool(Args...)> func;
 
    public:
-    Condition(World* world, std::function<bool(Args...)> func)
-        : BasicSystem<bool>(world), func(func) {
+    Condition(std::function<bool(Args...)> func)
+        : BasicSystem<bool>(), func(func) {
         add_infos<Args...>();
     }
-    Condition(World* world, bool (*func)(Args...))
-        : BasicSystem<bool>(world), func(func) {
+    Condition(bool (*func)(Args...)) : BasicSystem<bool>(), func(func) {
         add_infos<Args...>();
     }
-    bool run() override { return world->run_system_v(func); }
+    bool run(World* world) override { return world->run_system_v(func); }
 };
 
 }  // namespace app

@@ -1,8 +1,8 @@
 #pragma once
 
+#include <any>
 #include <deque>
 #include <memory>
-#include <any>
 
 namespace pixel_engine {
 namespace app {
@@ -17,8 +17,7 @@ struct EventWriter {
     std::shared_ptr<std::deque<Event>> const m_events;
 
    public:
-    EventWriter(std::shared_ptr<void> events)
-        : m_events(std::static_pointer_cast<std::deque<Event>>(events)) {}
+    EventWriter(std::shared_ptr<std::deque<Event>> events) : m_events(events) {}
 
     /*! @brief Write an event.
      * @param evt The event to be written.
@@ -35,8 +34,7 @@ struct EventReader {
     std::shared_ptr<std::deque<Event>> const m_events;
 
    public:
-    EventReader(std::shared_ptr<void> events)
-        : m_events(std::static_pointer_cast<std::deque<Event>>(events)) {}
+    EventReader(std::shared_ptr<std::deque<Event>> events) : m_events(events) {}
 
     class event_iter : public std::iterator<std::input_iterator_tag, Evt> {
        private:
@@ -47,8 +45,7 @@ struct EventReader {
         event_iter(
             std::shared_ptr<std::deque<Event>> events,
             std::deque<Event>::iterator iter)
-            : m_events(static_cast<std::deque<Event>>(events)),
-              m_iter(iter) {}
+            : m_events(events), m_iter(iter) {}
         event_iter& operator++() {
             m_iter++;
             return *this;
@@ -69,6 +66,7 @@ struct EventReader {
 
     event_iter begin() { return event_iter(m_events, m_events->begin()); }
     event_iter end() { return event_iter(m_events, m_events->end()); }
+    bool empty() { return m_events->empty(); }
 };
 }  // namespace app
 }  // namespace pixel_engine
