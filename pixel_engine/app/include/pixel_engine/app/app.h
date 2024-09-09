@@ -23,61 +23,63 @@ namespace app {
 
 std::shared_ptr<spdlog::logger> logger = spdlog::default_logger()->clone("app");
 
-enum BasicStage { Start, Loop, Exit };
+enum BasicStage { Start, StateTransition, Loop, Exit };
 
 enum StartStage { PreStartup, Startup, PostStartup };
 
-enum LoopStage { StateTransition, First, PreUpdate, Update, PostUpdate, Last };
+enum StateTransitionStage { StateTransit };
+
+enum LoopStage { First, PreUpdate, Update, PostUpdate, Last };
 
 enum RenderStage { Prepare, PreRender, Render, PostRender };
 
 enum ExitStage { PreShutdown, Shutdown, PostShutdown };
 
 struct SystemStage {
-    size_t m_stage_type_hash;
+    const type_info* m_stage_type_hash;
     size_t m_stage_value;
     template <typename T>
     SystemStage(T t) {
-        m_stage_type_hash = typeid(T).hash_code();
+        m_stage_type_hash = &typeid(T);
         m_stage_value = static_cast<size_t>(t);
     }
 };
 
 struct SystemSet {
-    size_t m_set_type_hash;
+    const type_info* m_set_type_hash;
     size_t m_set_value;
     template <typename T>
     SystemSet(T t) {
-        m_set_type_hash = typeid(T).hash_code();
+        m_set_type_hash = &typeid(T);
         m_set_value = static_cast<size_t>(t);
     }
 };
 
 struct Schedule {
-    size_t m_stage_type_hash;
+    const type_info* m_stage_type_hash;
     size_t m_stage_value;
     std::shared_ptr<BasicSystem<bool>> m_condition;
     Schedule() {}
     template <typename T>
     Schedule(T t) {
-        m_stage_type_hash = typeid(T).hash_code();
+        m_stage_type_hash = &typeid(T);
         m_stage_value = static_cast<size_t>(t);
     }
     template <typename T, typename... Args>
     Schedule(T t, Args... args) {
-        m_stage_type_hash = typeid(T).hash_code();
+        m_stage_type_hash = &typeid(T);
         m_stage_value = static_cast<size_t>(t);
         m_condition = std::make_shared<BasicSystem<bool>>(nullptr, args...);
     }
 };
 
 struct SetMap {
-    std::unordered_map<size_t, std::vector<size_t>> m_sets;
+    std::unordered_map<const type_info*, std::vector<size_t>> m_sets;
     template <typename T, typename... Args>
     void configure_sets(T t, Args... args) {
         std::vector<size_t> set = {
             static_cast<size_t>(t), static_cast<size_t>(args)...};
-        m_sets[typeid(T).hash_code()] = set;
+        m_sets[&typeid(T)] = set;
     }
 };
 
@@ -169,11 +171,11 @@ struct MsgQueue {
 struct StageRunner {
    private:
     World* m_world;
-    size_t m_stage_type_hash;
+    const type_info* m_stage_type_hash;
     size_t m_stage_value;
     std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>*
         m_workers;
-    std::unordered_map<size_t, std::vector<size_t>>* m_sets;
+    std::unordered_map<const type_info*, std::vector<size_t>>* m_sets;
     std::vector<std::weak_ptr<SystemNode>> m_systems;
 
     std::shared_ptr<SystemNode> m_head = std::make_shared<SystemNode>();
@@ -184,11 +186,11 @@ struct StageRunner {
     template <typename StageT>
     StageRunner(
         World* world, StageT stage,
-        std::unordered_map<size_t, std::vector<size_t>>* sets,
+        std::unordered_map<const type_info*, std::vector<size_t>>* sets,
         std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>*
             workers)
         : m_world(world),
-          m_stage_type_hash(typeid(StageT).hash_code()),
+          m_stage_type_hash(&typeid(StageT)),
           m_stage_value(static_cast<size_t>(stage)),
           m_sets(sets),
           m_workers(workers) {}
@@ -196,7 +198,8 @@ struct StageRunner {
     void build(
         const std::unordered_map<void*, std::shared_ptr<SystemNode>>& systems) {
         logger->debug(
-            "Building stage {:#16x} : {:d}.", m_stage_type_hash, m_stage_value);
+            "Building stage {} : {:d}.", m_stage_type_hash->name(),
+            m_stage_value);
         m_systems.clear();
         for (auto& [id, sets] : *m_sets) {
             std::vector<std::vector<std::weak_ptr<SystemNode>>> set_systems;
@@ -268,12 +271,12 @@ struct StageRunner {
                 if (system->m_schedule.m_stage_type_hash == m_stage_type_hash &&
                     system->m_schedule.m_stage_value == m_stage_value)
                     logger->debug(
-                        "System {:#16x} has {:d} defined prevs.", (size_t)addr,
-                        system->m_systems_before.size());
+                        "    System {:#16x} has {:d} defined prevs.",
+                        (size_t)addr, system->m_systems_before.size());
             }
         logger->debug(
-            "> Stage runner {:#16x} : {:d} built. With {} systems in.",
-            m_stage_type_hash, m_stage_value, m_systems.size());
+            "> Stage runner {} : {:d} built. With {} systems in.",
+            m_stage_type_hash->name(), m_stage_value, m_systems.size());
     }
 
     void prepare() {
@@ -401,7 +404,7 @@ struct Runner {
     std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>> m_workers;
     std::unordered_map<BasicStage, std::vector<StageRunner>> m_stages;
     std::unordered_map<void*, std::shared_ptr<SystemNode>> m_systems;
-    std::unordered_map<size_t, std::vector<size_t>> m_sets;
+    std::unordered_map<const type_info*, std::vector<size_t>> m_sets;
     void add_worker(std::string name, int num_threads) {
         m_workers.insert(
             {name, std::make_shared<BS::thread_pool>(num_threads)});
@@ -419,7 +422,7 @@ struct Runner {
     }
     template <typename T, typename... Sets>
     void configure_sets(T set, Sets... sets) {
-        m_sets[typeid(T).hash_code()] = {
+        m_sets[&typeid(T)] = {
             static_cast<size_t>(set), static_cast<size_t>(sets)...};
     }
     void run_stage(BasicStage stage) {
@@ -541,6 +544,15 @@ struct App {
         }
     };
 
+    void update_states() {
+        logger->debug("Updating states.");
+        for (auto& update : m_state_update) {
+            auto ftr = m_runner.m_workers["default"]->submit_task(
+                [=] { update->run(&m_world); });
+        }
+        m_runner.m_workers["default"]->wait();
+    }
+
    public:
     App() {
         m_runner.m_world = &m_world;
@@ -548,10 +560,12 @@ struct App {
             BasicStage::Start, StartStage::PreStartup, StartStage::Startup,
             StartStage::PostStartup);
         m_runner.configure_stage(
-            BasicStage::Loop, LoopStage::First, LoopStage::StateTransition,
-            LoopStage::PreUpdate, LoopStage::Update, LoopStage::PostUpdate,
-            LoopStage::Last, RenderStage::Prepare, RenderStage::PreRender,
-            RenderStage::Render, RenderStage::PostRender);
+            BasicStage::StateTransition, StateTransitionStage::StateTransit);
+        m_runner.configure_stage(
+            BasicStage::Loop, LoopStage::First, LoopStage::PreUpdate,
+            LoopStage::Update, LoopStage::PostUpdate, LoopStage::Last,
+            RenderStage::Prepare, RenderStage::PreRender, RenderStage::Render,
+            RenderStage::PostRender);
         m_runner.configure_stage(
             BasicStage::Exit, ExitStage::PreShutdown, ExitStage::Shutdown,
             ExitStage::PostShutdown);
@@ -592,14 +606,11 @@ struct App {
         m_runner.run_stage(BasicStage::Start);
         logger->debug("Running loop.");
         do {
-            logger->debug("Running loop.");
+            logger->debug("Run Loop systems.");
             m_runner.run_stage(BasicStage::Loop);
-            logger->debug("Updating states.");
-            for (auto& update : m_state_update) {
-                auto ftr = m_runner.m_workers["default"]->submit_task(
-                    [=] { update->run(&m_world); });
-            }
-            m_runner.m_workers["default"]->wait();
+            logger->debug("Run state transition systems.");
+            m_runner.run_stage(BasicStage::StateTransition);
+            update_states();
             logger->debug("Tick events.");
             m_world.tick_events();
         } while (m_loop_enabled && !m_world.run_system_v(check_exit));
