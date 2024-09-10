@@ -271,7 +271,7 @@ struct StageRunner {
                 if (system->m_schedule.m_stage_type_hash == m_stage_type_hash &&
                     system->m_schedule.m_stage_value == m_stage_value)
                     logger->debug(
-                        "    System {:#16x} has {:d} defined prevs.",
+                        "    System {:#016x} has {:d} defined prevs.",
                         (size_t)addr, system->m_systems_before.size());
             }
         logger->debug(
@@ -323,12 +323,6 @@ struct StageRunner {
         }
     }
 
-    void wait() {
-        for (auto& [name, worker] : *m_workers) {
-            worker->wait();
-        }
-    }
-
     void notify(std::weak_ptr<SystemNode> system) { m_msg_queue.push(system); }
 
     void run(std::weak_ptr<SystemNode> system) {
@@ -347,17 +341,28 @@ struct StageRunner {
 
     void run() {
         size_t m_unfinished_system_count = m_systems.size() + 1;
+        size_t m_running_system_count = 0;
         run(m_head);
+        m_running_system_count++;
         while (m_unfinished_system_count > 0) {
+            if (m_running_system_count == 0) {
+                logger->warn(
+                    "Deadlock detected, skipping remaining systems at stage {} "
+                    ": {:d}.",
+                    m_stage_type_hash->name(), m_stage_value);
+                break;
+            }
             m_msg_queue.wait();
             auto system = m_msg_queue.front();
             m_unfinished_system_count--;
+            m_running_system_count--;
             if (auto system_ptr = system.lock()) {
                 for (auto& next : system_ptr->m_systems_after) {
                     if (auto next_ptr = next.lock()) {
                         next_ptr->m_prev_cout--;
                         if (next_ptr->m_prev_cout == 0) {
                             run(next);
+                            m_running_system_count++;
                         }
                     }
                 }
@@ -366,6 +371,7 @@ struct StageRunner {
                         next_ptr->m_prev_cout--;
                         if (next_ptr->m_prev_cout == 0) {
                             run(next);
+                            m_running_system_count++;
                         }
                     }
                 }
@@ -429,7 +435,6 @@ struct Runner {
         for (auto& stage_runner : m_stages[stage]) {
             stage_runner.prepare();
             stage_runner.run();
-            stage_runner.wait();
         }
     }
     void build() {
@@ -451,7 +456,7 @@ struct Runner {
         before afters = before(), in_set sets = in_set()) {
         if (m_systems.find(func) != m_systems.end()) {
             logger->error(
-                "System {} : {} already exists.", (void*)func,
+                "System {:#016x} : {} already exists.", (size_t)func,
                 typeid(func).name());
             throw std::runtime_error("System already exists.");
         }
