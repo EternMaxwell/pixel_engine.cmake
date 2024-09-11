@@ -450,15 +450,15 @@ struct Runner {
     }
 
     template <typename... Args>
-    std::weak_ptr<SystemNode> add_system(
+    std::shared_ptr<SystemNode> add_system(
         Schedule schedule, void (*func)(Args...),
         std::string worker_name = "default", after befores = after(),
         before afters = before(), in_set sets = in_set()) {
         if (m_systems.find(func) != m_systems.end()) {
-            logger->error(
-                "System {:#016x} : {} already exists.", (size_t)func,
-                typeid(func).name());
-            throw std::runtime_error("System already exists.");
+            logger->warn(
+                "Trying to add system {:#016x} : {}, which already exists.",
+                (size_t)func, typeid(func).name());
+            return nullptr;
         }
         std::shared_ptr<SystemNode> node =
             std::make_shared<SystemNode>(schedule, func);
@@ -470,6 +470,16 @@ struct Runner {
             afters.ptrs.begin(), afters.ptrs.end());
         m_systems.insert({(void*)func, node});
         return node;
+    }
+
+    void removing_system(void* func) {
+        if (m_systems.find(func) != m_systems.end()) {
+            m_systems.erase(func);
+        } else {
+            logger->warn(
+                "Trying to remove system {:#016x}, which does not exist.",
+                (size_t)func);
+        }
     }
 };
 
@@ -483,12 +493,81 @@ struct AppExit {};
 
 bool check_exit(EventReader<AppExit> reader) { return !reader.empty(); }
 
+struct App;
+
+struct Plugin {
+    virtual void build(App& app) = 0;
+};
+
 struct App {
+    struct PluginCache {
+       private:
+        const type_info* m_plugin_type;
+        std::unordered_set<void*> m_system_ptrs;
+
+       public:
+        PluginCache() {}
+        template <typename T>
+        PluginCache(const T&& t) {
+            m_plugin_type = &typeid(T);
+        }
+        void add_system(void* system_ptr) { m_system_ptrs.insert(system_ptr); }
+    };
+
+    struct AddSystemReturn {
+       private:
+        std::shared_ptr<SystemNode> m_system;
+        App* m_app;
+
+       public:
+        AddSystemReturn(App* app, std::weak_ptr<SystemNode> sys)
+            : m_app(app), m_system(sys) {}
+        App* operator->() { return m_app; }
+        template <typename... Sets>
+        AddSystemReturn& in_set(Sets... sets) {
+            if (m_system) {
+                app::in_set sets_container = app::in_set(sets...);
+                for (auto& sys_set : sets_container.sets) {
+                    m_system->m_in_sets.push_back(sys_set);
+                }
+            }
+            return *this;
+        }
+        template <typename... Addrs>
+        AddSystemReturn& before(Addrs... addrs) {
+            if (m_system) {
+                std::vector<void*> addrs_v = {((void*)addrs)...};
+                for (auto ptr : addrs_v) {
+                    m_system->m_system_ptrs_after.insert(ptr);
+                }
+            }
+            return *this;
+        }
+        template <typename... Addrs>
+        AddSystemReturn& after(Addrs... addrs) {
+            if (m_system) {
+                std::vector<void*> addrs_v = {((void*)addrs)...};
+                for (auto ptr : addrs_v) {
+                    m_system->m_system_ptrs_before.insert(ptr);
+                }
+            }
+            return *this;
+        }
+        AddSystemReturn& use_worker(std::string name) {
+            if (m_system) {
+                m_system->m_worker_name = name;
+            }
+            return *this;
+        }
+    };
+
    private:
     World m_world;
     Runner m_runner = Runner({{"default", 8}, {"single", 1}});
     std::vector<std::shared_ptr<BasicSystem<void>>> m_state_update;
+    std::unordered_map<const type_info*, PluginCache> m_plugin_caches;
     bool m_loop_enabled = false;
+    const type_info* m_building_plugin_type = nullptr;
 
     template <typename T>
     auto state_update() {
@@ -501,53 +580,6 @@ struct App {
                 }
             };
     }
-
-    struct AddSystemReturn {
-       private:
-        std::weak_ptr<SystemNode> m_system;
-        App* m_app;
-
-       public:
-        AddSystemReturn(App* app, std::weak_ptr<SystemNode> sys)
-            : m_app(app), m_system(sys) {}
-        App* operator->() { return m_app; }
-        template <typename... Sets>
-        AddSystemReturn& in_set(Sets... sets) {
-            if (auto sys_ptr = m_system.lock()) {
-                app::in_set sets_container = app::in_set(sets...);
-                for (auto& sys_set : sets_container.sets) {
-                    sys_ptr->m_in_sets.push_back(sys_set);
-                }
-            }
-            return *this;
-        }
-        template <typename... Addrs>
-        AddSystemReturn& before(Addrs... addrs) {
-            if (auto sys_ptr = m_system.lock()) {
-                std::vector<void*> addrs_v = {((void*)addrs)...};
-                for (auto ptr : addrs_v) {
-                    sys_ptr->m_system_ptrs_after.insert(ptr);
-                }
-            }
-            return *this;
-        }
-        template <typename... Addrs>
-        AddSystemReturn& after(Addrs... addrs) {
-            if (auto sys_ptr = m_system.lock()) {
-                std::vector<void*> addrs_v = {((void*)addrs)...};
-                for (auto ptr : addrs_v) {
-                    sys_ptr->m_system_ptrs_before.insert(ptr);
-                }
-            }
-            return *this;
-        }
-        AddSystemReturn& use_worker(std::string name) {
-            if (auto sys_ptr = m_system.lock()) {
-                sys_ptr->m_worker_name = name;
-            }
-            return *this;
-        }
-    };
 
     void update_states() {
         logger->debug("Updating states.");
@@ -600,7 +632,42 @@ struct App {
             app_tools::tuple_get<after>(mod_tuple),
             app_tools::tuple_get<before>(mod_tuple),
             app_tools::tuple_get<in_set>(mod_tuple));
+        if (m_building_plugin_type && ptr) {
+            m_plugin_caches[m_building_plugin_type].add_system((void*)func);
+        }
         return AddSystemReturn(this, ptr);
+    }
+    template <typename... Args>
+    AddSystemReturn add_system(Schedule schedule, void (*func)(Args...)) {
+        auto ptr = m_runner.add_system(schedule, func);
+        if (m_building_plugin_type && ptr) {
+            m_plugin_caches[m_building_plugin_type].add_system((void*)func);
+        }
+        return AddSystemReturn(this, ptr);
+    }
+
+    template <typename T>
+    App& add_plugin(const T&& plugin) {
+        m_building_plugin_type = &typeid(T);
+        m_plugin_caches.insert({m_building_plugin_type, PluginCache(plugin)});
+        plugin.build(this);
+        m_building_plugin_type = nullptr;
+        return *this;
+    }
+
+    template <typename T>
+    App& remove_plugin() {
+        if (m_plugin_caches.find(&typeid(T)) != m_plugin_caches.end()) {
+            for (auto system_ptr : m_plugin_caches[&typeid(T)].m_system_ptrs) {
+                m_runner.removing_system(system_ptr);
+            }
+            m_plugin_caches.erase(&typeid(T));
+        } else {
+            logger->warn(
+                "Trying to remove plugin {}, which does not exist.",
+                typeid(T).name());
+        }
+        return *this;
     }
 
     void run() {
