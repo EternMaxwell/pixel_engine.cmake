@@ -95,6 +95,8 @@ class Query<Get<Qus...>, With<Ins...>, Without<Exs...>> {
             return std::optional<decltype(*(iter().begin()))>{};
         }
     }
+
+    void for_each(std::function<void(Qus&...)> func) { m_view.each(func); }
 };
 
 template <typename... Qus, typename... Ins, typename... Exs>
@@ -173,6 +175,10 @@ class Query<Get<entt::entity, Qus...>, With<Ins...>, Without<Exs...>> {
         } else {
             return std::optional<decltype(*(iter().begin()))>{};
         }
+    }
+
+    void for_each(std::function<void(entt::entity, Qus&...)> func) {
+        m_view.each(func);
     }
 };
 }  // namespace app

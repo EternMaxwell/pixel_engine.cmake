@@ -648,6 +648,12 @@ struct App {
 
     template <typename T>
     App& add_plugin(const T&& plugin) {
+        if (m_plugin_caches.find(&typeid(T)) != m_plugin_caches.end()) {
+            logger->warn(
+                "Trying to add plugin {}, which already exists.",
+                typeid(T).name());
+            return *this;
+        }
         m_building_plugin_type = &typeid(T);
         m_plugin_caches.insert({m_building_plugin_type, PluginCache(plugin)});
         plugin.build(this);
