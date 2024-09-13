@@ -62,11 +62,16 @@ struct EventReader {
         bool operator!=(const event_iter& rhs) const {
             return m_iter != rhs.m_iter;
         }
-        const Evt& operator*() { return (*m_iter).event; }
+        const Evt& operator*() { return std::any_cast<Evt&>((*m_iter).event); }
+        event_iter begin() { return event_iter(m_events, m_events->begin()); }
+        event_iter end() { return event_iter(m_events, m_events->end()); }
     };
 
-    event_iter begin() { return event_iter(m_events, m_events->begin()); }
-    event_iter end() { return event_iter(m_events, m_events->end()); }
+    /*! @brief Get the iterator for the events.
+     * @return The iterator for the events.
+     */
+    event_iter read() { return event_iter(m_events, m_events->begin()); }
+
     bool empty() { return m_events->empty(); }
 };
 }  // namespace app

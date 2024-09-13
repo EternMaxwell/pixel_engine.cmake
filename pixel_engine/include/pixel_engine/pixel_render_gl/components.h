@@ -34,7 +34,7 @@ struct PixelSize {
     float height = 1.0f;
 };
 
-struct PixelGroupBundle : entity::Bundle {
+struct PixelGroupBundle : Bundle {
     Pixels pixels;
     PixelSize size;
     Transform transform;

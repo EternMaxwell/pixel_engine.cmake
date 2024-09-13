@@ -13,7 +13,7 @@ enum class AssetServerGLSets {
     after_insertion,
 };
 
-class AssetServerGLPlugin : public entity::Plugin {
+class AssetServerGLPlugin : public Plugin {
    private:
     std::string m_base_path = "./";
 

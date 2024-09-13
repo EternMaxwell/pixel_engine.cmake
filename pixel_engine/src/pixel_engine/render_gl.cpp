@@ -40,8 +40,13 @@ bool ProgramPtr::valid() const { return id != 0; }
 VertexAttrib& VertexAttribs::operator[](size_t index) { return attribs[index]; }
 
 void VertexAttribs::add(
-    uint32_t location, uint32_t size, int type, bool normalized,
-    uint32_t stride, uint64_t offset) {
+    uint32_t location,
+    uint32_t size,
+    int type,
+    bool normalized,
+    uint32_t stride,
+    uint64_t offset
+) {
     attribs.push_back({location, size, type, normalized, stride, offset});
 }
 
@@ -145,13 +150,20 @@ void ImageTextureBindings::bind() const {
     for (size_t i = 0; i < images.size(); i++) {
         glBindImageTexture(
             i, images[i].texture.id, images[i].level, images[i].layered,
-            images[i].layer, images[i].access, images[i].format);
+            images[i].layer, images[i].access, images[i].format
+        );
     }
 }
 
 void ImageTextureBindings::set(
-    size_t index, const TexturePtr& texture, int level, bool layered, int layer,
-    int access, int format) {
+    size_t index,
+    const TexturePtr& texture,
+    int level,
+    bool layered,
+    int layer,
+    int access,
+    int format
+) {
     if (index >= images.size()) {
         images.resize(index + 1);
     }
@@ -185,7 +197,8 @@ void PerSampleOperations::use() const {
         glEnable(GL_SCISSOR_TEST);
         glScissor(
             scissor_test.x, scissor_test.y, scissor_test.width,
-            scissor_test.height);
+            scissor_test.height
+        );
     } else {
         glDisable(GL_SCISSOR_TEST);
     }
@@ -193,16 +206,20 @@ void PerSampleOperations::use() const {
         glEnable(GL_STENCIL_TEST);
         glStencilFuncSeparate(
             GL_FRONT, stencil_test.func_front.func, stencil_test.func_front.ref,
-            stencil_test.func_front.mask);
+            stencil_test.func_front.mask
+        );
         glStencilFuncSeparate(
             GL_BACK, stencil_test.func_back.func, stencil_test.func_back.ref,
-            stencil_test.func_back.mask);
+            stencil_test.func_back.mask
+        );
         glStencilOpSeparate(
             GL_FRONT, stencil_test.op_front.sfail, stencil_test.op_front.dpfail,
-            stencil_test.op_front.dppass);
+            stencil_test.op_front.dppass
+        );
         glStencilOpSeparate(
             GL_BACK, stencil_test.op_back.sfail, stencil_test.op_back.dpfail,
-            stencil_test.op_back.dppass);
+            stencil_test.op_back.dppass
+        );
     } else {
         glDisable(GL_STENCIL_TEST);
     }
@@ -216,13 +233,15 @@ void PerSampleOperations::use() const {
         glEnable(GL_BLEND);
         glBlendFuncSeparate(
             blending.blend_func.src_rgb, blending.blend_func.dst_rgb,
-            blending.blend_func.src_alpha, blending.blend_func.dst_alpha);
+            blending.blend_func.src_alpha, blending.blend_func.dst_alpha
+        );
         glBlendEquationSeparate(
-            blending.blend_equation.mode_rgb,
-            blending.blend_equation.mode_alpha);
+            blending.blend_equation.mode_rgb, blending.blend_equation.mode_alpha
+        );
         glBlendColor(
             blending.blend_color.red, blending.blend_color.green,
-            blending.blend_color.blue, blending.blend_color.alpha);
+            blending.blend_color.blue, blending.blend_color.alpha
+        );
     } else {
         glDisable(GL_BLEND);
     }
@@ -259,19 +278,23 @@ bool FrameBufferPtr::check() {
 bool FrameBufferPtr::unique() const { return id != 0; }
 
 void FrameBufferPtr::attachTexture(
-    uint32_t attachment, const TexturePtr& texture, int level) {
+    uint32_t attachment, const TexturePtr& texture, int level
+) {
     glNamedFramebufferTexture(id, attachment, texture.id, level);
 }
 
 void FrameBufferPtr::attachTextureLayer(
-    uint32_t attachment, const TexturePtr& texture, int level, int layer) {
+    uint32_t attachment, const TexturePtr& texture, int level, int layer
+) {
     glNamedFramebufferTextureLayer(id, attachment, texture.id, level, layer);
 }
 
 void FrameBufferPtr::attachRenderBuffer(
-    uint32_t attachment, const RenderBufferPtr& render_buffer) {
+    uint32_t attachment, const RenderBufferPtr& render_buffer
+) {
     glNamedFramebufferRenderbuffer(
-        id, attachment, GL_RENDERBUFFER, render_buffer.id);
+        id, attachment, GL_RENDERBUFFER, render_buffer.id
+    );
 }
 
 void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
@@ -279,24 +302,34 @@ void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
     using namespace window;
     app.configure_sets(
            RenderGLStartupSets::context_creation,
-           RenderGLStartupSets::after_context_creation)
+           RenderGLStartupSets::after_context_creation
+    )
         .configure_sets(
             RenderGLPipelineCompletionSets::pipeline_completion,
-            RenderGLPipelineCompletionSets::after_pipeline_completion)
-        .add_system_main(
-            PreStartup{}, context_creation,
+            RenderGLPipelineCompletionSets::after_pipeline_completion
+        )
+        .add_system(
+            PreStartup(), context_creation,
             in_set(
                 window::WindowStartUpSets::after_window_creation,
-                RenderGLStartupSets::context_creation))
-        .add_system_main(PreRender{}, clear_color)
-        .add_system_main(PreRender{}, update_viewport)
-        .add_system_main(
-            PreRender{}, complete_pipeline,
-            in_set(RenderGLPipelineCompletionSets::pipeline_completion));
+                RenderGLStartupSets::context_creation
+            )
+        )
+        .use_worker("single")
+        ->add_system(PreRender(), clear_color)
+        .use_worker("single")
+        ->add_system(PreRender(), update_viewport)
+        .use_worker("single")
+        ->add_system(
+            PreRender(), complete_pipeline,
+            in_set(RenderGLPipelineCompletionSets::pipeline_completion)
+        )
+        .use_worker("single");
 }
 
 void pixel_engine::render_gl::systems::clear_color(
-    Query<Get<WindowHandle>, With<WindowCreated>, Without<>> query) {
+    Query<Get<WindowHandle>, With<WindowCreated>, Without<>> query
+) {
     for (auto [window_handle] : query.iter()) {
         if (glfwGetCurrentContext() != window_handle.window_handle)
             glfwMakeContextCurrent(window_handle.window_handle);
@@ -305,8 +338,8 @@ void pixel_engine::render_gl::systems::clear_color(
 }
 
 void pixel_engine::render_gl::systems::update_viewport(
-    Query<Get<WindowHandle, WindowSize>, With<WindowCreated>, Without<>>
-        query) {
+    Query<Get<WindowHandle, WindowSize>, With<WindowCreated>, Without<>> query
+) {
     for (auto [window_handle, window_size] : query.iter()) {
         if (glfwGetCurrentContext() != window_handle.window_handle)
             glfwMakeContextCurrent(window_handle.window_handle);
@@ -315,7 +348,8 @@ void pixel_engine::render_gl::systems::update_viewport(
 }
 
 void pixel_engine::render_gl::systems::context_creation(
-    Query<Get<WindowHandle>, With<WindowCreated>, Without<>> query) {
+    Query<Get<WindowHandle>, With<WindowCreated>, Without<>> query
+) {
     for (auto [window_handle] : query.iter()) {
         if (glfwGetCurrentContext() != window_handle.window_handle)
             glfwMakeContextCurrent(window_handle.window_handle);
@@ -328,15 +362,18 @@ void pixel_engine::render_gl::systems::context_creation(
                     spdlog::debug(
                         "OpenGL debug message: source: {}, type: {}, id: {}, "
                         "severity: {}, message: {}",
-                        source, type, id, severity, message);
+                        source, type, id, severity, message
+                    );
                     return;
                 }
                 spdlog::warn(
                     "OpenGL debug message: source: {}, type: {}, id: {}, "
                     "severity: {}, message: {}",
-                    source, type, id, severity, message);
+                    source, type, id, severity, message
+                );
             },
-            nullptr);
+            nullptr
+        );
     }
 }
 
@@ -344,8 +381,9 @@ void pixel_engine::render_gl::systems::complete_pipeline(
     Command command,
     Query<
         Get<entt::entity, ProgramShaderAttachments, VertexAttribs>,
-        With<PipelineCreation>, Without<>>
-        query) {
+        With<PipelineCreation>,
+        Without<>> query
+) {
     for (auto [id, shaders, attribs] : query.iter()) {
         spdlog::debug("Completing pipeline");
 
@@ -366,7 +404,8 @@ void pixel_engine::render_gl::systems::complete_pipeline(
             glEnableVertexAttribArray(attrib.location);
             glVertexAttribPointer(
                 attrib.location, attrib.size, attrib.type, attrib.normalized,
-                attrib.stride, (void*)attrib.offset);
+                attrib.stride, (void*)attrib.offset
+            );
         }
 
         ProgramPtr program;

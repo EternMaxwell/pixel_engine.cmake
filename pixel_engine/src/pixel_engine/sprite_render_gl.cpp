@@ -6,22 +6,27 @@ using namespace pixel_engine::sprite_render_gl::systems;
 using namespace pixel_engine::prelude;
 
 void pixel_engine::sprite_render_gl::SpriteRenderGLPlugin::build(App& app) {
-    app.add_system_main(Startup{}, create_pipeline)
-        .configure_sets(
+    app.add_system(Startup(), create_pipeline)
+        .use_worker("single")
+        ->configure_sets(
             SpriteRenderGLSets::before_draw, SpriteRenderGLSets::draw,
-            SpriteRenderGLSets::after_draw)
-        .add_system_main(
-            Render{}, draw_sprite, in_set(SpriteRenderGLSets::draw));
+            SpriteRenderGLSets::after_draw
+        )
+        .add_system(Render(), draw_sprite, in_set(SpriteRenderGLSets::draw))
+        .use_worker("single");
 }
 
 void pixel_engine::sprite_render_gl::systems::create_pipeline(
-    Command command, Resource<AssetServerGL> asset_server) {
+    Command command, Resource<AssetServerGL> asset_server
+) {
     ShaderPtr vertex_shader;
     vertex_shader = asset_server->load_shader(
-        "../assets/shaders/sprite/shader.vert", GL_VERTEX_SHADER);
+        "../assets/shaders/sprite/shader.vert", GL_VERTEX_SHADER
+    );
     ShaderPtr fragment_shader;
     fragment_shader = asset_server->load_shader(
-        "../assets/shaders/sprite/shader.frag", GL_FRAGMENT_SHADER);
+        "../assets/shaders/sprite/shader.frag", GL_FRAGMENT_SHADER
+    );
     command.spawn(
         PipelineCreationBundle{
             .shaders{
@@ -34,11 +39,13 @@ void pixel_engine::sprite_render_gl::systems::create_pipeline(
                 {2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), 7 * sizeof(float)},
             }},
         },
-        SpritePipeline{});
+        SpritePipeline{}
+    );
 }
 
 void pixel_engine::sprite_render_gl::components::Sprite::vertex_data(
-    Vertex* vertices) const {
+    Vertex* vertices
+) const {
     std::memcpy(&vertices[0].color, &color, 4 * sizeof(float));
     std::memcpy(&vertices[1].color, &color, 4 * sizeof(float));
     std::memcpy(&vertices[2].color, &color, 4 * sizeof(float));
@@ -68,9 +75,11 @@ void pixel_engine::sprite_render_gl::components::Sprite::vertex_data(
 void pixel_engine::sprite_render_gl::systems::draw_sprite(
     render_gl::PipelineQuery::query_type<SpritePipeline> pipeline_query,
     Query<
-        Get<const Transform, const OrthoProjection>, With<Camera2d>, Without<>>
-        camera_query,
-    sprite_query_type sprite_query) {
+        Get<const Transform, const OrthoProjection>,
+        With<Camera2d>,
+        Without<>> camera_query,
+    sprite_query_type sprite_query
+) {
     if (!pipeline_query.single().has_value()) return;
     if (!camera_query.single().has_value()) return;
     auto
@@ -88,19 +97,24 @@ void pixel_engine::sprite_render_gl::systems::draw_sprite(
     camera_transform.get_matrix(&view);
     ortho_projection.get_matrix(&proj);
     pipeline_layout.uniform_buffers[0].data(
-        NULL, 3 * sizeof(glm::mat4), GL_DYNAMIC_DRAW);
+        NULL, 3 * sizeof(glm::mat4), GL_DYNAMIC_DRAW
+    );
     pipeline_layout.uniform_buffers[0].subData(
-        glm::value_ptr(proj), sizeof(glm::mat4), 0);
+        glm::value_ptr(proj), sizeof(glm::mat4), 0
+    );
     pipeline_layout.uniform_buffers[0].subData(
-        glm::value_ptr(view), sizeof(glm::mat4), sizeof(glm::mat4));
+        glm::value_ptr(view), sizeof(glm::mat4), sizeof(glm::mat4)
+    );
     Vertex vertices[4];
     pipeline_layout.vertex_buffer.data(
-        NULL, 4 * sizeof(Vertex), GL_DYNAMIC_DRAW);
+        NULL, 4 * sizeof(Vertex), GL_DYNAMIC_DRAW
+    );
     for (auto [transform, sprite] : sprite_query.iter()) {
         glm::mat4 model;
         transform.get_matrix(&model);
         pipeline_layout.uniform_buffers[0].subData(
-            glm::value_ptr(model), sizeof(glm::mat4), 2 * sizeof(glm::mat4));
+            glm::value_ptr(model), sizeof(glm::mat4), 2 * sizeof(glm::mat4)
+        );
         sprite.vertex_data(vertices);
         pipeline_layout.vertex_buffer.subData(vertices, 4 * sizeof(Vertex), 0);
         pipeline_layout.textures[0] = sprite.texture;

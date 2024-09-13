@@ -204,49 +204,49 @@ void pixel_engine::window::WindowPlugin::build(App& app) {
            WindowStartUpSets::glfw_initialization,
            WindowStartUpSets::window_creation,
            WindowStartUpSets::after_window_creation)
-        .add_system_main(PreStartup{}, insert_primary_window)
-        .add_system_main(
-            PreStartup{}, init_glfw,
-            in_set(WindowStartUpSets::glfw_initialization))
-        .add_system_main(
-            PreStartup{}, create_window_startup, after(insert_primary_window),
-            in_set(WindowStartUpSets::window_creation))
-        .configure_sets(
-            WindowPreUpdateSets::poll_events,
-            WindowPreUpdateSets::update_window_data)
-        .add_system_main(
-            PreUpdate{}, poll_events, in_set(WindowPreUpdateSets::poll_events))
-        .add_system_main(
-            PreUpdate{}, update_window_size,
-            in_set(WindowPreUpdateSets::update_window_data))
-        .add_system_main(
-            PreUpdate{}, update_window_pos,
-            in_set(WindowPreUpdateSets::update_window_data))
-        .configure_sets(
-            WindowPreRenderSets::before_create,
-            WindowPreRenderSets::window_creation,
-            WindowPreRenderSets::after_create)
-        .add_system_main(
-            PreRender{}, create_window_prerender,
-            in_set(WindowPreRenderSets::window_creation))
-        .configure_sets(
-            WindowPostRenderSets::before_swap_buffers,
-            WindowPostRenderSets::swap_buffers,
-            WindowPostRenderSets::window_close,
-            WindowPostRenderSets::after_close_window)
-        .add_system_main(
-            PostRender{}, swap_buffers,
-            in_set(WindowPostRenderSets::swap_buffers))
-        .add_system_main(
-            PostRender{}, primary_window_close,
-            in_set(WindowPostRenderSets::window_close))
-        .add_system_main(
-            PostRender{}, window_close,
-            in_set(WindowPostRenderSets::window_close))
-        .add_system(
-            PostRender{}, no_window_exists,
-            in_set(WindowPostRenderSets::after_close_window))
-        .add_system(
-            PostRender{}, exit_on_no_window, after(no_window_exists),
+        .add_system(PreStartup(), insert_primary_window).use_worker("single")
+        ->add_system(
+            PreStartup(), init_glfw,
+            in_set(WindowStartUpSets::glfw_initialization)).use_worker("single")
+        ->add_system(
+           PreStartup(), create_window_startup, after(insert_primary_window),
+           in_set(WindowStartUpSets::window_creation)).use_worker("single")
+        ->configure_sets(
+           WindowPreUpdateSets::poll_events,
+           WindowPreUpdateSets::update_window_data)
+        ->add_system(
+           PreUpdate(), poll_events, in_set(WindowPreUpdateSets::poll_events)).use_worker("single")
+        ->add_system(
+           PreUpdate(), update_window_size,
+           in_set(WindowPreUpdateSets::update_window_data)).use_worker("single")
+        ->add_system(
+           PreUpdate(), update_window_pos,
+           in_set(WindowPreUpdateSets::update_window_data)).use_worker("single")
+        ->configure_sets(
+           WindowPreRenderSets::before_create,
+           WindowPreRenderSets::window_creation,
+           WindowPreRenderSets::after_create)
+        ->add_system(
+           PreRender(), create_window_prerender,
+           in_set(WindowPreRenderSets::window_creation)).use_worker("single")
+        ->configure_sets(
+           WindowPostRenderSets::before_swap_buffers,
+           WindowPostRenderSets::swap_buffers,
+           WindowPostRenderSets::window_close,
+           WindowPostRenderSets::after_close_window)
+        ->add_system(
+           PostRender(), swap_buffers,
+           in_set(WindowPostRenderSets::swap_buffers)).use_worker("single")
+        ->add_system(
+           PostRender(), primary_window_close,
+           in_set(WindowPostRenderSets::window_close)).use_worker("single")
+        ->add_system(
+           PostRender(), window_close,
+           in_set(WindowPostRenderSets::window_close)).use_worker("single")
+        ->add_system(
+           PostRender(), no_window_exists,
+           in_set(WindowPostRenderSets::after_close_window))
+        ->add_system(
+            PostRender(), exit_on_no_window, after(no_window_exists),
             in_set(WindowPostRenderSets::after_close_window));
 }

@@ -10,7 +10,7 @@ using namespace transform;
 
 struct Camera2d {};
 
-struct Camera2dBundle : entity::Bundle {
+struct Camera2dBundle : app::Bundle {
     Transform transform = Transform();
     OrthoProjection projection = OrthoProjection();
     Camera2d camera;

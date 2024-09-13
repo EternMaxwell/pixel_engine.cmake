@@ -39,21 +39,21 @@ using in_set = app::in_set;
 
 using Plugin = app::Plugin;
 
-app::Schedule PreStartup = app::Schedule(app::StartStage::PreStartup);
-app::Schedule Startup = app::Schedule(app::StartStage::Startup);
-app::Schedule PostStartup = app::Schedule(app::StartStage::PostStartup);
-app::Schedule First = app::Schedule(app::LoopStage::First);
-app::Schedule PreUpdate = app::Schedule(app::LoopStage::PreUpdate);
-app::Schedule Update = app::Schedule(app::LoopStage::Update);
-app::Schedule PostUpdate = app::Schedule(app::LoopStage::PostUpdate);
-app::Schedule Last = app::Schedule(app::LoopStage::Last);
-app::Schedule Prepare = app::Schedule(app::RenderStage::Prepare);
-app::Schedule PreRender = app::Schedule(app::RenderStage::PreRender);
-app::Schedule Render = app::Schedule(app::RenderStage::Render);
-app::Schedule PostRender = app::Schedule(app::RenderStage::PostRender);
-app::Schedule PreShutdown = app::Schedule(app::ExitStage::PreShutdown);
-app::Schedule Shutdown = app::Schedule(app::ExitStage::Shutdown);
-app::Schedule PostShutdown = app::Schedule(app::ExitStage::PostShutdown);
+app::Schedule PreStartup();
+app::Schedule Startup();
+app::Schedule PostStartup();
+app::Schedule First();
+app::Schedule PreUpdate();
+app::Schedule Update();
+app::Schedule PostUpdate();
+app::Schedule Last();
+app::Schedule Prepare();
+app::Schedule PreRender();
+app::Schedule Render();
+app::Schedule PostRender();
+app::Schedule PreShutdown();
+app::Schedule Shutdown();
+app::Schedule PostShutdown();
 template <typename T>
 app::Schedule OnEnter(T t) {
     return app::Schedule(

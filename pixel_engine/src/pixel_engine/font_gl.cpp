@@ -8,12 +8,12 @@ using namespace pixel_engine::font_gl::resources;
 void pixel_engine::font_gl::FontGLPlugin::build(App& app) {
     app.configure_sets(FontGLSets::insert_library, FontGLSets::after_insertion)
         .add_system(
-            PreStartup{}, insert_ft2_library,
+            PreStartup(), insert_ft2_library,
             in_set(FontGLSets::insert_library))
-        .add_system_main(
-            PreStartup{}, create_pipeline,
-            in_set(render_gl::RenderGLStartupSets::after_context_creation))
-        .add_system_main(Render{}, draw);
+        ->add_system(
+            PreStartup(), create_pipeline,
+            in_set(render_gl::RenderGLStartupSets::after_context_creation)).use_worker("single")
+        ->add_system(Render(), draw).use_worker("single");
 }
 
 void pixel_engine::font_gl::systems::insert_ft2_library(Command command) {

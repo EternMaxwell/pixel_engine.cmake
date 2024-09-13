@@ -18,7 +18,7 @@ enum class RenderGLPipelineCompletionSets {
     after_pipeline_completion,
 };
 
-class RenderGLPlugin : public entity::Plugin {
+class RenderGLPlugin : public Plugin {
    public:
     void build(App& app) override;
 };

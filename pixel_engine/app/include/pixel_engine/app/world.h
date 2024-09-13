@@ -77,8 +77,7 @@ struct World {
         static Resource<Res> get(World* app) {
             if (app->m_resources.find(typeid(Res).hash_code()) !=
                 app->m_resources.end()) {
-                return Resource<Res>(&app->m_resources[typeid(Res).hash_code()]
-                );
+                return Resource<Res>(app->m_resources[typeid(Res).hash_code()]);
             } else {
                 return Resource<Res>();
             }

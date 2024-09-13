@@ -12,7 +12,7 @@ int main() {
     using namespace pipeline_test;
 
     App app;
-    app.add_plugin(LoopPlugin{})
+    app.enable_loop()
         .add_plugin(WindowPlugin{})
         .add_plugin(AssetServerGLPlugin{})
         .add_plugin(RenderGLPlugin{})

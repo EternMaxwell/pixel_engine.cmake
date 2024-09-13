@@ -4,12 +4,12 @@
 #define GLFW_INCLUDE_VULKAN
 #endif
 #include <GLFW/glfw3.h>
-
-#include "pixel_engine/entity.h"
+#include <pixel_engine/app.h>
 
 namespace pixel_engine {
 namespace window {
 namespace components {
+using namespace prelude;
 /*! @brief WindowHandle component
  *  @brief Contains the GLFWwindow handle and vsync state
  */
@@ -56,7 +56,7 @@ struct WindowHints {
     std::vector<std::pair<int, int>> hints;
 };
 
-struct WindowBundle : entity::Bundle {
+struct WindowBundle : Bundle {
     /*! @brief WindowHandle component
      *  @brief Contains the GLFWwindow handle and vsync state
      */
@@ -77,15 +77,17 @@ struct WindowBundle : entity::Bundle {
      *  @brief Contains a vector of hints to be passed to GLFW
      */
     WindowHints window_hints = {
-        .hints = {
-            {GLFW_CONTEXT_VERSION_MAJOR, 4},
-            {GLFW_CONTEXT_VERSION_MINOR, 5},
-            {GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE},
-            {GLFW_VISIBLE, GLFW_FALSE}}};
+        .hints =
+            {{GLFW_CONTEXT_VERSION_MAJOR, 4},
+             {GLFW_CONTEXT_VERSION_MINOR, 5},
+             {GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE},
+             {GLFW_VISIBLE, GLFW_FALSE}}
+    };
 
     auto unpack() {
         return std::tie(
-            window_handle, window_size, window_pos, window_title, window_hints);
+            window_handle, window_size, window_pos, window_title, window_hints
+        );
     }
 };
 }  // namespace components

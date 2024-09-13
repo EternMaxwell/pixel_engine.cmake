@@ -2,7 +2,7 @@
 
 #include "components.h"
 #include "events.h"
-#include "pixel_engine/entity.h"
+#include "pixel_engine/app.h"
 #include "systems.h"
 
 namespace pixel_engine {
@@ -34,7 +34,7 @@ enum class WindowPostRenderSets {
     after_close_window,
 };
 
-class WindowPlugin : public entity::Plugin {
+class WindowPlugin : public app::Plugin {
    public:
     int primary_window_width = 480 * 3;
     int primary_window_height = 270 * 3;
@@ -44,8 +44,8 @@ class WindowPlugin : public entity::Plugin {
 
     void set_primary_window_size(int width, int height);
     void set_primary_window_title(const std::string& title);
-    void set_primary_window_hints(
-        const std::vector<std::pair<int, int>>& hints);
+    void set_primary_window_hints(const std::vector<std::pair<int, int>>& hints
+    );
     void build(App& app) override;
 };
 }  // namespace window
