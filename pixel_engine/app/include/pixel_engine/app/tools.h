@@ -4,6 +4,9 @@
 #include <tuple>
 
 namespace pixel_engine {
+namespace app {
+struct App;
+}
 namespace internal_components {
 struct Bundle {};
 struct Parent {
@@ -13,6 +16,8 @@ template <typename T>
 struct NextState;
 template <typename T>
 struct State {
+    friend class app::App;
+
    protected:
     T m_state;
     bool just_created = true;
@@ -53,11 +58,13 @@ struct is_bundle<T, std::void_t<decltype(std::declval<T>().unpack())>>
 
 template <typename... Args>
 void registry_emplace_tuple(
-    entt::registry* registry, entt::entity entity, std::tuple<Args...>& tuple);
+    entt::registry* registry, entt::entity entity, std::tuple<Args...>& tuple
+);
 
 template <typename T, typename... Args>
 void registry_emplace(
-    entt::registry* registry, entt::entity entity, T arg, Args... args) {
+    entt::registry* registry, entt::entity entity, T arg, Args... args
+) {
     if constexpr (is_bundle<T>::value && std::is_base_of_v<Bundle, T>) {
         auto&& bundle = arg.unpack();
         registry_emplace_tuple(registry, entity, bundle);
@@ -71,16 +78,21 @@ void registry_emplace(
 
 template <typename... Args, size_t... I>
 void registry_emplace_tuple(
-    entt::registry* registry, entt::entity entity, std::tuple<Args...>& tuple,
-    std::index_sequence<I...>) {
+    entt::registry* registry,
+    entt::entity entity,
+    std::tuple<Args...>& tuple,
+    std::index_sequence<I...> _
+) {
     registry_emplace(registry, entity, std::get<I>(tuple)...);
 }
 
 template <typename... Args>
 void registry_emplace_tuple(
-    entt::registry* registry, entt::entity entity, std::tuple<Args...>& tuple) {
+    entt::registry* registry, entt::entity entity, std::tuple<Args...>& tuple
+) {
     registry_emplace_tuple(
-        registry, entity, tuple, std::make_index_sequence<sizeof...(Args)>());
+        registry, entity, tuple, std::make_index_sequence<sizeof...(Args)>()
+    );
 }
 
 template <typename T, typename... Args>
@@ -145,7 +157,8 @@ template <template <typename...> typename T, typename... Args>
 constexpr auto tuple_get_template(std::tuple<Args...> tuple) {
     if constexpr (tuple_contain_template<T, std::tuple<Args...>>::value) {
         return std::get<tuple_template_index<T, std::tuple<Args...>>::index()>(
-            tuple);
+            tuple
+        );
     } else {
         return T();
     }
@@ -169,8 +182,8 @@ struct std::hash<std::weak_ptr<T>> {
 
 template <typename T>
 struct std::equal_to<std::weak_ptr<T>> {
-    bool operator()(
-        const std::weak_ptr<T>& a, const std::weak_ptr<T>& b) const {
+    bool operator()(const std::weak_ptr<T>& a, const std::weak_ptr<T>& b)
+        const {
         pixel_engine::app_tools::t_weak_ptr<T> aptr(a);
         pixel_engine::app_tools::t_weak_ptr<T> bptr(b);
         return aptr.get_p() == bptr.get_p();

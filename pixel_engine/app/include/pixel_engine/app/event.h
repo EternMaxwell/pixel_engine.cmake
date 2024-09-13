@@ -44,7 +44,8 @@ struct EventReader {
        public:
         event_iter(
             std::shared_ptr<std::deque<Event>> events,
-            std::deque<Event>::iterator iter)
+            std::deque<Event>::iterator iter
+        )
             : m_events(events), m_iter(iter) {}
         event_iter& operator++() {
             m_iter++;

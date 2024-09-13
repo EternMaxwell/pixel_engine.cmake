@@ -6,5 +6,6 @@
  ColumnLimit: 80
  AllowAllArgumentsOnNextLine: true
  AllowShortBlocksOnASingleLine: Empty
- AlignAfterOpenBracket: AlwaysBreak
+ AlignAfterOpenBracket: BlockIndent
+ BinPackParameters: false
  

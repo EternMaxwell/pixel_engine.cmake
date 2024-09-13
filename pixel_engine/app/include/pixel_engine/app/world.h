@@ -40,8 +40,8 @@ struct World {
     constexpr auto tuple_get_template(std::tuple<Args...> tuple) {
         using namespace app_tools;
         if constexpr (tuple_contain_template<T, std::tuple<Args...>>) {
-            return std::get<
-                tuple_template_index<T, std::tuple<Args...>>::index()>(tuple);
+            return std::get<tuple_template_index<T, std::tuple<Args...>>::index(
+            )>(tuple);
         } else {
             return T();
         }
@@ -56,16 +56,19 @@ struct World {
     struct value_type<Command> {
         static Command get(World* app) {
             return Command(
-                &app->m_registry, &app->m_resources, &app->m_entity_tree);
+                &app->m_registry, &app->m_resources, &app->m_entity_tree
+            );
         }
     };
 
     template <typename... Gets, typename... Withs, typename... Exs>
     struct value_type<Query<Get<Gets...>, With<Withs...>, Without<Exs...>>> {
         static Query<Get<Gets...>, With<Withs...>, Without<Exs...>> get(
-            World* app) {
+            World* app
+        ) {
             return Query<Get<Gets...>, With<Withs...>, Without<Exs...>>(
-                app->m_registry);
+                app->m_registry
+            );
         }
     };
 
@@ -74,8 +77,8 @@ struct World {
         static Resource<Res> get(World* app) {
             if (app->m_resources.find(typeid(Res).hash_code()) !=
                 app->m_resources.end()) {
-                return Resource<Res>(
-                    &app->m_resources[typeid(Res).hash_code()]);
+                return Resource<Res>(&app->m_resources[typeid(Res).hash_code()]
+                );
             } else {
                 return Resource<Res>();
             }

@@ -66,10 +66,10 @@ struct Schedule {
         m_stage_value = static_cast<size_t>(t);
     }
     template <typename T, typename... Args>
-    Schedule(T t, Args... args) {
+    Schedule(T t, std::function<bool(Args...)> func) {
         m_stage_type_hash = &typeid(T);
         m_stage_value = static_cast<size_t>(t);
-        m_condition = std::make_shared<BasicSystem<bool>>(nullptr, args...);
+        m_condition = std::make_shared<Condition<Args...>>(func);
     }
 };
 
@@ -78,13 +78,15 @@ struct SetMap {
     template <typename T, typename... Args>
     void configure_sets(T t, Args... args) {
         std::vector<size_t> set = {
-            static_cast<size_t>(t), static_cast<size_t>(args)...};
+            static_cast<size_t>(t), static_cast<size_t>(args)...
+        };
         m_sets[&typeid(T)] = set;
     }
 };
 
 struct SystemNode {
     Schedule m_schedule;
+    std::unordered_set<std::shared_ptr<BasicSystem<bool>>> m_conditions;
     std::vector<SystemSet> m_in_sets;
     void* m_func_addr;
     std::string m_worker_name = "default";
@@ -108,6 +110,23 @@ struct SystemNode {
         m_func_addr = func;
     }
 
+    bool condition_pass(World* world) {
+        bool pass = true;
+        if (m_schedule.m_condition) {
+            pass &= m_schedule.m_condition->run(world);
+        }
+        if (!pass) return false;
+        for (auto& cond : m_conditions) {
+            pass &= cond->run(world);
+            if (!pass) return false;
+        }
+        return true;
+    }
+
+    void run(World* world) {
+        if (m_system) m_system->run(world);
+    }
+
     double reach_time() {
         if (m_reach_time.has_value()) {
             return m_reach_time.value();
@@ -117,7 +136,8 @@ struct SystemNode {
                 if (auto system_ptr = system.lock()) {
                     max_time = std::max(
                         max_time, system_ptr->reach_time() +
-                                      system_ptr->m_system->get_avg_time());
+                                      system_ptr->m_system->get_avg_time()
+                    );
                 }
             }
             m_reach_time = max_time;
@@ -185,10 +205,12 @@ struct StageRunner {
    public:
     template <typename StageT>
     StageRunner(
-        World* world, StageT stage,
+        World* world,
+        StageT stage,
         std::unordered_map<const type_info*, std::vector<size_t>>* sets,
         std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>*
-            workers)
+            workers
+    )
         : m_world(world),
           m_stage_type_hash(&typeid(StageT)),
           m_stage_value(static_cast<size_t>(stage)),
@@ -196,10 +218,12 @@ struct StageRunner {
           m_workers(workers) {}
 
     void build(
-        const std::unordered_map<void*, std::shared_ptr<SystemNode>>& systems) {
+        const std::unordered_map<void*, std::shared_ptr<SystemNode>>& systems
+    ) {
         logger->debug(
             "Building stage {} : {:d}.", m_stage_type_hash->name(),
-            m_stage_value);
+            m_stage_value
+        );
         m_systems.clear();
         for (auto& [id, sets] : *m_sets) {
             std::vector<std::vector<std::weak_ptr<SystemNode>>> set_systems;
@@ -216,7 +240,8 @@ struct StageRunner {
                             [=](const auto& sset) {
                                 return sset.m_set_type_hash == id &&
                                        sset.m_set_value == set;
-                            }) != system->m_in_sets.end()) {
+                            }
+                        ) != system->m_in_sets.end()) {
                         set_system.push_back(system);
                     }
                 }
@@ -226,9 +251,11 @@ struct StageRunner {
                     for (auto& system_i : set_systems[i]) {
                         for (auto& system_j : set_systems[j]) {
                             system_i.lock()->m_system_ptrs_after.insert(
-                                system_j.lock()->m_func_addr);
+                                system_j.lock()->m_func_addr
+                            );
                             system_j.lock()->m_system_ptrs_before.insert(
-                                system_i.lock()->m_func_addr);
+                                system_i.lock()->m_func_addr
+                            );
                         }
                     }
                 }
@@ -272,11 +299,13 @@ struct StageRunner {
                     system->m_schedule.m_stage_value == m_stage_value)
                     logger->debug(
                         "    System {:#016x} has {:d} defined prevs.",
-                        (size_t)addr, system->m_systems_before.size());
+                        (size_t)addr, system->m_systems_before.size()
+                    );
             }
         logger->debug(
             "> Stage runner {} : {:d} built. With {} systems in.",
-            m_stage_type_hash->name(), m_stage_value, m_systems.size());
+            m_stage_type_hash->name(), m_stage_value, m_systems.size()
+        );
     }
 
     void prepare() {
@@ -297,7 +326,8 @@ struct StageRunner {
                 if (auto system_ptr = m_systems[i].lock()) {
                     if (auto system_ptr2 = m_systems[j].lock()) {
                         if (system_ptr->m_system->contrary_to(
-                                system_ptr2->m_system)) {
+                                system_ptr2->m_system
+                            )) {
                             system_ptr->m_temp_after.insert(system_ptr2);
                             system_ptr2->m_temp_before.insert(system_ptr);
                         }
@@ -330,9 +360,8 @@ struct StageRunner {
             auto worker = (*m_workers)[system_ptr->m_worker_name];
             auto ftr = worker->submit_task([=] {
                 if (system_ptr->m_system &&
-                    (!system_ptr->m_schedule.m_condition ||
-                     system_ptr->m_schedule.m_condition->run(m_world))) {
-                    system_ptr->m_system->run(m_world);
+                    system_ptr->condition_pass(m_world)) {
+                    system_ptr->run(m_world);
                 }
                 notify(system);
             });
@@ -349,7 +378,8 @@ struct StageRunner {
                 logger->warn(
                     "Deadlock detected, skipping remaining systems at stage {} "
                     ": {:d}.",
-                    m_stage_type_hash->name(), m_stage_value);
+                    m_stage_type_hash->name(), m_stage_value
+                );
                 break;
             }
             m_msg_queue.wait();
@@ -412,8 +442,8 @@ struct Runner {
     std::unordered_map<void*, std::shared_ptr<SystemNode>> m_systems;
     std::unordered_map<const type_info*, std::vector<size_t>> m_sets;
     void add_worker(std::string name, int num_threads) {
-        m_workers.insert(
-            {name, std::make_shared<BS::thread_pool>(num_threads)});
+        m_workers.insert({name, std::make_shared<BS::thread_pool>(num_threads)}
+        );
     }
     Runner(std::vector<std::pair<std::string, size_t>> workers) {
         for (auto worker : workers) {
@@ -423,13 +453,15 @@ struct Runner {
     template <typename... SubStages>
     void configure_stage(BasicStage stage, SubStages... stages) {
         std::vector<StageRunner> stage_runners = {
-            StageRunner(m_world, stages, &m_sets, &m_workers)...};
+            StageRunner(m_world, stages, &m_sets, &m_workers)...
+        };
         m_stages[stage] = stage_runners;
     }
     template <typename T, typename... Sets>
     void configure_sets(T set, Sets... sets) {
         m_sets[&typeid(T)] = {
-            static_cast<size_t>(set), static_cast<size_t>(sets)...};
+            static_cast<size_t>(set), static_cast<size_t>(sets)...
+        };
     }
     void run_stage(BasicStage stage) {
         for (auto& stage_runner : m_stages[stage]) {
@@ -451,13 +483,18 @@ struct Runner {
 
     template <typename... Args>
     std::shared_ptr<SystemNode> add_system(
-        Schedule schedule, void (*func)(Args...),
-        std::string worker_name = "default", after befores = after(),
-        before afters = before(), in_set sets = in_set()) {
+        Schedule schedule,
+        void (*func)(Args...),
+        std::string worker_name = "default",
+        after befores = after(),
+        before afters = before(),
+        in_set sets = in_set()
+    ) {
         if (m_systems.find(func) != m_systems.end()) {
             logger->warn(
                 "Trying to add system {:#016x} : {}, which already exists.",
-                (size_t)func, typeid(func).name());
+                (size_t)func, typeid(func).name()
+            );
             return nullptr;
         }
         std::shared_ptr<SystemNode> node =
@@ -465,9 +502,11 @@ struct Runner {
         node->m_in_sets = sets.sets;
         node->m_worker_name = worker_name;
         node->m_system_ptrs_before.insert(
-            befores.ptrs.begin(), befores.ptrs.end());
+            befores.ptrs.begin(), befores.ptrs.end()
+        );
         node->m_system_ptrs_after.insert(
-            afters.ptrs.begin(), afters.ptrs.end());
+            afters.ptrs.begin(), afters.ptrs.end()
+        );
         m_systems.insert({(void*)func, node});
         return node;
     }
@@ -478,7 +517,8 @@ struct Runner {
         } else {
             logger->warn(
                 "Trying to remove system {:#016x}, which does not exist.",
-                (size_t)func);
+                (size_t)func
+            );
         }
     }
 };
@@ -559,6 +599,9 @@ struct App {
             }
             return *this;
         }
+        AddSystemReturn& run_if(std::shared_ptr<BasicSystem<bool>> cond) {
+            m_system->m_conditions.insert(cond);
+        }
     };
 
    private:
@@ -584,8 +627,9 @@ struct App {
     void update_states() {
         logger->debug("Updating states.");
         for (auto& update : m_state_update) {
-            auto ftr = m_runner.m_workers["default"]->submit_task(
-                [=] { update->run(&m_world); });
+            auto ftr = m_runner.m_workers["default"]->submit_task([=] {
+                update->run(&m_world);
+            });
         }
         m_runner.m_workers["default"]->wait();
     }
@@ -595,17 +639,21 @@ struct App {
         m_runner.m_world = &m_world;
         m_runner.configure_stage(
             BasicStage::Start, StartStage::PreStartup, StartStage::Startup,
-            StartStage::PostStartup);
+            StartStage::PostStartup
+        );
         m_runner.configure_stage(
-            BasicStage::StateTransition, StateTransitionStage::StateTransit);
+            BasicStage::StateTransition, StateTransitionStage::StateTransit
+        );
         m_runner.configure_stage(
             BasicStage::Loop, LoopStage::First, LoopStage::PreUpdate,
             LoopStage::Update, LoopStage::PostUpdate, LoopStage::Last,
             RenderStage::Prepare, RenderStage::PreRender, RenderStage::Render,
-            RenderStage::PostRender);
+            RenderStage::PostRender
+        );
         m_runner.configure_stage(
             BasicStage::Exit, ExitStage::PreShutdown, ExitStage::Shutdown,
-            ExitStage::PostShutdown);
+            ExitStage::PostShutdown
+        );
     }
 
     App* operator->() { return this; }
@@ -625,13 +673,15 @@ struct App {
 
     template <typename... Args, typename... TupleT>
     AddSystemReturn add_system(
-        Schedule schedule, void (*func)(Args...), TupleT... modifiers) {
+        Schedule schedule, void (*func)(Args...), TupleT... modifiers
+    ) {
         auto mod_tuple = std::make_tuple(modifiers...);
         auto ptr = m_runner.add_system(
             schedule, func, app_tools::tuple_get<Worker>(mod_tuple).name,
             app_tools::tuple_get<after>(mod_tuple),
             app_tools::tuple_get<before>(mod_tuple),
-            app_tools::tuple_get<in_set>(mod_tuple));
+            app_tools::tuple_get<in_set>(mod_tuple)
+        );
         if (m_building_plugin_type && ptr) {
             m_plugin_caches[m_building_plugin_type].add_system((void*)func);
         }
@@ -651,7 +701,8 @@ struct App {
         if (m_plugin_caches.find(&typeid(T)) != m_plugin_caches.end()) {
             logger->warn(
                 "Trying to add plugin {}, which already exists.",
-                typeid(T).name());
+                typeid(T).name()
+            );
             return *this;
         }
         m_building_plugin_type = &typeid(T);
@@ -671,7 +722,8 @@ struct App {
         } else {
             logger->warn(
                 "Trying to remove plugin {}, which does not exist.",
-                typeid(T).name());
+                typeid(T).name()
+            );
         }
         return *this;
     }
@@ -702,7 +754,9 @@ struct App {
         m_state_update.push_back(
             std::make_unique<
                 System<Resource<State<T>>, Resource<NextState<T>>>>(
-                state_update<T>()));
+                state_update<T>()
+            )
+        );
         return *this;
     }
 
@@ -712,7 +766,9 @@ struct App {
         m_state_update.push_back(
             std::make_unique<
                 System<Resource<State<T>>, Resource<NextState<T>>>>(
-                state_update<T>()));
+                state_update<T>()
+            )
+        );
         return *this;
     }
 };

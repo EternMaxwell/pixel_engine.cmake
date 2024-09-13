@@ -20,11 +20,13 @@ struct EntityCommand {
 
    public:
     EntityCommand(
-        entt::registry* registry, entt::entity entity,
+        entt::registry* registry,
+        entt::entity entity,
         std::unordered_map<entt::entity, std::unordered_set<entt::entity>>*
             entity_tree,
         std::shared_ptr<std::vector<entt::entity>> despawns,
-        std::shared_ptr<std::vector<entt::entity>> recursive_despawns)
+        std::shared_ptr<std::vector<entt::entity>> recursive_despawns
+    )
         : m_registry(registry),
           m_entity(entity),
           m_entity_tree(entity_tree),
@@ -48,7 +50,8 @@ struct EntityCommand {
     entt::entity spawn(Args... args) {
         auto child = m_registry->create();
         app_tools::registry_emplace(
-            m_registry, child, Parent{.entity = m_entity}, args...);
+            m_registry, child, Parent{.entity = m_entity}, args...
+        );
         (*m_entity_tree)[m_entity].insert(child);
         return child;
     }
@@ -91,7 +94,8 @@ struct Command {
         entt::registry* registry,
         std::unordered_map<size_t, std::shared_ptr<void>>* resources,
         std::unordered_map<entt::entity, std::unordered_set<entt::entity>>*
-            entity_tree)
+            entity_tree
+    )
         : m_registry(registry),
           m_resources(resources),
           m_entity_tree(entity_tree) {
@@ -127,8 +131,8 @@ struct Command {
      */
     auto entity(entt::entity entity) {
         return EntityCommand(
-            m_registry, entity, m_entity_tree, m_despawns,
-            m_recursive_despawns);
+            m_registry, entity, m_entity_tree, m_despawns, m_recursive_despawns
+        );
     }
 
     /*! @brief Insert a resource.
@@ -142,7 +146,8 @@ struct Command {
         if (m_resources->find(typeid(T).hash_code()) == m_resources->end()) {
             m_resources->emplace(std::make_pair(
                 typeid(T).hash_code(),
-                std::static_pointer_cast<void>(std::make_shared<T>(args...))));
+                std::static_pointer_cast<void>(std::make_shared<T>(args...))
+            ));
         }
     }
 
@@ -151,7 +156,8 @@ struct Command {
         if (m_resources->find(typeid(T).hash_code()) == m_resources->end()) {
             m_resources->emplace(std::make_pair(
                 typeid(T).hash_code(),
-                std::static_pointer_cast<void>(std::make_shared<T>(res))));
+                std::static_pointer_cast<void>(std::make_shared<T>(res))
+            ));
         }
     }
 

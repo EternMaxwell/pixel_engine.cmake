@@ -33,15 +33,16 @@ class Query<Get<Qus...>, With<Ins...>, Without<Exs...>> {
     class iterator
         : public std::iterator<std::input_iterator_tag, std::tuple<Qus...>> {
        private:
-        decltype(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{})
-                     .each()) m_full;
+        decltype(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{}).each()
+        ) m_full;
         decltype(m_full.begin()) m_iter;
 
         template <typename T, typename... Args>
         std::tuple<Args...> remove_first(std::tuple<T, Args...> tuple) {
             return std::apply(
                 [](T t, Args... args) { return std::tuple<Args...>(args...); },
-                tuple);
+                tuple
+            );
         }
 
        public:
@@ -113,15 +114,16 @@ class Query<Get<entt::entity, Qus...>, With<Ins...>, Without<Exs...>> {
     class iterator
         : public std::iterator<std::input_iterator_tag, std::tuple<Qus...>> {
        private:
-        decltype(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{})
-                     .each()) m_full;
+        decltype(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{}).each()
+        ) m_full;
         decltype(m_full.begin()) m_iter;
 
         template <typename T, typename... Args>
         std::tuple<Args...> remove_first(std::tuple<T, Args...> tuple) {
             return std::apply(
                 [](T t, Args... args) { return std::tuple<Args...>(args...); },
-                tuple);
+                tuple
+            );
         }
 
        public:
@@ -148,7 +150,8 @@ class Query<Get<entt::entity, Qus...>, With<Ins...>, Without<Exs...>> {
             // remove the first element of the tuple and return the
             // rest
             return std::tuple<entt::entity, Qus&...>(
-                std::get<entt::entity>(*m_iter), std::get<Qus&>(*m_iter)...);
+                std::get<entt::entity>(*m_iter), std::get<Qus&>(*m_iter)...
+            );
         }
         auto begin() { return iterator(m_full, m_full.begin()); }
 
