@@ -257,7 +257,17 @@ void StageRunner::notify(std::weak_ptr<SystemNode> system) {
 
 void StageRunner::run(std::weak_ptr<SystemNode> system) {
     if (auto system_ptr = system.lock()) {
-        auto worker = (*m_workers)[system_ptr->m_worker_name];
+        auto iter = (*m_workers).find(system_ptr->m_worker_name);
+        if (iter == (*m_workers).end()) {
+            logger->warn(
+                "Worker name : {} is not a valid name, which is used by system "
+                "{:#016x}",
+                system_ptr->m_worker_name, (size_t)system_ptr->m_func_addr
+            );
+            notify(system);
+            return;
+        }
+        auto worker = iter->second;
         auto ftr = worker->submit_task([=] {
             if (system_ptr->m_system && system_ptr->condition_pass(m_world)) {
                 system_ptr->run(m_world);

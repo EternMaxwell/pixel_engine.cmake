@@ -448,6 +448,11 @@ struct App {
         );
         return *this;
     }
+
+    template <typename T, typename U = std::enable_if_t<std::is_base_of<Plugin, T>::value>>
+    auto get_plugin() {
+        return m_world.get_resource<T>();
+    }
 };
 }  // namespace app
 }  // namespace pixel_engine

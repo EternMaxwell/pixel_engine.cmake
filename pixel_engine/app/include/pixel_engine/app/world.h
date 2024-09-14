@@ -200,6 +200,11 @@ struct World {
         return *this;
     }
 
+    template <typename T>
+    auto get_resource() {
+        return value_type<Resource<T>>::get(this);
+    }
+
     /*! @brief Run a system.
      * @tparam Args The types of the arguments for the system.
      * @param func The system to be run.
