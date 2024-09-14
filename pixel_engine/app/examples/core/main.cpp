@@ -15,8 +15,8 @@ int main() {
     App app;
     app->log_level(spdlog::level::debug)
         ->configure_sets(a, b)
-        ->add_system(Startup, function).in_set(b).use_worker("single")
-        ->add_system(Startup, function2).in_set(a)
+        ->add_system(Startup(), function).in_set(b).use_worker("single")
+        ->add_system(Startup(), function2).in_set(a)
         ->run();
     return 0;
 }

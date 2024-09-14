@@ -7,7 +7,7 @@ int main() {
     using namespace prelude;
 
     App app;
-    app.add_plugin(LoopPlugin{})
+    app.enable_loop()
         .add_plugin(WindowPlugin{})
         .add_plugin(RenderGLPlugin{})
         .add_plugin(task_queue::TaskQueuePlugin{})

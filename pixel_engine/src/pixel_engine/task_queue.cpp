@@ -1,8 +1,14 @@
-﻿#include "pixel_engine/task_queue/task_queue.h"
+﻿#include "pixel_engine/task_queue/resources.h"
+#include "pixel_engine/task_queue/task_queue.h"
 
-#include "pixel_engine/task_queue/resources.h"
+void pixel_engine::task_queue::systems::insert_task_queue(
+    Command command, Resource<TaskQueuePlugin> task_queue
+) {
+    command.insert_resource(resources::TaskQueue());
+}
 
-std::shared_ptr<BS::thread_pool> pixel_engine::task_queue::resources::TaskQueue::get_pool() {
+std::shared_ptr<BS::thread_pool>
+pixel_engine::task_queue::resources::TaskQueue::get_pool() {
     for (auto& p : pool) {
         // return if the pool is not busy
         if (p->wait_for(std::chrono::seconds(0))) {
@@ -13,7 +19,8 @@ std::shared_ptr<BS::thread_pool> pixel_engine::task_queue::resources::TaskQueue:
     return pool.back();
 }
 
-std::shared_ptr<BS::thread_pool> pixel_engine::task_queue::resources::TaskQueue::get_pool(int index) {
+std::shared_ptr<BS::thread_pool>
+pixel_engine::task_queue::resources::TaskQueue::get_pool(int index) {
     if (index < pool.size()) {
         // create pools if the index is out of bounds
         for (int i = pool.size(); i <= index; i++) {
@@ -23,7 +30,8 @@ std::shared_ptr<BS::thread_pool> pixel_engine::task_queue::resources::TaskQueue:
     return pool[index];
 }
 
-std::shared_ptr<BS::thread_pool> pixel_engine::task_queue::resources::TaskQueue::request_pool() {
+std::shared_ptr<BS::thread_pool>
+pixel_engine::task_queue::resources::TaskQueue::request_pool() {
     for (auto& p : pool) {
         // return if the pool is not busy
         if (p->wait_for(std::chrono::seconds(0))) {
@@ -33,7 +41,8 @@ std::shared_ptr<BS::thread_pool> pixel_engine::task_queue::resources::TaskQueue:
     return nullptr;
 }
 
-std::shared_ptr<BS::thread_pool> pixel_engine::task_queue::resources::TaskQueue::request_pool(int index) {
+std::shared_ptr<BS::thread_pool>
+pixel_engine::task_queue::resources::TaskQueue::request_pool(int index) {
     if (index < pool.size()) {
         return nullptr;
     }
@@ -41,6 +50,11 @@ std::shared_ptr<BS::thread_pool> pixel_engine::task_queue::resources::TaskQueue:
 }
 
 void pixel_engine::task_queue::TaskQueuePlugin::build(App& app) {
-    app.configure_sets(TaskQueueSets::insert_task_queue, TaskQueueSets::after_insertion)
-        .add_system(PreStartup(), systems::insert_task_queue, in_set(TaskQueueSets::insert_task_queue));
+    app.configure_sets(
+           TaskQueueSets::insert_task_queue, TaskQueueSets::after_insertion
+    )
+        .add_system(
+            PreStartup(), systems::insert_task_queue,
+            in_set(TaskQueueSets::insert_task_queue)
+        );
 }

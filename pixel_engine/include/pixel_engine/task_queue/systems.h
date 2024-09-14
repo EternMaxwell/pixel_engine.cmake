@@ -10,9 +10,7 @@ class TaskQueuePlugin;
 namespace systems {
 using namespace prelude;
 
-void insert_task_queue(Command command, Resource<TaskQueuePlugin> task_queue) {
-    command.insert_resource(resources::TaskQueue());
-}
+void insert_task_queue(Command command, Resource<TaskQueuePlugin> task_queue);
 }  // namespace systems
 }  // namespace task_queue
 }  // namespace pixel_engine
