@@ -123,7 +123,7 @@ void MsgQueue::wait() {
 void StageRunner::build(
     const std::unordered_map<void*, std::shared_ptr<SystemNode>>& systems
 ) {
-    logger->debug(
+    build_logger->debug(
         "Building stage {} : {:d}.", m_stage_type_hash->name(), m_stage_value
     );
     m_systems.clear();
@@ -192,16 +192,16 @@ void StageRunner::build(
             }
         }
     }
-    if (logger->level() == spdlog::level::debug)
+    if (build_logger->level() == spdlog::level::debug)
         for (auto& [addr, system] : systems) {
             if (system->m_schedule.m_stage_type_hash == m_stage_type_hash &&
                 system->m_schedule.m_stage_value == m_stage_value)
-                logger->debug(
+                build_logger->debug(
                     "    System {:#016x} has {:d} defined prevs.", (size_t)addr,
                     system->m_systems_before.size()
                 );
         }
-    logger->debug(
+    build_logger->debug(
         "> Stage runner {} : {:d} built. With {} systems in.",
         m_stage_type_hash->name(), m_stage_value, m_systems.size()
     );
@@ -259,7 +259,7 @@ void StageRunner::run(std::weak_ptr<SystemNode> system) {
     if (auto system_ptr = system.lock()) {
         auto iter = (*m_workers).find(system_ptr->m_worker_name);
         if (iter == (*m_workers).end()) {
-            logger->warn(
+            run_logger->warn(
                 "Worker name : {} is not a valid name, which is used by system "
                 "{:#016x}",
                 system_ptr->m_worker_name, (size_t)system_ptr->m_func_addr
@@ -284,7 +284,7 @@ void StageRunner::run() {
     m_running_system_count++;
     while (m_unfinished_system_count > 0) {
         if (m_running_system_count == 0) {
-            logger->warn(
+            run_logger->warn(
                 "Deadlock detected, skipping remaining systems at stage {} "
                 ": {:d}.",
                 m_stage_type_hash->name(), m_stage_value
@@ -350,7 +350,7 @@ void Runner::removing_system(void* func) {
     if (m_systems.find(func) != m_systems.end()) {
         m_systems.erase(func);
     } else {
-        logger->warn(
+        setup_logger->warn(
             "Trying to remove system {:#016x}, which does not exist.",
             (size_t)func
         );
@@ -361,7 +361,7 @@ Worker::Worker() : name("default") {}
 Worker::Worker(std::string str) : name(str) {}
 
 bool app::check_exit(app::EventReader<AppExit> reader) {
-    if (!reader.empty()) logger->info("Exit event received.");
+    if (!reader.empty()) run_logger->info("Exit event received.");
     return !reader.empty();
 }
 
@@ -393,7 +393,7 @@ App::AddSystemReturn& App::AddSystemReturn::get_node(
 }
 
 void App::update_states() {
-    logger->debug("Updating states.");
+    run_logger->debug("Updating states.");
     for (auto& update : m_state_update) {
         auto ftr = m_runner.m_workers["default"]->submit_task([=] {
             update->run(&m_world);
@@ -425,8 +425,30 @@ App::App() {
 
 App* App::operator->() { return this; }
 
+App& App::log_level(Loggers logger, spdlog::level::level_enum level) {
+    switch (logger) {
+        case Setup:
+            setup_logger->set_level(level);
+            break;
+
+        case Build:
+            build_logger->set_level(level);
+            break;
+
+        case Run:
+            run_logger->set_level(level);
+            break;
+
+        default:
+            break;
+    }
+    return *this;
+}
+
 App& App::log_level(spdlog::level::level_enum level) {
-    logger->set_level(level);
+    setup_logger->set_level(level);
+    build_logger->set_level(level);
+    run_logger->set_level(level);
     return *this;
 }
 
@@ -436,22 +458,101 @@ App& App::enable_loop() {
 }
 
 void App::run() {
-    logger->info("Building app.");
+    build_logger->info("Building app.");
     m_runner.build();
-    logger->info("Building done.");
-    logger->info("Running app.");
+    build_logger->info("Building done.");
+    run_logger->info("Running app.");
     m_runner.run_stage(BasicStage::Start);
-    logger->debug("Running loop.");
+    run_logger->debug("Running loop.");
     do {
-        logger->debug("Run Loop systems.");
+        run_logger->debug("Run Loop systems.");
         m_runner.run_stage(BasicStage::Loop);
-        logger->debug("Run state transition systems.");
+        run_logger->debug("Run state transition systems.");
         m_runner.run_stage(BasicStage::StateTransition);
         update_states();
-        logger->debug("Tick events.");
+        run_logger->debug("Tick events.");
         m_world.tick_events();
     } while (m_loop_enabled && !m_world.run_system_v(check_exit));
-    logger->info("Exiting app.");
+    run_logger->info("Exiting app.");
     m_runner.run_stage(BasicStage::Exit);
-    logger->info("App terminated.");
+    run_logger->info("App terminated.");
+}
+
+EntityCommand::EntityCommand(
+    entt::registry* registry,
+    entt::entity entity,
+    std::unordered_map<entt::entity, std::unordered_set<entt::entity>>*
+        entity_tree,
+    std::shared_ptr<std::vector<entt::entity>> despawns,
+    std::shared_ptr<std::vector<entt::entity>> recursive_despawns
+)
+    : m_registry(registry),
+      m_entity(entity),
+      m_entity_tree(entity_tree),
+      m_despawns(despawns),
+      m_recursive_despawns(recursive_despawns) {}
+
+void EntityCommand::despawn() { m_despawns->push_back(m_entity); }
+
+void EntityCommand::despawn_recurse() {
+    m_recursive_despawns->push_back(m_entity);
+}
+
+Command::Command(
+    entt::registry* registry,
+    std::unordered_map<size_t, std::shared_ptr<void>>* resources,
+    std::unordered_map<entt::entity, std::unordered_set<entt::entity>>*
+        entity_tree
+)
+    : m_registry(registry), m_resources(resources), m_entity_tree(entity_tree) {
+    m_despawns = std::make_shared<std::vector<entt::entity>>();
+    m_recursive_despawns = std::make_shared<std::vector<entt::entity>>();
+}
+
+EntityCommand Command::entity(entt::entity entity) {
+    return EntityCommand(
+        m_registry, entity, m_entity_tree, m_despawns, m_recursive_despawns
+    );
+}
+
+void Command::end() {
+    for (auto entity : *m_despawns) {
+        m_registry->destroy(entity);
+        for (auto child : (*m_entity_tree)[entity]) {
+            m_registry->erase<Parent>(child);
+        }
+    }
+    for (auto entity : *m_recursive_despawns) {
+        m_registry->destroy(entity);
+        for (auto child : (*m_entity_tree)[entity]) {
+            m_registry->destroy(child);
+        }
+    }
+}
+
+Command World::command() {
+    return Command(&m_registry, &m_resources, &m_entity_tree);
+}
+
+void World::tick_events() {
+    for (auto& [key, events] : m_events) {
+        while (!events->empty()) {
+            auto& evt = events->front();
+            if (evt.ticks >= 1) {
+                events->pop_front();
+            } else {
+                break;
+            }
+        }
+        for (auto& evt : *events) {
+            evt.ticks++;
+        }
+    }
+}
+
+void World::end_commands() {
+    for (auto& cmd : m_commands) {
+        cmd.end();
+    }
+    m_commands.clear();
 }

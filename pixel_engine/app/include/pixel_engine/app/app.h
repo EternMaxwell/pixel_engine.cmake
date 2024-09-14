@@ -21,8 +21,14 @@
 namespace pixel_engine {
 namespace app {
 
-static std::shared_ptr<spdlog::logger> logger =
-    spdlog::default_logger()->clone("app");
+static std::shared_ptr<spdlog::logger> setup_logger =
+    spdlog::default_logger()->clone("app-setup");
+
+static std::shared_ptr<spdlog::logger> build_logger =
+    spdlog::default_logger()->clone("app-build");
+
+static std::shared_ptr<spdlog::logger> run_logger =
+    spdlog::default_logger()->clone("app-run");
 
 enum BasicStage { Start, StateTransition, Loop, Exit };
 
@@ -232,7 +238,7 @@ struct Runner {
         in_set sets = in_set()
     ) {
         if (m_systems.find(func) != m_systems.end()) {
-            logger->warn(
+            setup_logger->warn(
                 "Trying to add system {:#016x} : {}, which already exists.",
                 (size_t)func, typeid(func).name()
             );
@@ -270,6 +276,7 @@ struct Plugin {
 };
 
 struct App {
+    enum Loggers { Setup, Build, Run };
     struct PluginCache {
        private:
         const type_info* m_plugin_type;
@@ -354,6 +361,8 @@ struct App {
 
     App* operator->();
 
+    App& log_level(Loggers logger, spdlog::level::level_enum level);
+
     App& log_level(spdlog::level::level_enum level);
 
     App& enable_loop();
@@ -392,7 +401,7 @@ struct App {
     template <typename T>
     App& add_plugin(T&& plugin) {
         if (m_plugin_caches.find(&typeid(T)) != m_plugin_caches.end()) {
-            logger->warn(
+            setup_logger->warn(
                 "Trying to add plugin {}, which already exists.",
                 typeid(T).name()
             );
@@ -415,7 +424,7 @@ struct App {
             }
             m_plugin_caches.erase(&typeid(T));
         } else {
-            logger->warn(
+            setup_logger->warn(
                 "Trying to remove plugin {}, which does not exist.",
                 typeid(T).name()
             );
@@ -449,7 +458,9 @@ struct App {
         return *this;
     }
 
-    template <typename T, typename U = std::enable_if_t<std::is_base_of<Plugin, T>::value>>
+    template <
+        typename T,
+        typename U = std::enable_if_t<std::is_base_of<Plugin, T>::value>>
     auto get_plugin() {
         return m_world.get_resource<T>();
     }

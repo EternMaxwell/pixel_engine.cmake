@@ -123,9 +123,7 @@ struct World {
     /*! @brief Get a command object on this app.
      * @return The command object.
      */
-    Command command() {
-        return Command(&m_registry, &m_resources, &m_entity_tree);
-    }
+    Command command();
 
    public:
     std::mutex m_system_mutex;
@@ -227,28 +225,9 @@ struct World {
         return *this;
     }
 
-    void tick_events() {
-        for (auto& [key, events] : m_events) {
-            while (!events->empty()) {
-                auto& evt = events->front();
-                if (evt.ticks >= 1) {
-                    events->pop_front();
-                } else {
-                    break;
-                }
-            }
-            for (auto& evt : *events) {
-                evt.ticks++;
-            }
-        }
-    }
+    void tick_events();
 
-    void end_commands() {
-        for (auto& cmd : m_commands) {
-            cmd.end();
-        }
-        m_commands.clear();
-    }
+    void end_commands();
 
     /*! @brief Run a system.
      * @tparam Args1 The types of the arguments for the system.

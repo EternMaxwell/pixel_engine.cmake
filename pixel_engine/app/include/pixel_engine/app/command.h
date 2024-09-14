@@ -26,12 +26,7 @@ struct EntityCommand {
             entity_tree,
         std::shared_ptr<std::vector<entt::entity>> despawns,
         std::shared_ptr<std::vector<entt::entity>> recursive_despawns
-    )
-        : m_registry(registry),
-          m_entity(entity),
-          m_entity_tree(entity_tree),
-          m_despawns(despawns),
-          m_recursive_despawns(recursive_despawns) {}
+    );
 
     /*! @brief Spawn an entity.
      * Note that the components to be added should not be type that is
@@ -73,11 +68,11 @@ struct EntityCommand {
 
     /*! @brief Despawn an entity.
      */
-    void despawn() { m_despawns->push_back(m_entity); }
+    void despawn();
 
     /*! @brief Despawn an entity and all its children.
      */
-    void despawn_recurse() { m_recursive_despawns->push_back(m_entity); }
+    void despawn_recurse();
 };
 
 struct Command {
@@ -95,13 +90,7 @@ struct Command {
         std::unordered_map<size_t, std::shared_ptr<void>>* resources,
         std::unordered_map<entt::entity, std::unordered_set<entt::entity>>*
             entity_tree
-    )
-        : m_registry(registry),
-          m_resources(resources),
-          m_entity_tree(entity_tree) {
-        m_despawns = std::make_shared<std::vector<entt::entity>>();
-        m_recursive_despawns = std::make_shared<std::vector<entt::entity>>();
-    }
+    );
 
     /*! @brief Spawn an entity.
      * Note that the components to be added should not be type that is
@@ -129,11 +118,7 @@ struct Command {
      * @param entity The entity id.
      * @return `EntityCommand` The entity command.
      */
-    auto entity(entt::entity entity) {
-        return EntityCommand(
-            m_registry, entity, m_entity_tree, m_despawns, m_recursive_despawns
-        );
-    }
+    EntityCommand entity(entt::entity entity);
 
     /*! @brief Insert a resource.
      * If the resource already exists, nothing will happen.
@@ -182,20 +167,7 @@ struct Command {
         }
     }
 
-    void end() {
-        for (auto entity : *m_despawns) {
-            m_registry->destroy(entity);
-            for (auto child : (*m_entity_tree)[entity]) {
-                m_registry->erase<Parent>(child);
-            }
-        }
-        for (auto entity : *m_recursive_despawns) {
-            m_registry->destroy(entity);
-            for (auto child : (*m_entity_tree)[entity]) {
-                m_registry->destroy(child);
-            }
-        }
-    }
+    void end();
 };
 }  // namespace app
 }  // namespace pixel_engine
