@@ -65,17 +65,17 @@ class StateTestPlugin : public Plugin {
    public:
     void build(App& app) override {
         app.init_state<States>()
-            .add_system(Startup{}, is_state_start)
-            .add_system(OnEnter(States::Start), set_state_middle)
-            .add_system(OnEnter(States::Middle), set_state_end)
-            .add_system(Update{}, is_state_middle)
-            .add_system(Update{}, is_state_end, after(is_state_middle))
-            .add_system(Update{}, exit, after(is_state_end));
+            ->add_system(Startup(), is_state_start)
+            ->add_system(OnEnter(States::Start), set_state_middle)
+            ->add_system(OnEnter(States::Middle), set_state_end)
+            ->add_system(Update(), is_state_middle)
+            ->add_system(Update(), is_state_end, after(is_state_middle))
+            ->add_system(Update(), exit, after(is_state_end));
     }
 };
 
 void test() {
     App app;
-    app.add_plugin(StateTestPlugin{}).add_plugin(LoopPlugin{}).run();
+    app.add_plugin(StateTestPlugin{}).enable_loop().run();
 }
 }  // namespace test_state

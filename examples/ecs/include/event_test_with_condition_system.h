@@ -27,12 +27,6 @@ void read_event_s(EventReader<TestEvent> event) {
     std::cout << std::endl;
 }
 
-void clear_event_s(Command command) {
-    std::cout << "clear_event" << std::endl;
-    command.clear_events<TestEvent>();
-    std::cout << std::endl;
-}
-
 void write_event_u(EventWriter<TestEvent> event) {
     std::cout << "write_event" << std::endl;
     event.write(TestEvent{.data = 100}).write(TestEvent{.data = 200});
@@ -55,12 +49,6 @@ void read_event_u2(EventReader<TestEvent> event) {
     std::cout << std::endl;
 }
 
-void clear_event_u(Command command) {
-    std::cout << "clear_event" << std::endl;
-    command.clear_events<TestEvent>();
-    std::cout << std::endl;
-}
-
 bool check_if_event_exist(EventReader<TestEvent> event) {
     std::cout << "check_if_event_exist" << std::endl;
     bool exist = !event.empty();
@@ -72,12 +60,11 @@ bool check_if_event_exist(EventReader<TestEvent> event) {
 class EventTestPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(Startup{}, write_event_s)
-            .add_system(Startup{}, read_event_s, after(write_event_s))
-            .add_system(Startup{}, clear_event_s, after(read_event_s))
-            .add_system(Update{}, read_event_u)
-            .add_system(Update{}, write_event_u, after(read_event_u))
-            .add_system(Update{}, read_event_u2, after(write_event_u));
+        app.add_system(Startup(), write_event_s)
+            ->add_system(Startup(), read_event_s, after(write_event_s))
+            ->add_system(Update(), read_event_u)
+            ->add_system(Update(), write_event_u, after(read_event_u))
+            ->add_system(Update(), read_event_u2, after(write_event_u));
     }
 };
 

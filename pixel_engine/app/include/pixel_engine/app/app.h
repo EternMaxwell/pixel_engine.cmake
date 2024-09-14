@@ -324,6 +324,7 @@ struct App {
         }
         AddSystemReturn& use_worker(std::string name);
         AddSystemReturn& run_if(std::shared_ptr<BasicSystem<bool>> cond);
+        AddSystemReturn& get_node(std::shared_ptr<SystemNode>& node);
     };
 
    private:

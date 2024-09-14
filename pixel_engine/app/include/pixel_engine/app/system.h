@@ -206,7 +206,7 @@ struct BasicSystem {
     bool contrary_to(std::shared_ptr<BasicSystem>& other) {
         if (has_command && (other->has_command || other->has_query))
             return true;
-        if (has_query && (other->has_command || other->has_query)) return true;
+        if (has_query && other->has_command) return true;
         bool query_contrary = false;
         for (auto& [query_include_types, query_include_const, query_exclude_types] :
              query_types) {

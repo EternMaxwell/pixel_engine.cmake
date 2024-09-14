@@ -28,7 +28,8 @@ void spawn(Command command) {
 }
 
 void create_child(
-    Command command, Query<Get<Entity>, With<WithChild>, Without<>> query) {
+    Command command, Query<Get<Entity>, With<WithChild>, Without<>> query
+) {
     std::cout << "create_child" << std::endl;
     for (auto [entity] : query.iter()) {
         command.entity(entity).spawn(Health{.life = 50.0f});
@@ -77,7 +78,8 @@ void print_count3(Query<Get<Health>, With<>, Without<>> query) {
 }
 
 void despawn_recurese(
-    Command command, Query<Get<Entity>, With<WithChild>, Without<>> query) {
+    Command command, Query<Get<Entity>, With<WithChild>, Without<>> query
+) {
     std::cout << "despawn" << std::endl;
     for (auto [entity] : query.iter()) {
         command.entity(entity).despawn_recurse();
@@ -85,20 +87,20 @@ void despawn_recurese(
     std::cout << std::endl;
 }
 
-class SpawnWithChildPlugin : public entity::Plugin {
+class SpawnWithChildPlugin : public Plugin {
    public:
-    void build(entity::App& app) override {
-        app.add_system(Startup{}, spawn)
-            .add_system(Startup{}, print_count1, after(spawn))
-            .add_system(Startup{}, create_child, after(print_count1))
-            .add_system(Startup{}, print_count2, after(create_child))
-            .add_system(Startup{}, despawn_recurese, after(print_count2))
-            .add_system(Update{}, print_count3);
+    void build(App& app) override {
+        app.add_system(Startup(), spawn)
+            ->add_system(Startup(), print_count1, after(spawn))
+            ->add_system(Startup(), create_child, after(print_count1))
+            ->add_system(Startup(), print_count2, after(create_child))
+            ->add_system(Startup(), despawn_recurese, after(print_count2))
+            ->add_system(Update(), print_count3);
     }
 };
 
 void test() {
-    entity::App app;
+    App app;
     app.add_plugin(SpawnWithChildPlugin{}).run();
 }
 }  // namespace test_with_child

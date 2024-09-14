@@ -322,6 +322,7 @@ void Runner::run_stage(BasicStage stage) {
         stage_runner.prepare();
         stage_runner.run();
     }
+    m_world->end_commands();
 }
 void Runner::build() {
     for (auto& [ptr, system] : m_systems) {
@@ -371,6 +372,13 @@ App::AddSystemReturn& App::AddSystemReturn::run_if(
     std::shared_ptr<BasicSystem<bool>> cond
 ) {
     m_system->m_conditions.insert(cond);
+    return *this;
+}
+
+App::AddSystemReturn& App::AddSystemReturn::get_node(
+    std::shared_ptr<SystemNode>& node
+) {
+    node = m_system;
     return *this;
 }
 

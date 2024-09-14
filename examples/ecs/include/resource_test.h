@@ -73,24 +73,26 @@ void change_resource(Resource<Res> resource) {
     std::cout << std::endl;
 }
 
-class ResourceTestPlugin : public entity::Plugin {
+class ResourceTestPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(Startup{}, set_resource)
-            .add_system(Startup{}, access_resource1, after(set_resource))
-            .add_system(Startup{}, remove_resource1, after(access_resource1))
-            .add_system(
-                Startup{}, set_resource_with_init, after(remove_resource1))
-            .add_system(
-                Startup{}, access_resource2, after(set_resource_with_init))
-            .add_system(Startup{}, change_resource, after(access_resource2))
-            .add_system(Startup{}, access_resource3, after(change_resource))
-            .add_system(Startup{}, remove_resource2, after(access_resource3));
+        app.add_system(Startup(), set_resource)
+            ->add_system(Startup(), access_resource1, after(set_resource))
+            ->add_system(Startup(), remove_resource1, after(access_resource1))
+            ->add_system(
+                Startup(), set_resource_with_init, after(remove_resource1)
+            )
+            ->add_system(
+                Startup(), access_resource2, after(set_resource_with_init)
+            )
+            ->add_system(Startup(), change_resource, after(access_resource2))
+            ->add_system(Startup(), access_resource3, after(change_resource))
+            ->add_system(Startup(), remove_resource2, after(access_resource3));
     }
 };
 
 void test() {
-    entity::App app;
+    App app;
     app.add_plugin(ResourceTestPlugin{}).run();
 }
 }  // namespace test_resource

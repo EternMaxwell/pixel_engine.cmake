@@ -25,6 +25,7 @@ struct World {
         m_entity_tree;
     std::unordered_map<size_t, std::shared_ptr<void>> m_resources;
     std::unordered_map<size_t, std::shared_ptr<std::deque<Event>>> m_events;
+    std::vector<Command> m_commands;
 
     template <typename T, typename... Args>
     T tuple_get(std::tuple<Args...> tuple) {
@@ -55,9 +56,11 @@ struct World {
     template <>
     struct value_type<Command> {
         static Command get(World* app) {
-            return Command(
+            Command cmd(
                 &app->m_registry, &app->m_resources, &app->m_entity_tree
             );
+            app->m_commands.push_back(cmd);
+            return cmd;
         }
     };
 
@@ -233,6 +236,13 @@ struct World {
                 evt.ticks++;
             }
         }
+    }
+
+    void end_commands() {
+        for (auto& cmd : m_commands) {
+            cmd.end();
+        }
+        m_commands.clear();
     }
 
     /*! @brief Run a system.

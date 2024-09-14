@@ -56,34 +56,31 @@ app::Schedule Shutdown();
 app::Schedule PostShutdown();
 template <typename T>
 app::Schedule OnEnter(T t) {
-    return app::Schedule(
-        app::StateTransit,
+    std::function<bool(Resource<State<T>>, Resource<NextState<T>>)> condition =
         [=](Resource<State<T>> cur, Resource<NextState<T>> next) {
             if (cur->is_just_created() && cur->is_state(t)) return true;
             if (!cur->is_state(t) && next->is_state(t)) return true;
             return false;
-        }
-    );
+        };
+    return app::Schedule(app::StateTransit, condition);
 }
 template <typename T>
 app::Schedule OnExit(T t) {
-    return app::Schedule(
-        app::StateTransit,
+    std::function<bool(Resource<State<T>>, Resource<NextState<T>>)> condition =
         [=](Resource<State<T>> cur, Resource<NextState<T>> next) {
             if (cur->is_state(t) && !next->is_state(t)) return true;
             return false;
-        }
-    );
+        };
+    return app::Schedule(app::StateTransit, condition);
 }
 template <typename T>
 app::Schedule OnChange() {
-    return app::Schedule(
-        app::StateTransit,
+    std::function<bool(Resource<State<T>>, Resource<NextState<T>>)> condition =
         [=](Resource<State<T>> cur, Resource<NextState<T>> next) {
-            if (cur->is_state(next)) return true;
+            if (!cur->is_state(next)) return true;
             return false;
-        }
-    );
+        };
+    return app::Schedule(app::StateTransit, condition);
 }
 template <typename T>
 std::shared_ptr<app::BasicSystem<bool>> in_state(const T&& t) {

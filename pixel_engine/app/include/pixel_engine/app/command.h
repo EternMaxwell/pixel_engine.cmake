@@ -50,7 +50,7 @@ struct EntityCommand {
     entt::entity spawn(Args... args) {
         auto child = m_registry->create();
         app_tools::registry_emplace(
-            m_registry, child, Parent{.entity = m_entity}, args...
+            m_registry, child, Parent{.id = m_entity}, args...
         );
         (*m_entity_tree)[m_entity].insert(child);
         return child;
@@ -77,7 +77,7 @@ struct EntityCommand {
 
     /*! @brief Despawn an entity and all its children.
      */
-    void despawn_recursive() { m_recursive_despawns->push_back(m_entity); }
+    void despawn_recurse() { m_recursive_despawns->push_back(m_entity); }
 };
 
 struct Command {

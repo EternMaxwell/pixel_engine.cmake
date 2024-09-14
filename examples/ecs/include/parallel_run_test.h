@@ -50,23 +50,22 @@ enum class Stage {
     endl,
 };
 
-class ParallelTestPlugin : public entity::Plugin {
+class ParallelTestPlugin : public Plugin {
    public:
-    void build(entity::App& app) override {
-        SystemNode node1, node2;
-        app.add_plugin(LoopPlugin{})
-            .add_system(Startup{}, spawn_data1)
-            .add_system(Startup{}, spawn_data2)
-            .add_system(Update{}, print_data1, entity::in_set(Stage::data))
-            .add_system(Update{}, print_data2, entity::in_set(Stage::data))
-            .add_system(Update{}, print_endl, entity::in_set(Stage::endl))
-            .configure_sets(Stage::data, Stage::endl)
-            .add_system(Update{}, exit);
+    void build(App& app) override {
+        app.enable_loop()
+            ->add_system(Startup(), spawn_data1)
+            ->add_system(Startup(), spawn_data2)
+            ->add_system(Update(), print_data1, in_set(Stage::data))
+            ->add_system(Update(), print_data2, in_set(Stage::data))
+            ->add_system(Update(), print_endl, in_set(Stage::endl))
+            ->configure_sets(Stage::data, Stage::endl)
+            ->add_system(Update(), exit);
     }
 };
 
 void test() {
-    entity::App app;
+    App app;
     app.add_plugin(ParallelTestPlugin{}).run();
 }
 }  // namespace test_parallel_run
