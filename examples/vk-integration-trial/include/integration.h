@@ -207,7 +207,60 @@ makeInstanceCreateInfoChain(
     return instanceCreateInfo;
 }
 
-void init_instance(Command command) {
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphics_family;
+    std::optional<uint32_t> present_family;
+};
+
+struct Queues {
+    vk::Queue graphics_queue;
+    vk::Queue present_queue;
+};
+
+struct SwapChainSupportDetails {
+    vk::SurfaceCapabilitiesKHR capabilities;
+    std::vector<vk::SurfaceFormatKHR> formats;
+    std::vector<vk::PresentModeKHR> presentModes;
+};
+
+struct ChosenSwapChainDetails {
+    vk::SurfaceFormatKHR format;
+    vk::PresentModeKHR present_mode;
+    vk::Extent2D extent;
+    uint32_t image_count;
+};
+
+struct VKContext {
+    vk::Instance instance;
+    vk::PhysicalDevice physical_device;
+    QueueFamilyIndices queue_family_indices;
+    Queues queues;
+    vk::Device device;
+    vk::SurfaceKHR surface;
+    SwapChainSupportDetails swap_chain_support;
+    ChosenSwapChainDetails swap_chain_details;
+    vk::SwapchainKHR swap_chain;
+    std::vector<vk::Image> swap_chain_images;
+    std::vector<vk::ImageView> swap_chain_image_views;
+    std::vector<vk::Framebuffer> swap_chain_framebuffers;
+    vk::CommandPool command_pool;
+    std::vector<vk::CommandBuffer> command_buffers;
+    std::vector<vk::Semaphore> image_available_semaphores;
+    std::vector<vk::Semaphore> render_finished_semaphores;
+    std::vector<vk::Fence> in_flight_fences;
+    uint32_t current_frame = 0;
+    uint32_t image_index = 0;
+};
+
+struct Renderer {
+    vk::RenderPass render_pass;
+    vk::Pipeline graphics_pipeline;
+    vk::PipelineLayout pipeline_layout;
+};
+
+void insert_vk_context(Command command) { command.init_resource<VKContext>(); }
+
+void init_instance(Resource<VKContext> vk_context) {
     vk::ApplicationInfo app_info(
         "Hello Vulkan", 1, "No Engine", 1, VK_API_VERSION_1_0
     );
@@ -235,44 +288,25 @@ void init_instance(Command command) {
     for (auto const &ext : enabled_extensions) {
         spdlog::info("Enabled Extension: {}", ext);
     }
-    vk::Instance instance =
+    vk_context->instance =
         vk::createInstance(makeInstanceCreateInfoChain(
                                {}, app_info, enabled_layers, enabled_extensions
         )
                                .get<vk::InstanceCreateInfo>());
-    command.spawn(instance);
 }
 
-void get_physical_device(Command command, Query<Get<vk::Instance>> query) {
-    if (!query.single().has_value()) return;
-    auto [instance] = query.single().value();
-    auto physical_devices = instance.enumeratePhysicalDevices().front();
-    command.spawn(physical_devices);
+void get_physical_device(Resource<VKContext> vk_context) {
+    auto &instance = vk_context->instance;
+    vk_context->physical_device = instance.enumeratePhysicalDevices().front();
     spdlog::info(
         "Physical Device: {}",
-        physical_devices.getProperties().deviceName.data()
+        vk_context->physical_device.getProperties().deviceName.data()
     );
 }
 
-struct QueueFamilyIndices {
-    std::optional<uint32_t> graphics_family;
-    std::optional<uint32_t> present_family;
-};
-
-struct Queues {
-    vk::Queue graphics_queue;
-    vk::Queue present_queue;
-};
-
-void create_device(
-    Command command,
-    Query<Get<vk::PhysicalDevice>> query,
-    Query<Get<vk::SurfaceKHR>> surface_query
-) {
-    if (!query.single().has_value()) return;
-    if (!surface_query.single().has_value()) return;
-    auto [physical_device] = query.single().value();
-    auto [surface] = surface_query.single().value();
+void create_device(Resource<VKContext> vk_context) {
+    auto &physical_device = vk_context->physical_device;
+    auto &surface = vk_context->surface;
     auto queue_family_properties = physical_device.getQueueFamilyProperties();
     spdlog::info("create device");
     QueueFamilyIndices queue_family_indices;
@@ -312,57 +346,39 @@ void create_device(
     vk::Device device = physical_device.createDevice(vk::DeviceCreateInfo(
         {}, device_queue_create_info, {}, enabled_extensions
     ));
-    command.spawn(device);
-    command.spawn(queue_family_indices);
+    vk_context->device = device;
+    vk_context->queue_family_indices = queue_family_indices;
     vk::Queue graphics_queue =
         device.getQueue(queue_family_indices.graphics_family.value(), 0);
     vk::Queue present_queue =
         device.getQueue(queue_family_indices.present_family.value(), 0);
-    command.spawn(Queues{graphics_queue, present_queue});
+    vk_context->queues = Queues{graphics_queue, present_queue};
 }
 
 void create_window_surface(
-    Command command,
-    Query<Get<vk::Instance>> query,
-    Query<Get<const vk::PhysicalDevice>> physical_device_query,
+    Resource<VKContext> vk_context,
     Query<Get<const WindowHandle>, With<PrimaryWindow>> window_query
 ) {
-    if (!query.single().has_value()) return;
-    if (!physical_device_query.single().has_value()) return;
     if (!window_query.single().has_value()) return;
-    auto [physical_device] = physical_device_query.single().value();
-    auto [instance] = query.single().value();
     auto [window_handle] = window_query.single().value();
     spdlog::info("create window surface");
     vk::SurfaceKHR surface;
     {
         VkSurfaceKHR _surface;
         if (glfwCreateWindowSurface(
-                static_cast<VkInstance>(instance), window_handle.window_handle,
-                nullptr, &_surface
+                static_cast<VkInstance>(vk_context->instance),
+                window_handle.window_handle, nullptr, &_surface
             ) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create window surface!");
         }
         surface = _surface;
     }
-    command.spawn(surface);
+    vk_context->surface = surface;
 }
 
-struct SwapChainSupportDetails {
-    vk::SurfaceCapabilitiesKHR capabilities;
-    std::vector<vk::SurfaceFormatKHR> formats;
-    std::vector<vk::PresentModeKHR> presentModes;
-};
-
-void query_swap_chain_support(
-    Command command,
-    Query<Get<vk::PhysicalDevice>> device_query,
-    Query<Get<vk::SurfaceKHR>> surface_query
-) {
-    if (!device_query.single().has_value()) return;
-    if (!surface_query.single().has_value()) return;
-    auto [device] = device_query.single().value();
-    auto [surface] = surface_query.single().value();
+void query_swap_chain_support(Resource<VKContext> vk_context) {
+    auto &device = vk_context->physical_device;
+    auto &surface = vk_context->surface;
     spdlog::info("query swap chain support");
     SwapChainSupportDetails details;
     details.capabilities = device.getSurfaceCapabilitiesKHR(surface);
@@ -372,38 +388,26 @@ void query_swap_chain_support(
         spdlog::error("No swap chain support!");
         throw std::runtime_error("No swap chain support!");
     }
-    command.spawn(details);
+    vk_context->swap_chain_support = details;
 }
 
-struct ChosenSwapChainDetails {
-    vk::SurfaceFormatKHR format;
-    vk::PresentModeKHR present_mode;
-    vk::Extent2D extent;
-    uint32_t image_count;
+struct WindowSize {
+    int width;
+    int height;
 };
 
 void create_swap_chain(
-    Command command,
-    Query<Get<vk::PhysicalDevice>> physical_device_query,
-    Query<Get<vk::Device>> device_query,
-    Query<Get<vk::SurfaceKHR>> surface_query,
-    Query<Get<QueueFamilyIndices>> family_query,
-    Query<Get<const SwapChainSupportDetails>> swap_chain_support_query,
-    Query<Get<const WindowSize>, With<PrimaryWindow>> window_query
+    Resource<VKContext> vk_context,
+    Query<Get<const WindowHandle>, With<PrimaryWindow>> window_query
 ) {
-    if (!physical_device_query.single().has_value()) return;
-    if (!device_query.single().has_value()) return;
-    if (!surface_query.single().has_value()) return;
-    if (!family_query.single().has_value()) return;
-    if (!swap_chain_support_query.single().has_value()) return;
     if (!window_query.single().has_value()) return;
     spdlog::info("create swap chain");
-    auto [physical_device] = physical_device_query.single().value();
-    auto [device] = device_query.single().value();
-    auto [surface] = surface_query.single().value();
-    auto [queue_family_indices] = family_query.single().value();
-    auto [swap_chain_support] = swap_chain_support_query.single().value();
-    auto [window_size] = window_query.single().value();
+    auto &physical_device = vk_context->physical_device;
+    auto &device = vk_context->device;
+    auto &surface = vk_context->surface;
+    auto &queue_family_indices = vk_context->queue_family_indices;
+    auto &swap_chain_support = vk_context->swap_chain_support;
+    auto [window_handle] = window_query.single().value();
     // Choose the best surface format
     auto format_iter = std::find_if(
         swap_chain_support.formats.begin(), swap_chain_support.formats.end(),
@@ -434,9 +438,13 @@ void create_swap_chain(
         );
     }
     vk::PresentModeKHR present_mode = *present_mode_iter;
-    present_mode = vk::PresentModeKHR::eFifo;
-    // Choose the best extent
+    // present_mode = vk::PresentModeKHR::eFifo;
+    //  Choose the best extent
     vk::Extent2D extent;
+    WindowSize window_size;
+    glfwGetWindowSize(
+        window_handle.window_handle, &window_size.width, &window_size.height
+    );
     if (swap_chain_support.capabilities.currentExtent.width !=
         std::numeric_limits<uint32_t>::max()) {
         extent = swap_chain_support.capabilities.currentExtent;
@@ -488,49 +496,30 @@ void create_swap_chain(
     create_info.setOldSwapchain(nullptr);
     vk::SwapchainKHR swap_chain = device.createSwapchainKHR(create_info);
     image_count = device.getSwapchainImagesKHR(swap_chain).size();
-    command.spawn(
-        ChosenSwapChainDetails{format, present_mode, extent, image_count},
-        swap_chain
-    );
+    vk_context->swap_chain_details =
+        ChosenSwapChainDetails{format, present_mode, extent, image_count};
+    vk_context->swap_chain = swap_chain;
 }
 
-struct SwapChainImages {
-    std::vector<vk::Image> images;
-};
-
-void get_swap_chain_images(
-    Command command,
-    Query<Get<vk::Device>> device_query,
-    Query<Get<vk::SwapchainKHR>> swap_chain_query
-) {
-    if (!device_query.single().has_value()) return;
-    if (!swap_chain_query.single().has_value()) return;
-    auto [device] = device_query.single().value();
-    auto [swap_chain] = swap_chain_query.single().value();
+void get_swap_chain_images(Resource<VKContext> vk_context) {
+    auto &device = vk_context->device;
+    auto &swap_chain = vk_context->swap_chain;
     spdlog::info("get swap chain images");
-    command.spawn(SwapChainImages{device.getSwapchainImagesKHR(swap_chain)});
+    vk_context->swap_chain_images = device.getSwapchainImagesKHR(swap_chain);
 }
 
 struct ImageViews {
     std::vector<vk::ImageView> views;
 };
 
-void create_image_views(
-    Command command,
-    Query<Get<vk::Device>> device_query,
-    Query<Get<SwapChainImages>> images_query,
-    Query<Get<ChosenSwapChainDetails>> swap_chain_query
-) {
-    if (!device_query.single().has_value()) return;
-    if (!images_query.single().has_value()) return;
-    if (!swap_chain_query.single().has_value()) return;
-    auto [device] = device_query.single().value();
-    auto [images] = images_query.single().value();
-    auto [swap_chain] = swap_chain_query.single().value();
+void create_image_views(Resource<VKContext> vk_context) {
+    auto &device = vk_context->device;
+    auto &images = vk_context->swap_chain_images;
+    auto &swap_chain = vk_context->swap_chain_details;
     spdlog::info("create image views");
     std::vector<vk::ImageView> image_views;
-    image_views.reserve(images.images.size());
-    for (auto const &image : images.images) {
+    image_views.reserve(images.size());
+    for (auto const &image : images) {
         vk::ImageViewCreateInfo create_info;
         create_info.image = image;
         create_info.viewType = vk::ImageViewType::e2D;
@@ -544,18 +533,18 @@ void create_image_views(
         };
         image_views.push_back(device.createImageView(create_info));
     }
-    command.spawn(ImageViews{image_views});
+    vk_context->swap_chain_image_views = image_views;
 }
 
+void create_renderer(Command command) { command.spawn(Renderer{}); }
+
 void create_render_pass(
-    Command command,
-    Query<Get<vk::Device>> device_query,
-    Query<Get<ChosenSwapChainDetails>> swap_chain_details_query
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
 ) {
-    if (!device_query.single().has_value()) return;
-    if (!swap_chain_details_query.single().has_value()) return;
-    auto [device] = device_query.single().value();
-    auto [swap_chain_details] = swap_chain_details_query.single().value();
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    auto &swap_chain_details = vk_context->swap_chain_details;
     spdlog::info("create render pass");
     vk::AttachmentDescription color_attachment(
         {}, swap_chain_details.format.format, vk::SampleCountFlagBits::e1,
@@ -580,21 +569,17 @@ void create_render_pass(
     vk::RenderPass render_pass = device.createRenderPass(
         vk::RenderPassCreateInfo({}, color_attachment, subpass, dependency)
     );
-    command.spawn(render_pass);
+    renderer.render_pass = render_pass;
 }
 
 void create_graphics_pipeline(
-    Command command,
-    Query<Get<vk::Device>> device_query,
-    Query<Get<ChosenSwapChainDetails>> swap_details_query,
-    Query<Get<vk::RenderPass>> render_pass_query
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
 ) {
-    if (!device_query.single().has_value()) return;
-    if (!swap_details_query.single().has_value()) return;
-    if (!render_pass_query.single().has_value()) return;
-    auto [device] = device_query.single().value();
-    auto [swap_chain_details] = swap_details_query.single().value();
-    auto [render_pass] = render_pass_query.single().value();
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    auto &swap_chain_details = vk_context->swap_chain_details;
+    auto &render_pass = renderer.render_pass;
     spdlog::info("create graphics pipeline");
     // Create the shader modules and the shader stages
     auto vertex_code = std::vector<uint32_t>(
@@ -661,7 +646,7 @@ void create_graphics_pipeline(
     vk::PipelineLayoutCreateInfo pipeline_layout_create_info;
     vk::PipelineLayout pipeline_layout =
         device.createPipelineLayout(pipeline_layout_create_info);
-    command.spawn(pipeline_layout);
+    renderer.pipeline_layout = pipeline_layout;
 
     // create pipeline
     vk::GraphicsPipelineCreateInfo create_info;
@@ -682,7 +667,7 @@ void create_graphics_pipeline(
         throw std::runtime_error("Failed to create graphics pipeline!");
     }
     auto pipeline = res.value;
-    command.spawn(pipeline);
+    renderer.graphics_pipeline = pipeline;
 
     device.destroyShaderModule(vertex_shader_module);
     device.destroyShaderModule(fragment_shader_module);
@@ -693,24 +678,18 @@ struct Framebuffers {
 };
 
 void create_framebuffer(
-    Command command,
-    Query<Get<vk::Device>> device_query,
-    Query<Get<vk::RenderPass>> render_pass_query,
-    Query<Get<ImageViews>> image_views_query,
-    Query<Get<ChosenSwapChainDetails>> swap_chain_query
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
 ) {
-    if (!device_query.single().has_value()) return;
-    if (!render_pass_query.single().has_value()) return;
-    if (!image_views_query.single().has_value()) return;
-    if (!swap_chain_query.single().has_value()) return;
-    auto [device] = device_query.single().value();
-    auto [render_pass] = render_pass_query.single().value();
-    auto [image_views] = image_views_query.single().value();
-    auto [swap_chain] = swap_chain_query.single().value();
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    auto &render_pass = renderer.render_pass;
+    auto &image_views = vk_context->swap_chain_image_views;
+    auto &swap_chain = vk_context->swap_chain_details;
     spdlog::info("create framebuffer");
     Framebuffers framebuffers;
-    framebuffers.framebuffers.reserve(image_views.views.size());
-    for (auto const &view : image_views.views) {
+    framebuffers.framebuffers.reserve(image_views.size());
+    for (auto const &view : image_views) {
         vk::FramebufferCreateInfo create_info(
             {}, render_pass, view, swap_chain.extent.width,
             swap_chain.extent.height, 1
@@ -718,80 +697,49 @@ void create_framebuffer(
         framebuffers.framebuffers.push_back(device.createFramebuffer(create_info
         ));
     }
-    command.spawn(framebuffers);
+    vk_context->swap_chain_framebuffers = framebuffers.framebuffers;
 }
 
-void create_command_pool(
-    Command command,
-    Query<Get<vk::Device>> device_query,
-    Query<Get<QueueFamilyIndices>> family_query
-) {
-    if (!device_query.single().has_value()) return;
-    if (!family_query.single().has_value()) return;
-    auto [device] = device_query.single().value();
-    auto [queue_family_indices] = family_query.single().value();
+void create_command_pool(Resource<VKContext> vk_context) {
+    auto &device = vk_context->device;
+    auto &queue_family_indices = vk_context->queue_family_indices;
     spdlog::info("create command pool");
     vk::CommandPoolCreateInfo create_info(
         {vk::CommandPoolCreateFlagBits::eResetCommandBuffer},
         queue_family_indices.graphics_family.value()
     );
     vk::CommandPool command_pool = device.createCommandPool(create_info);
-    command.spawn(command_pool);
+    vk_context->command_pool = command_pool;
 }
 
-void create_command_buffer(
-    Command command,
-    Query<Get<vk::Device>> device_query,
-    Query<Get<vk::CommandPool>> command_pool_query
-) {
-    if (!device_query.single().has_value()) return;
-    if (!command_pool_query.single().has_value()) return;
-    auto [device] = device_query.single().value();
-    auto [command_pool] = command_pool_query.single().value();
+static const int MAX_FRAMES_IN_FLIGHT = 2;
+
+void create_command_buffer(Resource<VKContext> vk_context) {
+    auto &device = vk_context->device;
+    auto &command_pool = vk_context->command_pool;
     spdlog::info("create command buffer");
     vk::CommandBufferAllocateInfo allocate_info(
         command_pool, vk::CommandBufferLevel::ePrimary, 1
     );
-    vk::CommandBuffer command_buffer =
-        device.allocateCommandBuffers(allocate_info).front();
-    command.spawn(command_buffer);
+    allocate_info.setCommandBufferCount(MAX_FRAMES_IN_FLIGHT);
+    vk_context->command_buffers = device.allocateCommandBuffers(allocate_info);
 }
 
-struct CurrentFrame {
-    uint32_t value;
-};
-
-struct ImageIndex {
-    uint32_t value;
-};
-
 void record_command_buffer(
-    Query<Get<vk::CommandBuffer>> cmd_query,
-    Query<Get<vk::RenderPass>> render_pass_query,
-    Resource<CurrentFrame> current_frame,
-    Query<Get<ChosenSwapChainDetails>> swap_chain_details_query,
-    Query<Get<Framebuffers>> framebuffers_query,
-    Query<Get<vk::Pipeline>> pipeline_query,
-    Resource<ImageIndex> image_index
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
 ) {
-    if (!cmd_query.single().has_value()) return;
-    if (!render_pass_query.single().has_value()) return;
-    if (!swap_chain_details_query.single().has_value()) return;
-    if (!framebuffers_query.single().has_value()) return;
-    if (!pipeline_query.single().has_value()) return;
-    auto [cmd] = cmd_query.single().value();
-    auto [render_pass] = render_pass_query.single().value();
-    auto [swap_chain_details] = swap_chain_details_query.single().value();
-    auto [framebuffers] = framebuffers_query.single().value();
-    auto [pipeline] = pipeline_query.single().value();
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &cmds = vk_context->command_buffers;
+    auto &render_pass = renderer.render_pass;
+    auto &swap_chain_details = vk_context->swap_chain_details;
+    auto &framebuffers = vk_context->swap_chain_framebuffers;
+    auto &pipeline = renderer.graphics_pipeline;
+    auto &cmd = cmds[vk_context->current_frame];
     // spdlog::info("record command buffer");
     cmd.begin(vk::CommandBufferBeginInfo{});
     vk::ClearValue clear_color(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
-    if (!current_frame.has_value()) {
-        spdlog::error("No current frame!");
-        throw std::runtime_error("No current frame!");
-    }
-    auto &framebuffer = framebuffers.framebuffers[image_index->value];
+    auto &framebuffer = framebuffers[vk_context->image_index];
     vk::RenderPassBeginInfo render_pass_begin_info(
         render_pass, framebuffer, {{0, 0}, swap_chain_details.extent},
         clear_color
@@ -810,271 +758,271 @@ void record_command_buffer(
     cmd.end();
 }
 
-struct SyncObjects {
-    vk::Semaphore image_available_semaphores;
-    vk::Semaphore render_finished_semaphores;
-    vk::Fence in_flight_fences;
-};
-
 void create_sync_object(
-    Command command,
-    Query<Get<vk::Device>> device_query,
-    Query<Get<Framebuffers>> framebuffers_query
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
 ) {
-    if (!device_query.single().has_value()) return;
-    if (!framebuffers_query.single().has_value()) return;
-    auto [device] = device_query.single().value();
-    auto [framebuffers] = framebuffers_query.single().value();
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    auto &framebuffers = vk_context->swap_chain_framebuffers;
     spdlog::info("create sync object");
-    SyncObjects sync_objects;
-    auto &image_available_semaphores = sync_objects.image_available_semaphores;
-    auto &render_finished_semaphores = sync_objects.render_finished_semaphores;
-    auto &in_flight_fences = sync_objects.in_flight_fences;
-    image_available_semaphores = device.createSemaphore({});
-    render_finished_semaphores = device.createSemaphore({});
-    in_flight_fences = device.createFence(
-        vk::FenceCreateInfo{vk::FenceCreateFlagBits::eSignaled}
-    );
-    command.spawn(sync_objects);
+    auto &image_available_semaphores = vk_context->image_available_semaphores;
+    auto &render_finished_semaphores = vk_context->render_finished_semaphores;
+    auto &in_flight_fences = vk_context->in_flight_fences;
+    image_available_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    render_finished_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    in_flight_fences.resize(MAX_FRAMES_IN_FLIGHT);
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        image_available_semaphores[i] = device.createSemaphore({});
+        render_finished_semaphores[i] = device.createSemaphore({});
+        in_flight_fences[i] = device.createFence(
+            vk::FenceCreateInfo{vk::FenceCreateFlagBits::eSignaled}
+        );
+    }
 }
 
-void add_resources(Command command) {
-    command.insert_resource(CurrentFrame{0});
-    command.insert_resource(ImageIndex{0});
+void cleanup_swap_chain(Resource<VKContext> vk_context) {
+    auto &device = vk_context->device;
+    auto &swap_chain = vk_context->swap_chain;
+    auto &image_views = vk_context->swap_chain_image_views;
+    auto &framebuffers = vk_context->swap_chain_framebuffers;
+    spdlog::info("cleanup swap chain");
+    for (auto const &framebuffer : framebuffers) {
+        device.destroyFramebuffer(framebuffer);
+    }
+    for (auto const &image_view : image_views) {
+        device.destroyImageView(image_view);
+    }
+    device.destroySwapchainKHR(swap_chain);
 }
 
-void begin_draw(
-    Query<Get<SyncObjects>> sync_objects_query,
-    Query<Get<vk::Device>> device_query,
-    Query<Get<vk::SwapchainKHR>> swap_chain_query,
-    Resource<CurrentFrame> frame,
-    Query<Get<vk::CommandBuffer>> cmd_query,
-    Resource<ImageIndex> image_index
+void swap_chain_recreate(
+    Resource<VKContext> vk_context,
+    Query<Get<Renderer>> renderer_query,
+    Query<Get<const WindowHandle>, With<PrimaryWindow>> window_query
 ) {
-    if (!sync_objects_query.single().has_value()) return;
-    if (!device_query.single().has_value()) return;
-    if (!swap_chain_query.single().has_value()) return;
-    if (!cmd_query.single().has_value()) return;
-    auto [sync_objects] = sync_objects_query.single().value();
-    auto [device] = device_query.single().value();
-    auto [swap_chain] = swap_chain_query.single().value();
-    auto [cmd] = cmd_query.single().value();
-    spdlog::info("begin draw");
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &swap_chain = vk_context->swap_chain;
+    auto &swap_chain_details = vk_context->swap_chain_details;
+    auto &device = vk_context->device;
+    auto &image_views = vk_context->swap_chain_image_views;
+    auto &framebuffers = vk_context->swap_chain_framebuffers;
+    auto &sync_objects = vk_context->image_available_semaphores;
+    auto &cmd = vk_context->command_buffers[vk_context->current_frame];
+    device.waitIdle();
+    cleanup_swap_chain(vk_context);
+    create_swap_chain(vk_context, window_query);
+    get_swap_chain_images(vk_context);
+    create_image_views(vk_context);
+    create_framebuffer(vk_context, renderer_query);
+}
+
+bool begin_draw(
+    Resource<VKContext> vk_context,
+    Query<Get<Renderer>> renderer_query,
+    Query<Get<const WindowHandle>, With<PrimaryWindow>> window_query
+) {
+    if (!renderer_query.single().has_value()) return false;
+    auto [renderer] = renderer_query.single().value();
+    auto &in_flight_fences = vk_context->in_flight_fences;
+    auto &device = vk_context->device;
+    auto &swap_chain = vk_context->swap_chain;
+    // spdlog::info("begin draw");
     device.waitForFences(
-        sync_objects.in_flight_fences, VK_TRUE,
+        in_flight_fences[vk_context->current_frame], VK_TRUE,
         std::numeric_limits<uint64_t>::max()
     );
-    device.resetFences(sync_objects.in_flight_fences);
-    image_index->value =
-        device
-            .acquireNextImageKHR(
-                swap_chain, std::numeric_limits<uint64_t>::max(),
-                sync_objects.image_available_semaphores, vk::Fence{}
-            )
-            .value;
-    cmd.reset(vk::CommandBufferResetFlagBits{});
+    auto res = device.acquireNextImageKHR(
+        swap_chain, std::numeric_limits<uint64_t>::max(),
+        vk_context->image_available_semaphores[vk_context->current_frame],
+        nullptr
+    );
+    if (res.result == vk::Result::eErrorOutOfDateKHR) {
+        spdlog::info("swap chain out of date");
+        swap_chain_recreate(vk_context, renderer_query, window_query);
+        return false;
+    } else if (res.result != vk::Result::eSuccess &&
+               res.result != vk::Result::eSuboptimalKHR) {
+        spdlog::error("Failed to acquire swap chain image!");
+        throw std::runtime_error("Failed to acquire swap chain image!");
+    }
+    device.resetFences(in_flight_fences[vk_context->current_frame]);
+    vk_context->image_index = res.value;
+    auto &cmd = vk_context->command_buffers[vk_context->current_frame];
+    cmd.reset(vk::CommandBufferResetFlagBits::eReleaseResources);
+    return true;
 }
 
 void end_draw(
-    Query<Get<SyncObjects>> sync_objects_query,
-    Query<Get<vk::Device>> device_query,
-    Query<Get<vk::SwapchainKHR>> swap_chain_query,
-    Resource<CurrentFrame> frame,
-    Query<Get<vk::CommandBuffer>> cmd_query,
-    Query<Get<Queues>> queue_query,
-    Resource<ImageIndex> image_index_res
+    Resource<VKContext> vk_context,
+    Query<Get<Renderer>> renderer_query,
+    Query<Get<const WindowHandle>, With<PrimaryWindow>> window_query
 ) {
-    if (!sync_objects_query.single().has_value()) return;
-    if (!device_query.single().has_value()) return;
-    if (!swap_chain_query.single().has_value()) return;
-    if (!cmd_query.single().has_value()) return;
-    if (!queue_query.single().has_value()) return;
-    auto [sync_objects] = sync_objects_query.single().value();
-    auto [device] = device_query.single().value();
-    auto [swap_chain] = swap_chain_query.single().value();
-    auto [cmd] = cmd_query.single().value();
-    auto [queues] = queue_query.single().value();
-    spdlog::info("end draw");
-    auto image_index = image_index_res->value;
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    auto &swap_chain = vk_context->swap_chain;
+    auto &cmds = vk_context->command_buffers;
+    auto &queues = vk_context->queues;
+    auto &cmd = cmds[vk_context->current_frame];
+    // spdlog::info("end draw");
+    auto image_index = vk_context->image_index;
     vk::SubmitInfo submit_info;
     vk::PipelineStageFlags wait_stages[] = {
         vk::PipelineStageFlagBits::eColorAttachmentOutput
     };
-    submit_info.waitSemaphoreCount = 1;
-    submit_info.pWaitSemaphores = &sync_objects.image_available_semaphores;
-    submit_info.pWaitDstStageMask = wait_stages;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &cmd;
-    submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores = &sync_objects.render_finished_semaphores;
+    submit_info.setWaitSemaphores(
+        vk_context->image_available_semaphores[vk_context->current_frame]
+    );
+    submit_info.setWaitDstStageMask(wait_stages);
+    submit_info.setCommandBuffers(cmd);
+    submit_info.setSignalSemaphores(
+        vk_context->render_finished_semaphores[vk_context->current_frame]
+    );
     auto &graphics_queue = queues.graphics_queue;
     auto &present_queue = queues.present_queue;
-    graphics_queue.submit(submit_info, sync_objects.in_flight_fences);
+    graphics_queue.submit(
+        submit_info, vk_context->in_flight_fences[vk_context->current_frame]
+    );
     vk::PresentInfoKHR present_info;
-    present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = &sync_objects.render_finished_semaphores;
-    present_info.swapchainCount = 1;
-    present_info.pSwapchains = &swap_chain;
-    present_info.pImageIndices = &image_index;
-    present_queue.presentKHR(present_info);
+    present_info.setWaitSemaphores(
+        vk_context->render_finished_semaphores[vk_context->current_frame]
+    );
+    present_info.setSwapchains(swap_chain);
+    present_info.setImageIndices(image_index);
+    auto res = present_queue.presentKHR(present_info);
+    if (res == vk::Result::eErrorOutOfDateKHR ||
+        res == vk::Result::eSuboptimalKHR) {
+        spdlog::info("swap chain out of date");
+        swap_chain_recreate(vk_context, renderer_query, window_query);
+    } else if (res != vk::Result::eSuccess) {
+        spdlog::error("Failed to present swap chain image!");
+        throw std::runtime_error("Failed to present swap chain image!");
+    }
+    vk_context->current_frame =
+        (vk_context->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void destroy_sync_objects(
-    Query<Get<Entity, SyncObjects>> query,
-    Command command,
-    Query<Get<vk::Device>> device_query
+void draw_frame(
+    Resource<VKContext> vk_context,
+    Query<Get<Renderer>> renderer_query,
+    Query<Get<const WindowHandle>, With<PrimaryWindow>> window_query
 ) {
-    if (!query.single().has_value()) return;
-    if (!device_query.single().has_value()) return;
-    auto [id, sync_objects] = query.single().value();
-    auto [device] = device_query.single().value();
-    device.destroySemaphore(sync_objects.image_available_semaphores);
-    device.destroySemaphore(sync_objects.render_finished_semaphores);
-    device.destroyFence(sync_objects.in_flight_fences);
-    command.entity(id).despawn();
+    if (!begin_draw(vk_context, renderer_query, window_query)) {
+        return;
+    }
+    record_command_buffer(vk_context, renderer_query);
+    end_draw(vk_context, renderer_query, window_query);
+}
+
+void destroy_sync_objects(Resource<VKContext> vk_context) {
+    auto &device = vk_context->device;
+    for (auto const &semaphore : vk_context->image_available_semaphores) {
+        device.destroySemaphore(semaphore);
+    }
+    for (auto const &fence : vk_context->in_flight_fences) {
+        device.destroyFence(fence);
+    }
+    for (auto const &semaphore : vk_context->render_finished_semaphores) {
+        device.destroySemaphore(semaphore);
+    }
 }
 
 void destroy_command_buffer(
-    Query<Get<Entity, vk::CommandBuffer>> query,
-    Command command,
-    Query<Get<vk::Device>> device_query,
-    Query<Get<vk::CommandPool>> pool_query
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
 ) {
-    if (!query.single().has_value()) return;
-    if (!device_query.single().has_value()) return;
-    if (!pool_query.single().has_value()) return;
-    auto [id, command_buffer] = query.single().value();
-    auto [device] = device_query.single().value();
-    auto [command_pool] = pool_query.single().value();
-    device.freeCommandBuffers(command_pool, command_buffer);
-    command.entity(id).despawn();
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    auto &command_pool = vk_context->command_pool;
+    auto &command_buffers = vk_context->command_buffers;
+    spdlog::info("destroy command buffer");
+    device.freeCommandBuffers(command_pool, command_buffers);
 }
 
 void destroy_command_pool(
-    Query<Get<Entity, vk::CommandPool>> query,
-    Command command,
-    Query<Get<vk::Device>> device_query
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
 ) {
-    if (!query.single().has_value()) return;
-    if (!device_query.single().has_value()) return;
-    auto [id, command_pool] = query.single().value();
-    auto [device] = device_query.single().value();
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    auto &command_pool = vk_context->command_pool;
+    spdlog::info("destroy command pool");
     device.destroyCommandPool(command_pool);
-    command.entity(id).despawn();
 }
 
-void destroy_framebuffers(
-    Query<Get<Entity, Framebuffers>> query,
-    Command command,
-    Query<Get<vk::Device>> device_query
-) {
-    if (!query.single().has_value()) return;
-    if (!device_query.single().has_value()) return;
-    auto [id, framebuffers] = query.single().value();
-    auto [device] = device_query.single().value();
-    for (auto const &framebuffer : framebuffers.framebuffers) {
+void destroy_framebuffers(Resource<VKContext> vk_context) {
+    auto &device = vk_context->device;
+    auto &framebuffers = vk_context->swap_chain_framebuffers;
+    spdlog::info("destroy framebuffers");
+    for (auto const &framebuffer : framebuffers) {
         device.destroyFramebuffer(framebuffer);
     }
-    command.entity(id).despawn();
 }
 
 void destroy_pipeline(
-    Query<Get<Entity, vk::Pipeline>> query,
-    Command command,
-    Query<Get<vk::Device>> device_query
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
 ) {
-    if (!query.single().has_value()) return;
-    if (!device_query.single().has_value()) return;
-    auto [id, pipeline] = query.single().value();
-    auto [device] = device_query.single().value();
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    auto &pipeline = renderer.graphics_pipeline;
+    auto &pipeline_layout = renderer.pipeline_layout;
+    spdlog::info("destroy pipeline");
     device.destroyPipeline(pipeline);
-    command.entity(id).despawn();
-}
-
-void destroy_pipeline_layout(
-    Query<Get<Entity, vk::PipelineLayout>> query,
-    Command command,
-    Query<Get<vk::Device>> device_query
-) {
-    if (!query.single().has_value()) return;
-    if (!device_query.single().has_value()) return;
-    auto [id, pipeline_layout] = query.single().value();
-    auto [device] = device_query.single().value();
     device.destroyPipelineLayout(pipeline_layout);
-    command.entity(id).despawn();
 }
 
 void destroy_render_pass(
-    Query<Get<Entity, vk::RenderPass>> query,
-    Command command,
-    Query<Get<vk::Device>> device_query
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
 ) {
-    if (!query.single().has_value()) return;
-    if (!device_query.single().has_value()) return;
-    auto [id, render_pass] = query.single().value();
-    auto [device] = device_query.single().value();
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    auto &render_pass = renderer.render_pass;
+    spdlog::info("destroy render pass");
     device.destroyRenderPass(render_pass);
-    command.entity(id).despawn();
 }
 
-void destroy_image_views(
-    Query<Get<Entity, ImageViews>> query,
-    Query<Get<vk::Device>> device_query,
-    Command command
-) {
-    if (!query.single().has_value()) return;
-    if (!device_query.single().has_value()) return;
-    auto [id, image_views] = query.single().value();
-    auto [device] = device_query.single().value();
-    for (auto const &view : image_views.views) {
+void destroy_image_views(Resource<VKContext> vk_context) {
+    auto &device = vk_context->device;
+    auto &image_views = vk_context->swap_chain_image_views;
+    spdlog::info("destroy image views");
+    for (auto const &view : image_views) {
         device.destroyImageView(view);
     }
-    command.entity(id).despawn();
 }
 
-void destroy_swap_chain(
-    Query<Get<Entity, vk::SwapchainKHR>> query,
-    Query<Get<vk::Device>> device_query,
-    Command command
-) {
-    if (!query.single().has_value()) return;
-    if (!device_query.single().has_value()) return;
-    auto [id, swap_chain] = query.single().value();
-    auto [device] = device_query.single().value();
+void destroy_swap_chain(Resource<VKContext> vk_context) {
+    auto &device = vk_context->device;
+    auto &swap_chain = vk_context->swap_chain;
+    spdlog::info("destroy swap chain");
     device.destroySwapchainKHR(swap_chain);
-    command.entity(id).despawn();
 }
 
-void destroy_surface(
-    Query<Get<Entity, vk::SurfaceKHR>> query,
-    Command command,
-    Query<Get<vk::Instance>> instance_query
-) {
-    if (!query.single().has_value()) return;
-    if (!instance_query.single().has_value()) return;
-    auto [id, surface] = query.single().value();
-    auto [instance] = instance_query.single().value();
+void destroy_surface(Resource<VKContext> vk_context) {
+    auto &instance = vk_context->instance;
+    auto &surface = vk_context->surface;
+    spdlog::info("destroy surface");
     instance.destroySurfaceKHR(surface);
-    command.entity(id).despawn();
 }
 
-void destroy_device(Query<Get<Entity, vk::Device>> query, Command command) {
-    if (!query.single().has_value()) return;
-    auto [id, device] = query.single().value();
+void destroy_device(Resource<VKContext> vk_context) {
+    auto &device = vk_context->device;
+    spdlog::info("destroy device");
     device.destroy();
-    command.entity(id).despawn();
 }
 
-void destroy_instance(Query<Get<Entity, vk::Instance>> query, Command command) {
-    if (!query.single().has_value()) return;
-    auto [id, instance] = query.single().value();
+void destroy_instance(Resource<VKContext> vk_context) {
+    auto &instance = vk_context->instance;
+    spdlog::info("destroy instance");
     instance.destroy();
-    command.entity(id).despawn();
 }
 
-void wait_for_device(Query<Get<vk::Device>> query) {
-    if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+void wait_for_device(Resource<VKContext> vk_context) {
+    auto &device = vk_context->device;
+    spdlog::info("wait for device");
     device.waitIdle();
 }
 
@@ -1086,7 +1034,8 @@ struct VK_TrialPlugin : Plugin {
 
         app.enable_loop();
         app.add_system(Startup(), init_instance).use_worker("single");
-        app.add_system(PreStartup(), add_resources).use_worker("single");
+        app.add_system(PreStartup(), insert_vk_context).use_worker("single");
+        app.add_system(PreStartup(), create_renderer).use_worker("single");
         app.add_system(Startup(), get_physical_device, after(init_instance))
             .use_worker("single");
         app.add_system(
@@ -1133,11 +1082,7 @@ struct VK_TrialPlugin : Plugin {
                Startup(), create_sync_object, after(create_command_buffer)
         )
             .use_worker("single");
-        app.add_system(Render(), begin_draw).use_worker("single");
-        app.add_system(Render(), record_command_buffer, after(begin_draw))
-            .use_worker("single");
-        app.add_system(Render(), end_draw, after(record_command_buffer))
-            .use_worker("single");
+        app.add_system(Render(), draw_frame).use_worker("single");
         app.add_system(Shutdown(), wait_for_device).use_worker("single");
         app.add_system(Shutdown(), destroy_instance).use_worker("single");
         app.add_system(
@@ -1157,11 +1102,6 @@ struct VK_TrialPlugin : Plugin {
             .use_worker("single");
         app.add_system(
                Shutdown(), destroy_image_views, before(destroy_device),
-               after(wait_for_device)
-        )
-            .use_worker("single");
-        app.add_system(
-               Shutdown(), destroy_pipeline_layout, before(destroy_device),
                after(wait_for_device)
         )
             .use_worker("single");
