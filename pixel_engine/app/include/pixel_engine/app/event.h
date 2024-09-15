@@ -73,6 +73,8 @@ struct EventReader {
     event_iter read() { return event_iter(m_events, m_events->begin()); }
 
     bool empty() { return m_events->empty(); }
+
+    void clear() { m_events->clear(); }
 };
 }  // namespace app
 }  // namespace pixel_engine
