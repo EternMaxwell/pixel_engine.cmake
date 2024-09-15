@@ -812,6 +812,7 @@ void swap_chain_recreate(
     auto &cmd = vk_context->command_buffers[vk_context->current_frame];
     device.waitIdle();
     cleanup_swap_chain(vk_context);
+    query_swap_chain_support(vk_context);
     create_swap_chain(vk_context, window_query);
     get_swap_chain_images(vk_context);
     create_image_views(vk_context);
@@ -833,25 +834,22 @@ bool begin_draw(
         in_flight_fences[vk_context->current_frame], VK_TRUE,
         std::numeric_limits<uint64_t>::max()
     );
-    auto res = device.acquireNextImageKHR(
-        swap_chain, std::numeric_limits<uint64_t>::max(),
-        vk_context->image_available_semaphores[vk_context->current_frame],
-        nullptr
-    );
-    if (res.result == vk::Result::eErrorOutOfDateKHR) {
-        spdlog::info("swap chain out of date");
+    try {
+        auto res = device.acquireNextImageKHR(
+            swap_chain, std::numeric_limits<uint64_t>::max(),
+            vk_context->image_available_semaphores[vk_context->current_frame],
+            nullptr
+        );
+        device.resetFences(in_flight_fences[vk_context->current_frame]);
+        vk_context->image_index = res.value;
+        auto &cmd = vk_context->command_buffers[vk_context->current_frame];
+        cmd.reset(vk::CommandBufferResetFlagBits::eReleaseResources);
+        return true;
+    } catch (vk::OutOfDateKHRError const &e) {
+        spdlog::info("swap chain out of date : {}", e.what());
         swap_chain_recreate(vk_context, renderer_query, window_query);
         return false;
-    } else if (res.result != vk::Result::eSuccess &&
-               res.result != vk::Result::eSuboptimalKHR) {
-        spdlog::error("Failed to acquire swap chain image!");
-        throw std::runtime_error("Failed to acquire swap chain image!");
     }
-    device.resetFences(in_flight_fences[vk_context->current_frame]);
-    vk_context->image_index = res.value;
-    auto &cmd = vk_context->command_buffers[vk_context->current_frame];
-    cmd.reset(vk::CommandBufferResetFlagBits::eReleaseResources);
-    return true;
 }
 
 void end_draw(
@@ -891,14 +889,11 @@ void end_draw(
     );
     present_info.setSwapchains(swap_chain);
     present_info.setImageIndices(image_index);
-    auto res = present_queue.presentKHR(present_info);
-    if (res == vk::Result::eErrorOutOfDateKHR ||
-        res == vk::Result::eSuboptimalKHR) {
-        spdlog::info("swap chain out of date");
+    try {
+        auto res = present_queue.presentKHR(present_info);
+    } catch (vk::OutOfDateKHRError const &e) {
+        spdlog::info("swap chain out of date : {}", e.what());
         swap_chain_recreate(vk_context, renderer_query, window_query);
-    } else if (res != vk::Result::eSuccess) {
-        spdlog::error("Failed to present swap chain image!");
-        throw std::runtime_error("Failed to present swap chain image!");
     }
     vk_context->current_frame =
         (vk_context->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
