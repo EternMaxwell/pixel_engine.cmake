@@ -22,3 +22,7 @@
 	path = libs/freetype
 	url = https://github.com/freetype/freetype.git
 	branch = VER-2-13-3
+[submodule "libs/vma"]
+	path = libs/vma
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+	branch = v3.1.0
