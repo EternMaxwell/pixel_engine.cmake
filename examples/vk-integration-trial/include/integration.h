@@ -6,6 +6,10 @@
 
 #include <vulkan/vulkan.hpp>
 
+#define VMA_IMPLEMENTATION
+#define VMA_VULKAN_VERSION 1002000
+#include <vk_mem_alloc.h>
+
 #include "fragment_shader.h"
 #include "vertex_shader.h"
 
@@ -236,6 +240,7 @@ struct VKContext {
     QueueFamilyIndices queue_family_indices;
     Queues queues;
     vk::Device device;
+    VmaAllocator allocator;
     vk::SurfaceKHR surface;
     SwapChainSupportDetails swap_chain_support;
     ChosenSwapChainDetails swap_chain_details;
@@ -256,6 +261,37 @@ struct Renderer {
     vk::RenderPass render_pass;
     vk::Pipeline graphics_pipeline;
     vk::PipelineLayout pipeline_layout;
+    vk::Buffer vertex_buffer;
+    VmaAllocation vertex_buffer_allocation;
+};
+
+struct Vertex {
+    glm::vec2 pos;
+    glm::vec3 color;
+
+    static vk::VertexInputBindingDescription getBindingDescription() {
+        return vk::VertexInputBindingDescription(
+            0, sizeof(Vertex), vk::VertexInputRate::eVertex
+        );
+    }
+
+    static std::array<vk::VertexInputAttributeDescription, 2>
+    getAttributeDescriptions() {
+        return {
+            vk::VertexInputAttributeDescription(
+                0, 0, vk::Format::eR32G32Sfloat, offsetof(Vertex, pos)
+            ),
+            vk::VertexInputAttributeDescription(
+                1, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, color)
+            )
+        };
+    }
+};
+
+const std::vector<Vertex> vertices = {
+    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
 };
 
 void insert_vk_context(Command command) { command.init_resource<VKContext>(); }
@@ -353,6 +389,69 @@ void create_device(Resource<VKContext> vk_context) {
     vk::Queue present_queue =
         device.getQueue(queue_family_indices.present_family.value(), 0);
     vk_context->queues = Queues{graphics_queue, present_queue};
+}
+
+void create_vma_allocator(Resource<VKContext> vk_context) {
+    auto &device = vk_context->device;
+    VmaAllocatorCreateInfo allocator_info = {};
+    allocator_info.physicalDevice = vk_context->physical_device;
+    allocator_info.device = device;
+    allocator_info.instance = vk_context->instance;
+    VmaAllocator allocator;
+    if (vmaCreateAllocator(&allocator_info, &allocator) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create VMA allocator!");
+    }
+    vk_context->allocator = allocator;
+}
+
+void destroy_vma_allocator(Resource<VKContext> vk_context) {
+    spdlog::info("destroy vma allocator");
+    auto &allocator = vk_context->allocator;
+    vmaDestroyAllocator(allocator);
+}
+
+void create_vertex_buffer(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &allocator = vk_context->allocator;
+    auto &device = vk_context->device;
+    auto &vertices = vk_trial::vertices;
+    spdlog::info("create vertex buffer");
+    vk::BufferCreateInfo buffer_create_info(
+        {}, vertices.size() * sizeof(Vertex),
+        vk::BufferUsageFlagBits::eVertexBuffer, vk::SharingMode::eExclusive
+    );
+    VmaAllocationCreateInfo alloc_info = {};
+    alloc_info.usage = VMA_MEMORY_USAGE_AUTO;
+    alloc_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+    vk::Buffer buffer;
+    VmaAllocation allocation;
+    if (vmaCreateBuffer(
+            allocator, (VkBufferCreateInfo *)&buffer_create_info, &alloc_info,
+            (VkBuffer *)&buffer, &allocation, nullptr
+        ) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create vertex buffer!");
+    }
+    void *data;
+    vmaMapMemory(allocator, allocation, &data);
+    memcpy(data, vertices.data(), vertices.size() * sizeof(Vertex));
+    vmaUnmapMemory(allocator, allocation);
+    renderer.vertex_buffer = buffer;
+    renderer.vertex_buffer_allocation = allocation;
+}
+
+void free_vertex_buffer(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &allocator = vk_context->allocator;
+    spdlog::info("free vertex buffer");
+    vmaDestroyBuffer(
+        allocator, renderer.vertex_buffer, renderer.vertex_buffer_allocation
+    );
 }
 
 void create_window_surface(
@@ -606,6 +705,12 @@ void create_graphics_pipeline(
     );
     // create vertex input
     vk::PipelineVertexInputStateCreateInfo vertex_input_create_info({}, {}, {});
+    auto attribute_descriptions = Vertex::getAttributeDescriptions();
+    auto binding_description = Vertex::getBindingDescription();
+    vertex_input_create_info.setVertexAttributeDescriptions(
+        attribute_descriptions
+    );
+    vertex_input_create_info.setVertexBindingDescriptions(binding_description);
     // create input assembly
     vk::PipelineInputAssemblyStateCreateInfo input_assembly_create_info(
         {}, vk::PrimitiveTopology::eTriangleList, VK_FALSE
@@ -753,6 +858,7 @@ void record_command_buffer(
     vk::Rect2D scissor({0, 0}, swap_chain_details.extent);
     cmd.setViewport(0, viewport);
     cmd.setScissor(0, scissor);
+    cmd.bindVertexBuffers(0, renderer.vertex_buffer, {0});
     cmd.draw(3, 1, 0, 0);
     cmd.endRenderPass();
     cmd.end();
@@ -1039,6 +1145,13 @@ struct VK_TrialPlugin : Plugin {
             .use_worker("single");
         app.add_system(Startup(), create_device, after(create_window_surface))
             .use_worker("single");
+        app.add_system(Startup(), create_vma_allocator, after(create_device))
+            .before(create_swap_chain)
+            .use_worker("single");
+        app.add_system(
+               Startup(), create_vertex_buffer, after(create_vma_allocator)
+        )
+            .use_worker("single");
         app.add_system(
                Startup(), query_swap_chain_support, after(create_device)
         )
@@ -1087,6 +1200,16 @@ struct VK_TrialPlugin : Plugin {
             .use_worker("single");
         app.add_system(
                Shutdown(), destroy_surface, before(destroy_instance),
+               after(wait_for_device)
+        )
+            .use_worker("single");
+        app.add_system(
+               Shutdown(), destroy_vma_allocator, before(destroy_device),
+               after(wait_for_device)
+        )
+            .use_worker("single");
+        app.add_system(
+               Shutdown(), free_vertex_buffer, before(destroy_vma_allocator),
                after(wait_for_device)
         )
             .use_worker("single");
