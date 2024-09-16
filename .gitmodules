@@ -1,18 +1,24 @@
 ﻿[submodule "libs/entt"]
 	path = libs/entt
 	url = https://github.com/skypjack/entt.git
+	branch = v3.13.2
 [submodule "libs/glfw"]
 	path = libs/glfw
 	url = https://github.com/glfw/glfw.git
+	branch = 3.4
 [submodule "libs/spdlog"]
 	path = libs/spdlog
 	url = https://github.com/gabime/spdlog.git
+	branch = v1.14.1
 [submodule "libs/fmt"]
 	path = libs/fmt
 	url = https://github.com/fmtlib/fmt.git
+	branch = 11.0.2
 [submodule "libs/pfr"]
 	path = libs/pfr
 	url = https://github.com/apolukhin/pfr_non_boost.git
+	branch = 2.2.0
 [submodule "libs/freetype"]
 	path = libs/freetype
-	url = https://github.com/freetype/freetype2.git
+	url = https://github.com/freetype/freetype.git
+	branch = VER-2-13-3
