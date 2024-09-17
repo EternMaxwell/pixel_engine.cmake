@@ -263,6 +263,8 @@ struct Renderer {
     vk::PipelineLayout pipeline_layout;
     vk::Buffer vertex_buffer;
     VmaAllocation vertex_buffer_allocation;
+    vk::Buffer index_buffer;
+    VmaAllocation index_buffer_allocation;
 };
 
 struct Vertex {
@@ -289,10 +291,13 @@ struct Vertex {
 };
 
 const std::vector<Vertex> vertices = {
-    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
 };
+
+const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
 void insert_vk_context(Command command) { command.init_resource<VKContext>(); }
 
@@ -421,11 +426,12 @@ void create_vertex_buffer(
     spdlog::info("create vertex buffer");
     vk::BufferCreateInfo buffer_create_info(
         {}, vertices.size() * sizeof(Vertex),
-        vk::BufferUsageFlagBits::eVertexBuffer, vk::SharingMode::eExclusive
+        vk::BufferUsageFlagBits::eVertexBuffer |
+            vk::BufferUsageFlagBits::eTransferDst,
+        vk::SharingMode::eExclusive
     );
     VmaAllocationCreateInfo alloc_info = {};
-    alloc_info.usage = VMA_MEMORY_USAGE_AUTO;
-    alloc_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+    alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     vk::Buffer buffer;
     VmaAllocation allocation;
     if (vmaCreateBuffer(
@@ -434,10 +440,45 @@ void create_vertex_buffer(
         ) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create vertex buffer!");
     }
+
+    vk::BufferCreateInfo staging_buffer_create_info(
+        {}, vertices.size() * sizeof(Vertex),
+        vk::BufferUsageFlagBits::eTransferSrc, vk::SharingMode::eExclusive
+    );
+    VmaAllocationCreateInfo staging_alloc_info = {};
+    staging_alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+    staging_alloc_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+    vk::Buffer staging_buffer;
+    VmaAllocation staging_allocation;
+    if (vmaCreateBuffer(
+            allocator, (VkBufferCreateInfo *)&staging_buffer_create_info,
+            &staging_alloc_info, (VkBuffer *)&staging_buffer,
+            &staging_allocation, nullptr
+        ) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create staging buffer!");
+    }
+
     void *data;
-    vmaMapMemory(allocator, allocation, &data);
+    vmaMapMemory(allocator, staging_allocation, &data);
     memcpy(data, vertices.data(), vertices.size() * sizeof(Vertex));
-    vmaUnmapMemory(allocator, allocation);
+    vmaUnmapMemory(allocator, staging_allocation);
+
+    vk::CommandBufferAllocateInfo allocate_info(
+        vk_context->command_pool, vk::CommandBufferLevel::ePrimary, 1
+    );
+    vk::CommandBuffer command_buffer =
+        device.allocateCommandBuffers(allocate_info).front();
+    command_buffer.begin(vk::CommandBufferBeginInfo{});
+    vk::BufferCopy copy_region(0, 0, vertices.size() * sizeof(Vertex));
+    command_buffer.copyBuffer(staging_buffer, buffer, copy_region);
+    command_buffer.end();
+    vk::SubmitInfo submit_info;
+    submit_info.setCommandBuffers(command_buffer);
+    vk_context->queues.graphics_queue.submit(submit_info, nullptr);
+    vk_context->queues.graphics_queue.waitIdle();
+    device.freeCommandBuffers(vk_context->command_pool, command_buffer);
+    vmaDestroyBuffer(allocator, staging_buffer, staging_allocation);
+
     renderer.vertex_buffer = buffer;
     renderer.vertex_buffer_allocation = allocation;
 }
@@ -451,6 +492,86 @@ void free_vertex_buffer(
     spdlog::info("free vertex buffer");
     vmaDestroyBuffer(
         allocator, renderer.vertex_buffer, renderer.vertex_buffer_allocation
+    );
+}
+
+void create_index_buffer(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &allocator = vk_context->allocator;
+    auto &device = vk_context->device;
+    auto &indices = vk_trial::indices;
+    spdlog::info("create index buffer");
+    vk::BufferCreateInfo buffer_create_info(
+        {}, indices.size() * sizeof(uint16_t),
+        vk::BufferUsageFlagBits::eIndexBuffer |
+            vk::BufferUsageFlagBits::eTransferDst,
+        vk::SharingMode::eExclusive
+    );
+    VmaAllocationCreateInfo alloc_info = {};
+    alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+    vk::Buffer buffer;
+    VmaAllocation allocation;
+    if (vmaCreateBuffer(
+            allocator, (VkBufferCreateInfo *)&buffer_create_info, &alloc_info,
+            (VkBuffer *)&buffer, &allocation, nullptr
+        ) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create index buffer!");
+    }
+
+    vk::BufferCreateInfo staging_buffer_create_info(
+        {}, indices.size() * sizeof(uint16_t),
+        vk::BufferUsageFlagBits::eTransferSrc, vk::SharingMode::eExclusive
+    );
+    VmaAllocationCreateInfo staging_alloc_info = {};
+    staging_alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+    staging_alloc_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+    vk::Buffer staging_buffer;
+    VmaAllocation staging_allocation;
+    if (vmaCreateBuffer(
+            allocator, (VkBufferCreateInfo *)&staging_buffer_create_info,
+            &staging_alloc_info, (VkBuffer *)&staging_buffer,
+            &staging_allocation, nullptr
+        ) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create staging buffer!");
+    }
+
+    void *data;
+    vmaMapMemory(allocator, staging_allocation, &data);
+    memcpy(data, indices.data(), indices.size() * sizeof(uint16_t));
+    vmaUnmapMemory(allocator, staging_allocation);
+
+    vk::CommandBufferAllocateInfo allocate_info(
+        vk_context->command_pool, vk::CommandBufferLevel::ePrimary, 1
+    );
+    vk::CommandBuffer command_buffer =
+        device.allocateCommandBuffers(allocate_info).front();
+    command_buffer.begin(vk::CommandBufferBeginInfo{});
+    vk::BufferCopy copy_region(0, 0, indices.size() * sizeof(uint16_t));
+    command_buffer.copyBuffer(staging_buffer, buffer, copy_region);
+    command_buffer.end();
+    vk::SubmitInfo submit_info;
+    submit_info.setCommandBuffers(command_buffer);
+    vk_context->queues.graphics_queue.submit(submit_info, nullptr);
+    vk_context->queues.graphics_queue.waitIdle();
+    device.freeCommandBuffers(vk_context->command_pool, command_buffer);
+    vmaDestroyBuffer(allocator, staging_buffer, staging_allocation);
+
+    renderer.index_buffer = buffer;
+    renderer.index_buffer_allocation = allocation;
+}
+
+void free_index_buffer(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &allocator = vk_context->allocator;
+    spdlog::info("free index buffer");
+    vmaDestroyBuffer(
+        allocator, renderer.index_buffer, renderer.index_buffer_allocation
     );
 }
 
@@ -859,7 +980,8 @@ void record_command_buffer(
     cmd.setViewport(0, viewport);
     cmd.setScissor(0, scissor);
     cmd.bindVertexBuffers(0, renderer.vertex_buffer, {0});
-    cmd.draw(3, 1, 0, 0);
+    cmd.bindIndexBuffer(renderer.index_buffer, 0, vk::IndexType::eUint16);
+    cmd.drawIndexed(indices.size(), 1, 0, 0, 0);
     cmd.endRenderPass();
     cmd.end();
 }
@@ -1149,7 +1271,13 @@ struct VK_TrialPlugin : Plugin {
             .before(create_swap_chain)
             .use_worker("single");
         app.add_system(
-               Startup(), create_vertex_buffer, after(create_vma_allocator)
+               Startup(), create_vertex_buffer,
+               after(create_vma_allocator, create_command_pool)
+        )
+            .use_worker("single");
+        app.add_system(
+               Startup(), create_index_buffer,
+               after(create_vma_allocator, create_command_pool)
         )
             .use_worker("single");
         app.add_system(
@@ -1210,6 +1338,11 @@ struct VK_TrialPlugin : Plugin {
             .use_worker("single");
         app.add_system(
                Shutdown(), free_vertex_buffer, before(destroy_vma_allocator),
+               after(wait_for_device)
+        )
+            .use_worker("single");
+        app.add_system(
+               Shutdown(), free_index_buffer, before(destroy_vma_allocator),
                after(wait_for_device)
         )
             .use_worker("single");
