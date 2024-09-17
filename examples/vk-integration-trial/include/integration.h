@@ -265,6 +265,13 @@ struct Renderer {
     VmaAllocation vertex_buffer_allocation;
     vk::Buffer index_buffer;
     VmaAllocation index_buffer_allocation;
+    vk::DescriptorSetLayout descriptor_set_layout;
+    vk::DescriptorPool descriptor_pool;
+
+    std::vector<vk::DescriptorSet> descriptor_sets;
+    std::vector<vk::Buffer> uniform_buffers;
+    std::vector<VmaAllocation> uniform_buffer_allocations;
+    std::vector<void *> uniform_buffer_data;
 };
 
 struct Vertex {
@@ -289,6 +296,21 @@ struct Vertex {
         };
     }
 };
+
+struct UniformBufferObject {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+
+    static vk::DescriptorSetLayoutBinding getDescriptorSetLayoutBinding() {
+        return vk::DescriptorSetLayoutBinding(
+            0, vk::DescriptorType::eUniformBuffer, 1,
+            vk::ShaderStageFlagBits::eVertex
+        );
+    }
+};
+
+static const int MAX_FRAMES_IN_FLIGHT = 2;
 
 const std::vector<Vertex> vertices = {
     {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
@@ -575,6 +597,171 @@ void free_index_buffer(
     );
 }
 
+void create_descriptor_set_layout(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    spdlog::info("create descriptor set layout");
+    vk::DescriptorSetLayoutBinding ubo_layout_binding =
+        UniformBufferObject::getDescriptorSetLayoutBinding();
+    vk::DescriptorSetLayoutCreateInfo layout_info;
+    layout_info.setBindings(ubo_layout_binding);
+    vk::DescriptorSetLayout descriptor_set_layout =
+        device.createDescriptorSetLayout(layout_info);
+    renderer.descriptor_set_layout = descriptor_set_layout;
+}
+
+void destroy_descriptor_set_layout(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    spdlog::info("destroy descriptor set layout");
+    device.destroyDescriptorSetLayout(renderer.descriptor_set_layout);
+}
+
+void create_uniform_buffers(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &allocator = vk_context->allocator;
+    auto &device = vk_context->device;
+    spdlog::info("create uniform buffers");
+    size_t buffer_size = sizeof(UniformBufferObject);
+    renderer.uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
+    renderer.uniform_buffer_allocations.resize(MAX_FRAMES_IN_FLIGHT);
+    renderer.uniform_buffer_data.resize(MAX_FRAMES_IN_FLIGHT);
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vk::BufferCreateInfo buffer_create_info(
+            {}, buffer_size, vk::BufferUsageFlagBits::eUniformBuffer,
+            vk::SharingMode::eExclusive
+        );
+        VmaAllocationCreateInfo alloc_info = {};
+        alloc_info.usage = VMA_MEMORY_USAGE_AUTO;
+        alloc_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+        vk::Buffer buffer;
+        VmaAllocation allocation;
+        if (vmaCreateBuffer(
+                allocator, (VkBufferCreateInfo *)&buffer_create_info,
+                &alloc_info, (VkBuffer *)&buffer, &allocation, nullptr
+            ) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create uniform buffer!");
+        }
+        renderer.uniform_buffers[i] = buffer;
+        renderer.uniform_buffer_allocations[i] = allocation;
+        vmaMapMemory(allocator, allocation, &renderer.uniform_buffer_data[i]);
+    }
+}
+
+void destroy_uniform_buffers(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &allocator = vk_context->allocator;
+    spdlog::info("destroy uniform buffers");
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vmaUnmapMemory(allocator, renderer.uniform_buffer_allocations[i]);
+        vmaDestroyBuffer(
+            allocator, renderer.uniform_buffers[i],
+            renderer.uniform_buffer_allocations[i]
+        );
+    }
+}
+
+void update_uniform_buffer(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &swap_chain_details = vk_context->swap_chain_details;
+    auto &uniform_buffer_data = renderer.uniform_buffer_data;
+    float time = glfwGetTime();
+    UniformBufferObject ubo;
+    ubo.model = glm::rotate(
+        glm::mat4(1.0f), (float)time * glm::radians(90.0f),
+        glm::vec3(0.0f, 0.0f, 1.0f)
+    );
+    ubo.view = glm::lookAt(
+        glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, 1.0f)
+    );
+    ubo.proj = glm::perspective(
+        glm::radians(45.0f),
+        swap_chain_details.extent.width /
+            static_cast<float>(swap_chain_details.extent.height),
+        0.1f, 10.0f
+    );
+    ubo.proj[1][1] *= -1;
+    size_t current_frame = vk_context->current_frame;
+    memcpy(uniform_buffer_data[current_frame], &ubo, sizeof(ubo));
+}
+
+void create_descriptor_pool(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    spdlog::info("create descriptor pool");
+    vk::DescriptorPoolSize pool_size(
+        vk::DescriptorType::eUniformBuffer, MAX_FRAMES_IN_FLIGHT
+    );
+    vk::DescriptorPoolCreateInfo pool_info;
+    pool_info.setPoolSizes(pool_size);
+    pool_info.setMaxSets(MAX_FRAMES_IN_FLIGHT);
+    vk::DescriptorPool descriptor_pool = device.createDescriptorPool(pool_info);
+    renderer.descriptor_pool = descriptor_pool;
+}
+
+void destroy_descriptor_pool(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    spdlog::info("destroy descriptor pool");
+    device.destroyDescriptorPool(renderer.descriptor_pool);
+}
+
+void create_descriptor_sets(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    auto &descriptor_set_layout = renderer.descriptor_set_layout;
+    auto &descriptor_pool = renderer.descriptor_pool;
+    auto &uniform_buffers = renderer.uniform_buffers;
+    spdlog::info("create descriptor sets");
+    std::vector<vk::DescriptorSetLayout> layouts(
+        MAX_FRAMES_IN_FLIGHT, descriptor_set_layout
+    );
+    vk::DescriptorSetAllocateInfo allocate_info;
+    allocate_info.setDescriptorPool(descriptor_pool);
+    allocate_info.setSetLayouts(layouts);
+    std::vector<vk::DescriptorSet> descriptor_sets =
+        device.allocateDescriptorSets(allocate_info);
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vk::DescriptorBufferInfo buffer_info(
+            uniform_buffers[i], 0, sizeof(UniformBufferObject)
+        );
+        vk::WriteDescriptorSet descriptor_write;
+        descriptor_write.setDstSet(descriptor_sets[i]);
+        descriptor_write.setDstBinding(0);
+        descriptor_write.setDstArrayElement(0);
+        descriptor_write.setDescriptorType(vk::DescriptorType::eUniformBuffer);
+        descriptor_write.setDescriptorCount(1);
+        descriptor_write.setPBufferInfo(&buffer_info);
+        device.updateDescriptorSets(descriptor_write, nullptr);
+    }
+    renderer.descriptor_sets = descriptor_sets;
+}
+
 void create_window_surface(
     Resource<VKContext> vk_context,
     Query<Get<const WindowHandle>, With<PrimaryWindow>> window_query
@@ -851,7 +1038,7 @@ void create_graphics_pipeline(
     rasterizer_create_info.setRasterizerDiscardEnable(VK_FALSE);
     rasterizer_create_info.setPolygonMode(vk::PolygonMode::eFill);
     rasterizer_create_info.setLineWidth(1.0f);
-    rasterizer_create_info.setCullMode(vk::CullModeFlagBits::eBack);
+    rasterizer_create_info.setCullMode(vk::CullModeFlagBits::eFront);
     rasterizer_create_info.setFrontFace(vk::FrontFace::eClockwise);
     rasterizer_create_info.setDepthBiasEnable(VK_FALSE);
     // create multisampling
@@ -870,6 +1057,7 @@ void create_graphics_pipeline(
     );
     // create pipeline layout
     vk::PipelineLayoutCreateInfo pipeline_layout_create_info;
+    pipeline_layout_create_info.setSetLayouts(renderer.descriptor_set_layout);
     vk::PipelineLayout pipeline_layout =
         device.createPipelineLayout(pipeline_layout_create_info);
     renderer.pipeline_layout = pipeline_layout;
@@ -938,8 +1126,6 @@ void create_command_pool(Resource<VKContext> vk_context) {
     vk_context->command_pool = command_pool;
 }
 
-static const int MAX_FRAMES_IN_FLIGHT = 2;
-
 void create_command_buffer(Resource<VKContext> vk_context) {
     auto &device = vk_context->device;
     auto &command_pool = vk_context->command_pool;
@@ -981,6 +1167,10 @@ void record_command_buffer(
     cmd.setScissor(0, scissor);
     cmd.bindVertexBuffers(0, renderer.vertex_buffer, {0});
     cmd.bindIndexBuffer(renderer.index_buffer, 0, vk::IndexType::eUint16);
+    cmd.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, renderer.pipeline_layout, 0,
+        renderer.descriptor_sets[vk_context->current_frame], {}
+    );
     cmd.drawIndexed(indices.size(), 1, 0, 0, 0);
     cmd.endRenderPass();
     cmd.end();
@@ -1135,6 +1325,7 @@ void draw_frame(
     if (!begin_draw(vk_context, renderer_query, window_query)) {
         return;
     }
+    update_uniform_buffer(vk_context, renderer_query);
     record_command_buffer(vk_context, renderer_query);
     end_draw(vk_context, renderer_query, window_query);
 }
@@ -1278,6 +1469,38 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(
                Startup(), create_index_buffer,
                after(create_vma_allocator, create_command_pool)
+        )
+            .use_worker("single");
+        app.add_system(
+               Startup(), create_uniform_buffers, after(create_vma_allocator)
+        )
+            .use_worker("single");
+        app.add_system(
+               Shutdown(), destroy_uniform_buffers,
+               before(destroy_vma_allocator), after(wait_for_device)
+        )
+            .use_worker("single");
+        app.add_system(
+               Startup(), create_descriptor_set_layout, after(create_device)
+        )
+            .before(create_descriptor_pool)
+            .before(create_graphics_pipeline)
+            .use_worker("single");
+        app.add_system(Shutdown(), destroy_descriptor_set_layout)
+            .before(destroy_device)
+            .after(wait_for_device)
+            .use_worker("single");
+        app.add_system(Startup(), create_descriptor_pool, after(create_device))
+            .use_worker("single");
+        app.add_system(
+               Shutdown(), destroy_descriptor_pool,
+               before(destroy_device, destroy_descriptor_set_layout),
+               after(wait_for_device)
+        )
+            .use_worker("single");
+        app.add_system(
+               Startup(), create_descriptor_sets,
+               after(create_descriptor_pool, create_uniform_buffers)
         )
             .use_worker("single");
         app.add_system(
