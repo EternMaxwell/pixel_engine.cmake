@@ -11,3 +11,5 @@ target_include_directories(${PROJNAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/includ
 
 target_link_libraries (${PROJNAME} PUBLIC pixel_engine)
 target_link_libraries (${PROJNAME} PUBLIC VulkanMemoryAllocator)
+
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)

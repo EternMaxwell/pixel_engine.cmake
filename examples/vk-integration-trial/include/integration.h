@@ -10,6 +10,11 @@
 #define VMA_VULKAN_VERSION 1002000
 #include <vk_mem_alloc.h>
 
+#ifndef STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#endif
+#include <stb_image.h>
+
 #include "fragment_shader.h"
 #include "vertex_shader.h"
 
@@ -248,6 +253,9 @@ struct VKContext {
     std::vector<vk::Image> swap_chain_images;
     std::vector<vk::ImageView> swap_chain_image_views;
     std::vector<vk::Framebuffer> swap_chain_framebuffers;
+    vk::Image depth_image;
+    VmaAllocation depth_image_allocation;
+    vk::ImageView depth_image_view;
     vk::CommandPool command_pool;
     std::vector<vk::CommandBuffer> command_buffers;
     std::vector<vk::Semaphore> image_available_semaphores;
@@ -268,15 +276,36 @@ struct Renderer {
     vk::DescriptorSetLayout descriptor_set_layout;
     vk::DescriptorPool descriptor_pool;
 
+    vk::Image texture_image;
+    VmaAllocation texture_image_allocation;
+    vk::ImageView texture_image_view;
+    vk::Sampler texture_sampler;
+
     std::vector<vk::DescriptorSet> descriptor_sets;
     std::vector<vk::Buffer> uniform_buffers;
     std::vector<VmaAllocation> uniform_buffer_allocations;
     std::vector<void *> uniform_buffer_data;
+
+    static vk::DescriptorSetLayoutBinding getDescriptorSetLayoutBinding() {
+        return vk::DescriptorSetLayoutBinding(
+            0, vk::DescriptorType::eUniformBuffer, 1,
+            vk::ShaderStageFlagBits::eVertex
+        );
+    }
+
+    static vk::DescriptorSetLayoutBinding getTextureDescriptorSetLayoutBinding(
+    ) {
+        return vk::DescriptorSetLayoutBinding(
+            1, vk::DescriptorType::eCombinedImageSampler, 1,
+            vk::ShaderStageFlagBits::eFragment
+        );
+    }
 };
 
 struct Vertex {
-    glm::vec2 pos;
+    glm::vec3 pos;
     glm::vec3 color;
+    glm::vec2 texCoord;
 
     static vk::VertexInputBindingDescription getBindingDescription() {
         return vk::VertexInputBindingDescription(
@@ -284,14 +313,17 @@ struct Vertex {
         );
     }
 
-    static std::array<vk::VertexInputAttributeDescription, 2>
+    static std::array<vk::VertexInputAttributeDescription, 3>
     getAttributeDescriptions() {
         return {
             vk::VertexInputAttributeDescription(
-                0, 0, vk::Format::eR32G32Sfloat, offsetof(Vertex, pos)
+                0, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, pos)
             ),
             vk::VertexInputAttributeDescription(
                 1, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, color)
+            ),
+            vk::VertexInputAttributeDescription(
+                2, 0, vk::Format::eR32G32Sfloat, offsetof(Vertex, texCoord)
             )
         };
     }
@@ -301,25 +333,23 @@ struct UniformBufferObject {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
-
-    static vk::DescriptorSetLayoutBinding getDescriptorSetLayoutBinding() {
-        return vk::DescriptorSetLayoutBinding(
-            0, vk::DescriptorType::eUniformBuffer, 1,
-            vk::ShaderStageFlagBits::eVertex
-        );
-    }
 };
 
 static const int MAX_FRAMES_IN_FLIGHT = 2;
 
 const std::vector<Vertex> vertices = {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+
+    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
 };
 
-const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
 
 void insert_vk_context(Command command) { command.init_resource<VKContext>(); }
 
@@ -406,9 +436,13 @@ void create_device(Resource<VKContext> vk_context) {
             vk::DeviceQueueCreateInfo({}, queue_family, 1, &queue_priority)
         );
     }
-    vk::Device device = physical_device.createDevice(vk::DeviceCreateInfo(
+    vk::DeviceCreateInfo device_create_info(
         {}, device_queue_create_info, {}, enabled_extensions
-    ));
+    );
+    vk::PhysicalDeviceFeatures device_features;
+    device_features.samplerAnisotropy = VK_TRUE;
+    device_create_info.setPEnabledFeatures(&device_features);
+    vk::Device device = physical_device.createDevice(device_create_info);
     vk_context->device = device;
     vk_context->queue_family_indices = queue_family_indices;
     vk::Queue graphics_queue =
@@ -420,6 +454,7 @@ void create_device(Resource<VKContext> vk_context) {
 
 void create_vma_allocator(Resource<VKContext> vk_context) {
     auto &device = vk_context->device;
+    spdlog::info("create vma allocator");
     VmaAllocatorCreateInfo allocator_info = {};
     allocator_info.physicalDevice = vk_context->physical_device;
     allocator_info.device = device;
@@ -605,9 +640,12 @@ void create_descriptor_set_layout(
     auto &device = vk_context->device;
     spdlog::info("create descriptor set layout");
     vk::DescriptorSetLayoutBinding ubo_layout_binding =
-        UniformBufferObject::getDescriptorSetLayoutBinding();
+        Renderer::getDescriptorSetLayoutBinding();
+    vk::DescriptorSetLayoutBinding texture_layout_binding =
+        Renderer::getTextureDescriptorSetLayoutBinding();
+    auto bindings = {ubo_layout_binding, texture_layout_binding};
     vk::DescriptorSetLayoutCreateInfo layout_info;
-    layout_info.setBindings(ubo_layout_binding);
+    layout_info.setBindings(bindings);
     vk::DescriptorSetLayout descriptor_set_layout =
         device.createDescriptorSetLayout(layout_info);
     renderer.descriptor_set_layout = descriptor_set_layout;
@@ -701,6 +739,307 @@ void update_uniform_buffer(
     memcpy(uniform_buffer_data[current_frame], &ubo, sizeof(ubo));
 }
 
+void create_depth_image(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    vk::Format depth_format = vk::Format::eD32Sfloat;
+    auto &allocator = vk_context->allocator;
+    auto &depth_image = vk_context->depth_image;
+    auto &depth_image_allocation = vk_context->depth_image_allocation;
+    spdlog::info("create depth image");
+    vk::ImageCreateInfo image_create_info;
+    image_create_info.setImageType(vk::ImageType::e2D);
+    image_create_info.setExtent(vk::Extent3D(
+        vk_context->swap_chain_details.extent.width,
+        vk_context->swap_chain_details.extent.height, 1
+    ));
+    image_create_info.setMipLevels(1);
+    image_create_info.setArrayLayers(1);
+    image_create_info.setFormat(depth_format);
+    image_create_info.setTiling(vk::ImageTiling::eOptimal);
+    image_create_info.setInitialLayout(vk::ImageLayout::eUndefined);
+    image_create_info.setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment);
+    image_create_info.setSamples(vk::SampleCountFlagBits::e1);
+    VmaAllocationCreateInfo image_alloc_info = {};
+    image_alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+    image_alloc_info.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    image_alloc_info.priority = 1.0f;
+    if (vmaCreateImage(
+            allocator, (VkImageCreateInfo *)&image_create_info,
+            &image_alloc_info, (VkImage *)&depth_image, &depth_image_allocation,
+            nullptr
+        ) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create depth image!");
+    }
+}
+
+void destroy_depth_image(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    auto &allocator = vk_context->allocator;
+    auto &depth_image = vk_context->depth_image;
+    auto &depth_image_allocation = vk_context->depth_image_allocation;
+    spdlog::info("destroy depth image");
+    vmaDestroyImage(allocator, depth_image, depth_image_allocation);
+}
+
+void create_depth_image_view(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    auto &device = vk_context->device;
+    auto &depth_image = vk_context->depth_image;
+    spdlog::info("create depth image view");
+    vk::ImageViewCreateInfo view_create_info;
+    view_create_info.setImage(depth_image);
+    view_create_info.setViewType(vk::ImageViewType::e2D);
+    view_create_info.setFormat(vk::Format::eD32Sfloat);
+    view_create_info.setSubresourceRange(
+        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1)
+    );
+    vk::ImageView depth_image_view = device.createImageView(view_create_info);
+    vk_context->depth_image_view = depth_image_view;
+}
+
+void destroy_depth_image_view(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    auto &device = vk_context->device;
+    auto &depth_image_view = vk_context->depth_image_view;
+    spdlog::info("destroy depth image view");
+    device.destroyImageView(depth_image_view);
+}
+
+void create_texture_image(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    try {
+        if (!renderer_query.single().has_value()) return;
+        auto [renderer] = renderer_query.single().value();
+        auto &allocator = vk_context->allocator;
+        auto &device = vk_context->device;
+        spdlog::info("create texture image");
+        int tex_width, tex_height, tex_channels;
+        stbi_uc *pixels = stbi_load(
+            "./../assets/textures/test.png", &tex_width, &tex_height,
+            &tex_channels, 4
+        );
+        spdlog::info("size: {}, {}", tex_width, tex_height);
+        if (!pixels) {
+            throw std::runtime_error("Failed to load texture image!");
+        }
+        size_t image_size = tex_width * tex_height * 4;
+        vk::BufferCreateInfo staging_buffer_create_info(
+            {}, image_size, vk::BufferUsageFlagBits::eTransferSrc,
+            vk::SharingMode::eExclusive
+        );
+        VmaAllocationCreateInfo staging_alloc_info = {};
+        staging_alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+        staging_alloc_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+        vk::Buffer staging_buffer;
+        VmaAllocation staging_allocation;
+        if (vmaCreateBuffer(
+                allocator, (VkBufferCreateInfo *)&staging_buffer_create_info,
+                &staging_alloc_info, (VkBuffer *)&staging_buffer,
+                &staging_allocation, nullptr
+            ) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create staging buffer!");
+        }
+        void *data;
+        vmaMapMemory(allocator, staging_allocation, &data);
+        memcpy(data, pixels, image_size);
+        vmaUnmapMemory(allocator, staging_allocation);
+        stbi_image_free(pixels);
+
+        vk::ImageCreateInfo image_create_info;
+        image_create_info.setImageType(vk::ImageType::e2D);
+        image_create_info.setExtent(vk::Extent3D(tex_width, tex_height, 1));
+        image_create_info.setMipLevels(1);
+        image_create_info.setArrayLayers(1);
+        image_create_info.setFormat(vk::Format::eR8G8B8A8Srgb);
+        image_create_info.setTiling(vk::ImageTiling::eOptimal);
+        image_create_info.setInitialLayout(vk::ImageLayout::eUndefined);
+        image_create_info.setUsage(
+            vk::ImageUsageFlagBits::eTransferDst |
+            vk::ImageUsageFlagBits::eSampled
+        );
+        image_create_info.setSamples(vk::SampleCountFlagBits::e1);
+        VmaAllocationCreateInfo image_alloc_info = {};
+        image_alloc_info.usage = VMA_MEMORY_USAGE_AUTO;
+        image_alloc_info.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+        image_alloc_info.priority = 1.0f;
+        vk::Image texture_image;
+        VmaAllocation texture_image_allocation;
+        if (vmaCreateImage(
+                allocator, (VkImageCreateInfo *)&image_create_info,
+                &image_alloc_info, (VkImage *)&texture_image,
+                &texture_image_allocation, nullptr
+            ) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create texture image!");
+        }
+        renderer.texture_image = texture_image;
+        renderer.texture_image_allocation = texture_image_allocation;
+
+        // Transition image layout
+        vk::CommandBufferAllocateInfo allocate_info(
+            vk_context->command_pool, vk::CommandBufferLevel::ePrimary, 1
+        );
+        vk::CommandBuffer command_buffer =
+            device.allocateCommandBuffers(allocate_info).front();
+        command_buffer.begin(vk::CommandBufferBeginInfo{});
+        vk::ImageMemoryBarrier barrier;
+        barrier.setOldLayout(vk::ImageLayout::eUndefined);
+        barrier.setNewLayout(vk::ImageLayout::eTransferDstOptimal);
+        barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+        barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+        barrier.setImage(texture_image);
+        barrier.setSubresourceRange(vk::ImageSubresourceRange(
+            vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
+        ));
+        barrier.setSrcAccessMask({});
+        barrier.setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
+        command_buffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, barrier
+        );
+        command_buffer.end();
+        vk::SubmitInfo submit_info;
+        submit_info.setCommandBuffers(command_buffer);
+        vk_context->queues.graphics_queue.submit(submit_info, nullptr);
+        vk_context->queues.graphics_queue.waitIdle();
+        device.freeCommandBuffers(vk_context->command_pool, command_buffer);
+        // Copy buffer to image
+        vk::CommandBufferAllocateInfo allocate_info2(
+            vk_context->command_pool, vk::CommandBufferLevel::ePrimary, 1
+        );
+        command_buffer = device.allocateCommandBuffers(allocate_info2).front();
+        command_buffer.begin(vk::CommandBufferBeginInfo{});
+        vk::BufferImageCopy region;
+        region.setBufferOffset(0);
+        region.setBufferRowLength(0);
+        region.setBufferImageHeight(0);
+        region.setImageSubresource(
+            vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1)
+        );
+        region.setImageOffset({0, 0, 0});
+        region.setImageExtent({(uint32_t)tex_width, (uint32_t)tex_height, 1u});
+        command_buffer.copyBufferToImage(
+            staging_buffer, renderer.texture_image,
+            vk::ImageLayout::eTransferDstOptimal, region
+        );
+        command_buffer.end();
+        submit_info.setCommandBuffers(command_buffer);
+        vk_context->queues.graphics_queue.submit(submit_info, nullptr);
+        vk_context->queues.graphics_queue.waitIdle();
+        device.freeCommandBuffers(vk_context->command_pool, command_buffer);
+        // transition image layout
+        vk::CommandBufferAllocateInfo allocate_info3(
+            vk_context->command_pool, vk::CommandBufferLevel::ePrimary, 1
+        );
+        command_buffer = device.allocateCommandBuffers(allocate_info3).front();
+        command_buffer.begin(vk::CommandBufferBeginInfo{});
+        barrier.setOldLayout(vk::ImageLayout::eTransferDstOptimal);
+        barrier.setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+        barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+        barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+        barrier.setImage(texture_image);
+        barrier.setSubresourceRange(vk::ImageSubresourceRange(
+            vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
+        ));
+        barrier.setSrcAccessMask(vk::AccessFlagBits::eTransferWrite);
+        barrier.setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+        command_buffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eFragmentShader, {}, {}, {}, barrier
+        );
+        command_buffer.end();
+        submit_info.setCommandBuffers(command_buffer);
+        vk_context->queues.graphics_queue.submit(submit_info, nullptr);
+        vk_context->queues.graphics_queue.waitIdle();
+        device.freeCommandBuffers(vk_context->command_pool, command_buffer);
+        vmaDestroyBuffer(allocator, staging_buffer, staging_allocation);
+    } catch (const std::exception &e) {
+        spdlog::error("error at create texture image : {}", e.what());
+    }
+}
+
+void destroy_texture_image(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &allocator = vk_context->allocator;
+    vmaDestroyImage(
+        allocator, renderer.texture_image, renderer.texture_image_allocation
+    );
+}
+
+void create_texture_image_view(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    spdlog::info("create texture image view");
+    vk::ImageViewCreateInfo view_info;
+    view_info.setImage(renderer.texture_image);
+    view_info.setViewType(vk::ImageViewType::e2D);
+    view_info.setFormat(vk::Format::eR8G8B8A8Srgb);
+    view_info.setSubresourceRange(
+        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
+    );
+    vk::ImageView texture_image_view = device.createImageView(view_info);
+    renderer.texture_image_view = texture_image_view;
+}
+
+void destroy_texture_image_view(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    spdlog::info("destroy texture image view");
+    device.destroyImageView(renderer.texture_image_view);
+}
+
+void create_texture_image_sampler(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    spdlog::info("create texture image sampler");
+    vk::SamplerCreateInfo sampler_info;
+    sampler_info.setMagFilter(vk::Filter::eLinear);
+    sampler_info.setMinFilter(vk::Filter::eLinear);
+    sampler_info.setAddressModeU(vk::SamplerAddressMode::eRepeat);
+    sampler_info.setAddressModeV(vk::SamplerAddressMode::eRepeat);
+    sampler_info.setAddressModeW(vk::SamplerAddressMode::eRepeat);
+    sampler_info.setAnisotropyEnable(VK_TRUE);
+    vk::PhysicalDeviceProperties properties =
+        vk_context->physical_device.getProperties();
+    sampler_info.setMaxAnisotropy(properties.limits.maxSamplerAnisotropy);
+    sampler_info.setBorderColor(vk::BorderColor::eIntOpaqueBlack);
+    sampler_info.setUnnormalizedCoordinates(VK_FALSE);
+    sampler_info.setCompareEnable(VK_FALSE);
+    sampler_info.setCompareOp(vk::CompareOp::eAlways);
+    sampler_info.setMipmapMode(vk::SamplerMipmapMode::eLinear);
+    sampler_info.setMipLodBias(0.0f);
+    sampler_info.setMinLod(0.0f);
+    sampler_info.setMaxLod(0.0f);
+    vk::Sampler texture_sampler = device.createSampler(sampler_info);
+    renderer.texture_sampler = texture_sampler;
+}
+
+void destroy_texture_image_sampler(
+    Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    auto [renderer] = renderer_query.single().value();
+    auto &device = vk_context->device;
+    spdlog::info("destroy texture image sampler");
+    device.destroySampler(renderer.texture_sampler);
+}
+
 void create_descriptor_pool(
     Resource<VKContext> vk_context, Query<Get<Renderer>> renderer_query
 ) {
@@ -708,11 +1047,16 @@ void create_descriptor_pool(
     auto [renderer] = renderer_query.single().value();
     auto &device = vk_context->device;
     spdlog::info("create descriptor pool");
-    vk::DescriptorPoolSize pool_size(
-        vk::DescriptorType::eUniformBuffer, MAX_FRAMES_IN_FLIGHT
-    );
+    auto pool_sizes = {
+        vk::DescriptorPoolSize(
+            vk::DescriptorType::eUniformBuffer, MAX_FRAMES_IN_FLIGHT
+        ),
+        vk::DescriptorPoolSize(
+            vk::DescriptorType::eCombinedImageSampler, MAX_FRAMES_IN_FLIGHT
+        )
+    };
     vk::DescriptorPoolCreateInfo pool_info;
-    pool_info.setPoolSizes(pool_size);
+    pool_info.setPoolSizes(pool_sizes);
     pool_info.setMaxSets(MAX_FRAMES_IN_FLIGHT);
     vk::DescriptorPool descriptor_pool = device.createDescriptorPool(pool_info);
     renderer.descriptor_pool = descriptor_pool;
@@ -750,6 +1094,10 @@ void create_descriptor_sets(
         vk::DescriptorBufferInfo buffer_info(
             uniform_buffers[i], 0, sizeof(UniformBufferObject)
         );
+        vk::DescriptorImageInfo image_info(
+            renderer.texture_sampler, renderer.texture_image_view,
+            vk::ImageLayout::eShaderReadOnlyOptimal
+        );
         vk::WriteDescriptorSet descriptor_write;
         descriptor_write.setDstSet(descriptor_sets[i]);
         descriptor_write.setDstBinding(0);
@@ -757,7 +1105,17 @@ void create_descriptor_sets(
         descriptor_write.setDescriptorType(vk::DescriptorType::eUniformBuffer);
         descriptor_write.setDescriptorCount(1);
         descriptor_write.setPBufferInfo(&buffer_info);
-        device.updateDescriptorSets(descriptor_write, nullptr);
+        vk::WriteDescriptorSet descriptor_write2;
+        descriptor_write2.setDstSet(descriptor_sets[i]);
+        descriptor_write2.setDstBinding(1);
+        descriptor_write2.setDstArrayElement(0);
+        descriptor_write2.setDescriptorType(
+            vk::DescriptorType::eCombinedImageSampler
+        );
+        descriptor_write2.setDescriptorCount(1);
+        descriptor_write2.setPImageInfo(&image_info);
+        auto descriptor_writes = {descriptor_write, descriptor_write2};
+        device.updateDescriptorSets(descriptor_writes, nullptr);
     }
     renderer.descriptor_sets = descriptor_sets;
 }
@@ -959,22 +1317,43 @@ void create_render_pass(
         vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
         vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR
     );
+    vk::AttachmentDescription depth_attachment(
+        {}, vk::Format::eD32Sfloat, vk::SampleCountFlagBits::e1,
+        vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare,
+        vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eDepthStencilAttachmentOptimal
+    );
     vk::AttachmentReference color_attachment_ref(
         0, vk::ImageLayout::eColorAttachmentOptimal
+    );
+    vk::AttachmentReference depth_attachment_ref(
+        1, vk::ImageLayout::eDepthStencilAttachmentOptimal
     );
     vk::SubpassDescription subpass(
         {}, vk::PipelineBindPoint::eGraphics, 0, nullptr, 1,
         &color_attachment_ref
     );
+    subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+    subpass.setColorAttachments(color_attachment_ref);
+    subpass.setPDepthStencilAttachment(&depth_attachment_ref);
     vk::SubpassDependency dependency;
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = 0;
-    dependency.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    dependency.srcStageMask =
+        vk::PipelineStageFlagBits::eColorAttachmentOutput |
+        vk::PipelineStageFlagBits::eEarlyFragmentTests;
     dependency.srcAccessMask = {};
-    dependency.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+    dependency.dstStageMask =
+        vk::PipelineStageFlagBits::eColorAttachmentOutput |
+        vk::PipelineStageFlagBits::eEarlyFragmentTests;
+    dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite |
+                               vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+    std::vector<vk::AttachmentDescription> attachments = {
+        color_attachment, depth_attachment
+    };
     vk::RenderPass render_pass = device.createRenderPass(
-        vk::RenderPassCreateInfo({}, color_attachment, subpass, dependency)
+        vk::RenderPassCreateInfo({}, attachments, subpass, dependency)
     );
     renderer.render_pass = render_pass;
 }
@@ -1062,6 +1441,15 @@ void create_graphics_pipeline(
         device.createPipelineLayout(pipeline_layout_create_info);
     renderer.pipeline_layout = pipeline_layout;
 
+    vk::PipelineDepthStencilStateCreateInfo depth_stencil_create_info;
+    depth_stencil_create_info.setDepthTestEnable(VK_TRUE);
+    depth_stencil_create_info.setDepthWriteEnable(VK_TRUE);
+    depth_stencil_create_info.setDepthCompareOp(vk::CompareOp::eLess);
+    depth_stencil_create_info.setDepthBoundsTestEnable(VK_FALSE);
+    depth_stencil_create_info.setMinDepthBounds(0.0f);
+    depth_stencil_create_info.setMaxDepthBounds(1.0f);
+    depth_stencil_create_info.setStencilTestEnable(VK_FALSE);
+
     // create pipeline
     vk::GraphicsPipelineCreateInfo create_info;
     create_info.setStages(shader_stages);
@@ -1072,6 +1460,7 @@ void create_graphics_pipeline(
     create_info.setPMultisampleState(&multisample_create_info);
     create_info.setPColorBlendState(&color_blend_create_info);
     create_info.setPDynamicState(&dynamic_state_create_info);
+    create_info.setPDepthStencilState(&depth_stencil_create_info);
     create_info.setLayout(pipeline_layout);
     create_info.setRenderPass(render_pass);
     create_info.setSubpass(0);
@@ -1104,8 +1493,9 @@ void create_framebuffer(
     Framebuffers framebuffers;
     framebuffers.framebuffers.reserve(image_views.size());
     for (auto const &view : image_views) {
+        auto views = {view, vk_context->depth_image_view};
         vk::FramebufferCreateInfo create_info(
-            {}, render_pass, view, swap_chain.extent.width,
+            {}, render_pass, views, swap_chain.extent.width,
             swap_chain.extent.height, 1
         );
         framebuffers.framebuffers.push_back(device.createFramebuffer(create_info
@@ -1151,10 +1541,13 @@ void record_command_buffer(
     // spdlog::info("record command buffer");
     cmd.begin(vk::CommandBufferBeginInfo{});
     vk::ClearValue clear_color(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
+    vk::ClearValue clear_depth;
+    clear_depth.setDepthStencil({1.0f, 0});
+    auto clear_values = {clear_color, clear_depth};
     auto &framebuffer = framebuffers[vk_context->image_index];
     vk::RenderPassBeginInfo render_pass_begin_info(
         render_pass, framebuffer, {{0, 0}, swap_chain_details.extent},
-        clear_color
+        clear_values
     );
     cmd.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
@@ -1234,6 +1627,10 @@ void swap_chain_recreate(
     create_swap_chain(vk_context, window_query);
     get_swap_chain_images(vk_context);
     create_image_views(vk_context);
+    destroy_depth_image_view(vk_context, renderer_query);
+    destroy_depth_image(vk_context, renderer_query);
+    create_depth_image(vk_context, renderer_query);
+    create_depth_image_view(vk_context, renderer_query);
     create_framebuffer(vk_context, renderer_query);
 }
 
@@ -1479,6 +1876,44 @@ struct VK_TrialPlugin : Plugin {
                Shutdown(), destroy_uniform_buffers,
                before(destroy_vma_allocator), after(wait_for_device)
         )
+            .use_worker("single");
+        app.add_system(Startup(), create_depth_image)
+            .after(create_vma_allocator)
+            .after(create_swap_chain)
+            .use_worker("single");
+        app.add_system(Shutdown(), destroy_depth_image)
+            .after(wait_for_device)
+            .before(destroy_vma_allocator)
+            .use_worker("single");
+        app.add_system(Startup(), create_depth_image_view)
+            .after(create_depth_image)
+            .before(create_framebuffer)
+            .use_worker("single");
+        app.add_system(Shutdown(), destroy_depth_image_view)
+            .after(wait_for_device)
+            .before(destroy_depth_image)
+            .use_worker("single");
+        app.add_system(Startup(), create_texture_image)
+            .after(create_vma_allocator, create_command_pool)
+            .use_worker("single");
+        app.add_system(Shutdown(), destroy_texture_image)
+            .after(wait_for_device)
+            .before(destroy_vma_allocator)
+            .use_worker("single");
+        app.add_system(Startup(), create_texture_image_view)
+            .after(create_texture_image)
+            .use_worker("single");
+        app.add_system(Shutdown(), destroy_texture_image_view)
+            .after(wait_for_device)
+            .before(destroy_texture_image)
+            .use_worker("single");
+        app.add_system(Startup(), create_texture_image_sampler)
+            .after(create_texture_image_view)
+            .before(create_descriptor_sets)
+            .use_worker("single");
+        app.add_system(Shutdown(), destroy_texture_image_sampler)
+            .after(wait_for_device)
+            .before(destroy_texture_image_view)
             .use_worker("single");
         app.add_system(
                Startup(), create_descriptor_set_layout, after(create_device)
