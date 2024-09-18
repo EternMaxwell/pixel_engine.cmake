@@ -4,7 +4,7 @@
 
 #include "components.h"
 #include "pixel_engine/entity.h"
-#include "pixel_engine/window/window.h"
+#include "pixel_engine/window.h"
 
 namespace pixel_engine {
 namespace render_gl {

@@ -9,13 +9,13 @@
 #include "pixel_engine/sprite_render_gl/sprite_render.h"
 #include "pixel_engine/task_queue/task_queue.h"
 #include "pixel_engine/transform/components.h"
-#include "pixel_engine/window/window.h"
+#include "pixel_engine/window.h"
 
 namespace pixel_engine {
-    namespace prelude {
-        // plugins
-        using AssetServerGLPlugin = asset_server_gl::AssetServerGLPlugin;
-        using WindowPlugin = window::WindowPlugin;
-        using RenderGLPlugin = render_gl::RenderGLPlugin;
-    }  // namespace prelude
+namespace prelude {
+// plugins
+using AssetServerGLPlugin = asset_server_gl::AssetServerGLPlugin;
+using WindowPlugin = window::WindowPlugin;
+using RenderGLPlugin = render_gl::RenderGLPlugin;
+}  // namespace prelude
 }  // namespace pixel_engine
