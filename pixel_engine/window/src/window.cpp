@@ -1,5 +1,6 @@
-#include "pixel_engine/window/systems.h"
 #include "pixel_engine/window.h"
+#include "pixel_engine/window/systems.h"
+
 
 using namespace pixel_engine::window::systems;
 using namespace pixel_engine::window::events;
@@ -247,16 +248,16 @@ void pixel_engine::window::WindowPlugin::build(App& app) {
             WindowPreUpdateSets::update_window_data
         )
         ->add_system(
-            PreUpdate(), poll_events, in_set(WindowPreUpdateSets::poll_events)
+            First(), poll_events, in_set(WindowPreUpdateSets::poll_events)
         )
         .use_worker("single")
         ->add_system(
-            PreUpdate(), update_window_size,
+            First(), update_window_size,
             in_set(WindowPreUpdateSets::update_window_data)
         )
         .use_worker("single")
         ->add_system(
-            PreUpdate(), update_window_pos,
+            First(), update_window_pos,
             in_set(WindowPreUpdateSets::update_window_data)
         )
         .use_worker("single")
@@ -266,7 +267,7 @@ void pixel_engine::window::WindowPlugin::build(App& app) {
             WindowPreRenderSets::after_create
         )
         ->add_system(
-            PreRender(), create_window_prerender,
+            Prepare(), create_window_prerender,
             in_set(WindowPreRenderSets::window_creation)
         )
         .use_worker("single")
