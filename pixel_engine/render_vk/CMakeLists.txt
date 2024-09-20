@@ -11,5 +11,7 @@ target_link_libraries(pixel_engine_render_vk VulkanMemoryAllocator)
 target_link_libraries(pixel_engine_render_vk glm::glm)
 target_link_libraries(pixel_engine_render_vk glfw)
 target_link_libraries(pixel_engine_render_vk pixel_engine::app)
+target_link_libraries(pixel_engine_render_vk pixel_engine::window)
+target_link_libraries(pixel_engine_render_vk fmt)
 
 add_library(pixel_engine::render_vk ALIAS pixel_engine_render_vk)

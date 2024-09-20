@@ -50,52 +50,70 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(
     }
 #endif
 
-    std::cerr
-        << vk::to_string(static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(
-               messageSeverity
-           ))
-        << ": "
-        << vk::to_string(
-               static_cast<vk::DebugUtilsMessageTypeFlagsEXT>(messageTypes)
-           )
-        << ":\n";
-    std::cerr << std::string("\t") << "messageIDName   = <"
-              << pCallbackData->pMessageIdName << ">\n";
-    std::cerr << std::string("\t")
-              << "messageIdNumber = " << pCallbackData->messageIdNumber << "\n";
-    std::cerr << std::string("\t") << "message         = <"
-              << pCallbackData->pMessage << ">\n";
+    std::string msg = std::format(
+        "\n{}: {}: {}\n",
+        vk::to_string(static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(
+            messageSeverity
+        )),
+        vk::to_string(
+            static_cast<vk::DebugUtilsMessageTypeFlagsEXT>(messageTypes)
+        ),
+        pCallbackData->pMessage
+    );
+
+    msg += std::format(
+        "\tmessageIDName   = <{}>\n\tmessageIdNumber = {}\n\tmessage         = "
+        "<{}>\n",
+        pCallbackData->pMessageIdName, pCallbackData->messageIdNumber,
+        pCallbackData->pMessage
+    );
+
     if (0 < pCallbackData->queueLabelCount) {
-        std::cerr << std::string("\t") << "Queue Labels:\n";
+        msg += std::format(
+            "\tqueueLabelCount = {}\n", pCallbackData->queueLabelCount
+        );
         for (uint32_t i = 0; i < pCallbackData->queueLabelCount; i++) {
-            std::cerr << std::string("\t\t") << "labelName = <"
-                      << pCallbackData->pQueueLabels[i].pLabelName << ">\n";
+            msg += std::format(
+                "\t\tlabelName = <{}>\n",
+                pCallbackData->pQueueLabels[i].pLabelName
+            );
         }
     }
     if (0 < pCallbackData->cmdBufLabelCount) {
-        std::cerr << std::string("\t") << "CommandBuffer Labels:\n";
+        msg += std::format(
+            "\tcmdBufLabelCount = {}\n", pCallbackData->cmdBufLabelCount
+        );
         for (uint32_t i = 0; i < pCallbackData->cmdBufLabelCount; i++) {
-            std::cerr << std::string("\t\t") << "labelName = <"
-                      << pCallbackData->pCmdBufLabels[i].pLabelName << ">\n";
+            msg += std::format(
+                "\t\tlabelName = <{}>\n",
+                pCallbackData->pCmdBufLabels[i].pLabelName
+            );
         }
     }
     if (0 < pCallbackData->objectCount) {
-        std::cerr << std::string("\t") << "Objects:\n";
+        msg += std::format("\tobjectCount = {}\n", pCallbackData->objectCount);
         for (uint32_t i = 0; i < pCallbackData->objectCount; i++) {
-            std::cerr << std::string("\t\t") << "Object " << i << "\n";
-            std::cerr << std::string("\t\t\t") << "objectType   = "
-                      << vk::to_string(static_cast<vk::ObjectType>(
-                             pCallbackData->pObjects[i].objectType
-                         ))
-                      << "\n";
-            std::cerr << std::string("\t\t\t") << "objectHandle = "
-                      << pCallbackData->pObjects[i].objectHandle << "\n";
+            msg += std::format(
+                "\t\tobjectType = {}\n",
+                vk::to_string(static_cast<vk::ObjectType>(
+                    pCallbackData->pObjects[i].objectType
+                ))
+            );
+            msg += std::format(
+                "\t\tobjectHandle = {}\n",
+                pCallbackData->pObjects[i].objectHandle
+            );
             if (pCallbackData->pObjects[i].pObjectName) {
-                std::cerr << std::string("\t\t\t") << "objectName   = <"
-                          << pCallbackData->pObjects[i].pObjectName << ">\n";
+                msg += std::format(
+                    "\t\tobjectName = <{}>\n",
+                    pCallbackData->pObjects[i].pObjectName
+                );
             }
         }
     }
+
+    spdlog::warn(msg);
+
     return vk::False;
 }
 
@@ -243,6 +261,7 @@ struct ChosenSwapChainDetails {
 
 struct VKContext {
     vk::Instance instance;
+    vk::DebugUtilsMessengerEXT debug_messenger;
     vk::PhysicalDevice physical_device;
     QueueFamilyIndices queue_family_indices;
     Queues queues;
@@ -388,6 +407,33 @@ void init_instance(Resource<VKContext> vk_context) {
                                {}, app_info, enabled_layers, enabled_extensions
         )
                                .get<vk::InstanceCreateInfo>());
+#if !defined(NDEBUG)
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)glfwGetInstanceProcAddress(
+        vk_context->instance, "vkCreateDebugUtilsMessengerEXT"
+    );
+    if (func == nullptr) {
+        throw std::runtime_error(
+            "Failed to load vkCreateDebugUtilsMessengerEXT function!"
+        );
+    }
+    auto callback = vk::DebugUtilsMessengerCreateInfoEXT(
+        {},
+        vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+            vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
+        vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+            vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+            vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation,
+        debugUtilsMessengerCallback
+    );
+    func(
+        vk_context->instance,
+        reinterpret_cast<VkDebugUtilsMessengerCreateInfoEXT const *>(&callback),
+        nullptr,
+        reinterpret_cast<VkDebugUtilsMessengerEXT *>(
+            &vk_context->debug_messenger
+        )
+    );
+#endif
 }
 
 void get_physical_device(Resource<VKContext> vk_context) {
@@ -1829,7 +1875,16 @@ void destroy_device(Resource<VKContext> vk_context) {
 
 void destroy_instance(Resource<VKContext> vk_context) {
     auto &instance = vk_context->instance;
+    auto &debugMessenger = vk_context->debug_messenger;
     spdlog::info("destroy instance");
+    if (debugMessenger) {
+        auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+            instance, "vkDestroyDebugUtilsMessengerEXT"
+        );
+        if (func) {
+            func(instance, debugMessenger, nullptr);
+        }
+    }
     instance.destroy();
 }
 

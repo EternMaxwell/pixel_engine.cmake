@@ -17,6 +17,13 @@
 
 namespace pixel_engine {
 namespace render_vk {
-namespace components {}
+namespace components {
+struct Device {
+    vk::Instance instance;
+    vk::PhysicalDevice physical_device;
+    vk::Device logical_device;
+    vk::Queue graphics_queue;
+};
+}  // namespace components
 }  // namespace render_vk
 }  // namespace pixel_engine
