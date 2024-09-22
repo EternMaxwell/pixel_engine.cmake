@@ -376,7 +376,7 @@ void insert_vk_context(Command command) { command.init_resource<VKContext>(); }
 
 void init_instance(Resource<VKContext> vk_context) {
     vk::ApplicationInfo app_info(
-        "Hello Vulkan", 1, "No Engine", 1, VK_API_VERSION_1_0
+        "Hello Vulkan", 1, "No Engine", 1, VK_API_VERSION_1_2
     );
     std::vector<char const *> enabled_layers = {
 #if !defined(NDEBUG)
@@ -1878,9 +1878,8 @@ void destroy_instance(Resource<VKContext> vk_context) {
     auto &debugMessenger = vk_context->debug_messenger;
     spdlog::info("destroy instance");
     if (debugMessenger) {
-        auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-            instance, "vkDestroyDebugUtilsMessengerEXT"
-        );
+        auto func = (PFN_vkDestroyDebugUtilsMessengerEXT
+        )vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
         if (func) {
             func(instance, debugMessenger, nullptr);
         }

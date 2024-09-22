@@ -402,6 +402,8 @@ void App::update_states() {
     m_runner.m_workers["default"]->wait();
 }
 
+World* App::world() { return &m_world; }
+
 App::App() {
     m_runner.m_world = &m_world;
     m_runner.configure_stage(
