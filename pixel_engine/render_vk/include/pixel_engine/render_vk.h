@@ -10,12 +10,17 @@ using namespace prelude;
 struct RenderVKPlugin : Plugin {
     void build(App& app) override {
         app.add_system(PreStartup(), systems::create_context)
-            .in_set(window::WindowStartUpSets::after_window_creation);
-        app.add_system(Prepare(), systems::recreate_swap_chain);
+            .in_set(window::WindowStartUpSets::after_window_creation)
+            .use_worker("single");
+        app.add_system(Prepare(), systems::recreate_swap_chain)
+            .use_worker("single");
         app.add_system(Prepare(), systems::get_next_image)
+            .use_worker("single")
             .after(systems::recreate_swap_chain);
-        app.add_system(PostRender(), systems::present_frame);
-        app.add_system(PostShutdown(), systems::destroy_context);
+        app.add_system(PostRender(), systems::present_frame)
+            .use_worker("single");
+        app.add_system(PostShutdown(), systems::destroy_context)
+            .use_worker("single");
     }
 };
 }  // namespace render_vk

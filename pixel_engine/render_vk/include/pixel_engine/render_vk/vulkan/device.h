@@ -371,7 +371,8 @@ struct Image {
     VmaAllocation allocation;
 
     Image() = default;
-    Image(vk::Image, vk::ImageView) : image(image), image_view(image_view) {}
+    Image(vk::Image image, vk::ImageView image_view)
+        : image(image), image_view(image_view) {}
 
     static Image create(Device device, vk::ImageCreateInfo create_info) {
         Image image;
@@ -471,10 +472,12 @@ struct SwapChain {
         swapchain.vsync = vsync;
         swapchain.device = device;
         swapchain.window = window;
-        glfwCreateWindowSurface(
-            device.instance.instance, window, nullptr,
-            reinterpret_cast<VkSurfaceKHR*>(&swapchain.surface)
-        );
+        if (glfwCreateWindowSurface(
+                device.instance.instance, window, nullptr,
+                reinterpret_cast<VkSurfaceKHR*>(&swapchain.surface)
+            ) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create window surface");
+        }
         auto surface_capabilities =
             device.physical_device.getSurfaceCapabilitiesKHR(swapchain.surface);
         auto surface_formats =
@@ -501,8 +504,10 @@ struct SwapChain {
                                      ? vk::PresentModeKHR::eFifo
                                      : vk::PresentModeKHR::eMailbox;
         swapchain.extent = surface_capabilities.currentExtent;
-        spdlog::info("Swapchain Extent: {}x{}", swapchain.extent.width,
-                     swapchain.extent.height);
+        spdlog::info(
+            "Swapchain Extent: {}x{}", swapchain.extent.width,
+            swapchain.extent.height
+        );
         uint32_t image_count = surface_capabilities.minImageCount + 1;
         if (surface_capabilities.maxImageCount > 0 &&
             image_count > surface_capabilities.maxImageCount) {
@@ -601,7 +606,11 @@ struct SwapChain {
                     .setImage(images[i])
                     .setViewType(vk::ImageViewType::e2D)
                     .setFormat(surface_format.format)
-                    .setComponents(vk::ComponentMapping())
+                    .setComponents(vk::ComponentMapping()
+                                       .setR(vk::ComponentSwizzle::eIdentity)
+                                       .setG(vk::ComponentSwizzle::eIdentity)
+                                       .setB(vk::ComponentSwizzle::eIdentity)
+                                       .setA(vk::ComponentSwizzle::eIdentity))
                     .setSubresourceRange(
                         vk::ImageSubresourceRange()
                             .setAspectMask(vk::ImageAspectFlagBits::eColor)
@@ -630,6 +639,7 @@ struct SwapChain {
     Image current_image() {
         return Image{images[image_index], image_views[image_index]};
     }
+    auto current_image_view() { return image_views[image_index]; }
     void destroy() {
         device.logical_device.destroySemaphore(image_available_semaphore);
         device.logical_device.destroySemaphore(render_finished_semaphore);

@@ -1267,10 +1267,6 @@ void record_command_buffer(
             .setImageView(vk_context->depth_image_view)
             .setLoadOp(vk::AttachmentLoadOp::eClear)
             .setStoreOp(vk::AttachmentStoreOp::eDontCare);
-    std::cout << "image view is image view"
-              << (render_context->swap_chain.current_image()
-                      .image_view.objectType == vk::ObjectType::eImageView)
-              << std::endl;
     cmd.beginRendering(
         vk::RenderingInfo()
             .setColorAttachments(
