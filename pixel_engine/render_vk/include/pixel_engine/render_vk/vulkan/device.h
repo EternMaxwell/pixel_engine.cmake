@@ -466,7 +466,7 @@ struct SwapChain {
     bool vsync = true;
 
     static SwapChain create(
-        Device device, GLFWwindow* window, bool vsync = true
+        Device device, GLFWwindow* window, bool vsync = false
     ) {
         SwapChain swapchain;
         swapchain.vsync = vsync;
@@ -487,7 +487,7 @@ struct SwapChain {
         auto format_iter = std::find_if(
             surface_formats.begin(), surface_formats.end(),
             [](const vk::SurfaceFormatKHR& format) {
-                return format.format == vk::Format::eB8G8R8A8Unorm &&
+                return format.format == vk::Format::eR8G8B8A8Unorm &&
                        format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear;
             }
         );
@@ -633,7 +633,6 @@ struct SwapChain {
                               vk::Fence()
                           )
                           .value;
-        spdlog::info("Image Index: {}", image_index);
         return Image{images[image_index], image_views[image_index]};
     }
     Image current_image() {

@@ -45,23 +45,30 @@ void systems::create_context(
 void systems::recreate_swap_chain(
     Command cmd, Resource<RenderContext> context
 ) {
-    spdlog::info("Recreating swap chain");
     context->swap_chain.recreate();
 }
 
 void systems::get_next_image(Resource<RenderContext> context) {
-    spdlog::info("Getting next image");
-    context->swap_chain.next_image();
+    try {
+        context->swap_chain.next_image();
+    } catch (const std::exception& e) {
+        context->swap_chain.recreate();
+        context->swap_chain.next_image();
+    }
 }
 
 void systems::present_frame(Resource<RenderContext> context) {
-    spdlog::info("Presenting frame");
-    context->device.queue.presentKHR(
-        vk::PresentInfoKHR()
-            .setSwapchains(context->swap_chain.swapchain)
-            .setPImageIndices(&context->swap_chain.image_index)
-            .setWaitSemaphores(context->swap_chain.render_finished_semaphore)
-    );
+    try {
+        context->device.queue.presentKHR(
+            vk::PresentInfoKHR()
+                .setSwapchains(context->swap_chain.swapchain)
+                .setPImageIndices(&context->swap_chain.image_index)
+                .setWaitSemaphores(context->swap_chain.render_finished_semaphore
+                )
+        );
+    } catch (const std::exception& e) {
+        context->swap_chain.recreate();
+    }
 }
 
 void systems::destroy_context(Command cmd, Resource<RenderContext> context) {

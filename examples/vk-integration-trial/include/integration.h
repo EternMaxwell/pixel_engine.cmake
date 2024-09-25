@@ -257,6 +257,8 @@ struct VKContext {
     VmaAllocation depth_image_allocation;
     vk::ImageView depth_image_view;
 
+    vk::Extent2D current_extent;
+
     vk::CommandBuffer cmd;
 };
 
@@ -654,6 +656,7 @@ void create_depth_image(
     swap_chain_details.format = swap_chain.surface_format;
     swap_chain_details.present_mode = swap_chain.present_mode;
     swap_chain_details.extent = swap_chain.extent;
+    vk_context->current_extent = swap_chain_details.extent;
     spdlog::info("create depth image");
     vk::ImageCreateInfo image_create_info;
     image_create_info.setImageType(vk::ImageType::e2D);
@@ -1254,6 +1257,13 @@ void record_command_buffer(
     auto &render_pass = renderer.render_pass;
     auto &pipeline = renderer.graphics_pipeline;
     auto &swap_chain_details = render_context->swap_chain;
+    if (vk_context->current_extent != swap_chain_details.extent) {
+        destroy_depth_image_view(vk_context, renderer_query, render_context);
+        destroy_depth_image(vk_context, renderer_query, render_context);
+        create_depth_image(vk_context, renderer_query, render_context);
+        create_depth_image_view(vk_context, renderer_query, render_context);
+        vk_context->current_extent = swap_chain_details.extent;
+    }
     // spdlog::info("record command buffer");
     cmd.begin(vk::CommandBufferBeginInfo{});
     vk::ClearValue clear_color(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
@@ -1272,7 +1282,7 @@ void record_command_buffer(
             .setColorAttachments(
                 vk::RenderingAttachmentInfo()
                     .setClearValue(clear_color)
-                    .setImageLayout(vk::ImageLayout::ePresentSrcKHR)
+                    .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
                     .setImageView(
                         render_context->swap_chain.current_image().image_view
                     )
@@ -1352,6 +1362,7 @@ void end_draw(
     );
     queue.submit(submit_info, render_context->swap_chain.in_flight_fence);
     // free cmd
+    render_context->device.logical_device.waitIdle();
     render_context->device.logical_device.freeCommandBuffers(
         render_context->device.command_pool, cmd
     );
