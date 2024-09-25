@@ -739,6 +739,7 @@ void create_texture_image(
         auto &command_pool = render_context->device.command_pool;
         spdlog::info("create texture image");
         int tex_width, tex_height, tex_channels;
+        stbi_set_flip_vertically_on_load(true);
         stbi_uc *pixels = stbi_load(
             "./../assets/textures/test.png", &tex_width, &tex_height,
             &tex_channels, 4

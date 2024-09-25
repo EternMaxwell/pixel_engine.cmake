@@ -487,7 +487,7 @@ struct SwapChain {
         auto format_iter = std::find_if(
             surface_formats.begin(), surface_formats.end(),
             [](const vk::SurfaceFormatKHR& format) {
-                return format.format == vk::Format::eR8G8B8A8Unorm &&
+                return format.format == vk::Format::eB8G8R8A8Srgb &&
                        format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear;
             }
         );
@@ -500,7 +500,7 @@ struct SwapChain {
         } else {
             swapchain.surface_format = *format_iter;
         }
-        swapchain.present_mode = mode_iter == present_modes.end() | vsync
+        swapchain.present_mode = mode_iter == present_modes.end() || vsync
                                      ? vk::PresentModeKHR::eFifo
                                      : vk::PresentModeKHR::eMailbox;
         swapchain.extent = surface_capabilities.currentExtent;
