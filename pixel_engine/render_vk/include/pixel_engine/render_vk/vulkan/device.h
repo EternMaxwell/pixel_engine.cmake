@@ -487,7 +487,7 @@ struct SwapChain {
         auto format_iter = std::find_if(
             surface_formats.begin(), surface_formats.end(),
             [](const vk::SurfaceFormatKHR& format) {
-                return format.format == vk::Format::eB8G8R8A8Srgb &&
+                return format.format == vk::Format::eR8G8B8A8Srgb &&
                        format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear;
             }
         );
@@ -496,6 +496,7 @@ struct SwapChain {
             vk::PresentModeKHR::eMailbox
         );
         if (format_iter == surface_formats.end()) {
+            spdlog::warn("No preferred surface format found");
             swapchain.surface_format = surface_formats[0];
         } else {
             swapchain.surface_format = *format_iter;
