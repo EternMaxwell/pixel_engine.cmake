@@ -14,6 +14,7 @@
 
 namespace pixel_engine {
 namespace render_vk {
+struct RenderVKPlugin;
 namespace systems {
 using namespace pixel_engine::prelude;
 using namespace components;
@@ -23,7 +24,8 @@ void create_context(
     Command cmd,
     Query<
         Get<window::components::WindowHandle>,
-        With<window::components::PrimaryWindow>> query
+        With<window::components::PrimaryWindow>> query,
+    Resource<RenderVKPlugin> plugin
 );
 void recreate_swap_chain(Command cmd, Resource<RenderContext> context);
 void get_next_image(Resource<RenderContext> context);

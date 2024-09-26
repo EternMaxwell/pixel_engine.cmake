@@ -1321,7 +1321,7 @@ bool begin_draw(
 ) {
     if (!renderer_query.single().has_value()) return false;
     auto [renderer] = renderer_query.single().value();
-    auto &in_flight_fence = render_context->swap_chain.in_flight_fence;
+    auto &in_flight_fence = render_context->swap_chain.fence();
     auto &device = render_context->device.logical_device;
     auto &swap_chain = render_context->swap_chain.swapchain;
     try {
@@ -1354,14 +1354,14 @@ void end_draw(
         vk::PipelineStageFlagBits::eColorAttachmentOutput
     };
     submit_info.setWaitSemaphores(
-        render_context->swap_chain.image_available_semaphore
+        render_context->swap_chain.image_available()
     );
     submit_info.setWaitDstStageMask(wait_stages);
     submit_info.setCommandBuffers(cmd);
     submit_info.setSignalSemaphores(
-        render_context->swap_chain.render_finished_semaphore
+        render_context->swap_chain.render_finished()
     );
-    queue.submit(submit_info, render_context->swap_chain.in_flight_fence);
+    queue.submit(submit_info, render_context->swap_chain.fence());
     // free cmd
     render_context->device.logical_device.waitIdle();
     render_context->device.logical_device.freeCommandBuffers(

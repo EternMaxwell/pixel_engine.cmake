@@ -459,12 +459,16 @@ struct SwapChain {
     vk::PresentModeKHR present_mode;
     vk::Extent2D extent;
     GLFWwindow* window;
-    vk::Semaphore image_available_semaphore;
-    vk::Semaphore render_finished_semaphore;
-    vk::Fence in_flight_fence;
     uint32_t image_index = 0;
+    uint32_t current_frame = 0;
     bool vsync = true;
 
+   private:
+    vk::Semaphore image_available_semaphore[2];
+    vk::Semaphore render_finished_semaphore[2];
+    vk::Fence in_flight_fence[2];
+
+   public:
     static SwapChain create(
         Device device, GLFWwindow* window, bool vsync = false
     ) {
@@ -550,19 +554,17 @@ struct SwapChain {
                     )
             );
         }
-        swapchain.image_available_semaphore =
-            device.logical_device.createSemaphore(
-                vk::SemaphoreCreateInfo().setFlags(vk::SemaphoreCreateFlagBits()
+        for (int i = 0; i < 2; i++) {
+            swapchain.image_available_semaphore[i] =
+                device.logical_device.createSemaphore({});
+            swapchain.render_finished_semaphore[i] =
+                device.logical_device.createSemaphore({});
+            swapchain.in_flight_fence[i] = device.logical_device.createFence(
+                vk::FenceCreateInfo().setFlags(
+                    vk::FenceCreateFlagBits::eSignaled
                 )
             );
-        swapchain.render_finished_semaphore =
-            device.logical_device.createSemaphore(
-                vk::SemaphoreCreateInfo().setFlags(vk::SemaphoreCreateFlagBits()
-                )
-            );
-        swapchain.in_flight_fence = device.logical_device.createFence(
-            vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled)
-        );
+        }
         return swapchain;
     }
     bool operator!() const { return !swapchain; }
@@ -624,30 +626,42 @@ struct SwapChain {
         }
     }
     Image next_image() {
-        device.logical_device.waitForFences(
-            1, &in_flight_fence, VK_TRUE, UINT64_MAX
+        current_frame = (current_frame + 1) % 2;
+        auto res = device.logical_device.waitForFences(
+            1, &in_flight_fence[current_frame], VK_TRUE, UINT64_MAX
         );
-        device.logical_device.resetFences(1, &in_flight_fence);
-        image_index = device.logical_device
-                          .acquireNextImageKHR(
-                              swapchain, UINT64_MAX, image_available_semaphore,
-                              vk::Fence()
-                          )
-                          .value;
+        res = device.logical_device.resetFences(
+            1, &in_flight_fence[current_frame]
+        );
+        image_index =
+            device.logical_device
+                .acquireNextImageKHR(
+                    swapchain, UINT64_MAX,
+                    image_available_semaphore[current_frame], vk::Fence()
+                )
+                .value;
         return Image{images[image_index], image_views[image_index]};
     }
     Image current_image() {
         return Image{images[image_index], image_views[image_index]};
     }
-    auto current_image_view() { return image_views[image_index]; }
+    auto& image_available() { return image_available_semaphore[current_frame]; }
+    auto& render_finished() { return render_finished_semaphore[current_frame]; }
+    auto& fence() { return in_flight_fence[current_frame]; }
+    auto& current_image_view() { return image_views[image_index]; }
     void destroy() {
-        device.logical_device.destroySemaphore(image_available_semaphore);
-        device.logical_device.destroySemaphore(render_finished_semaphore);
-        device.logical_device.destroyFence(in_flight_fence);
+        for (int i = 0; i < 2; i++) {
+            device.logical_device.destroySemaphore(image_available_semaphore[i]
+            );
+            device.logical_device.destroySemaphore(render_finished_semaphore[i]
+            );
+            device.logical_device.destroyFence(in_flight_fence[i]);
+        }
         for (auto& image_view : image_views) {
             device.logical_device.destroyImageView(image_view);
         }
         device.logical_device.destroySwapchainKHR(swapchain);
+        device.instance.instance.destroySurfaceKHR(surface);
     }
 };
 

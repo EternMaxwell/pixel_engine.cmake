@@ -20,7 +20,8 @@ void systems::create_context(
     Command cmd,
     Query<
         Get<window::components::WindowHandle>,
-        With<window::components::PrimaryWindow>> query
+        With<window::components::PrimaryWindow>> query,
+    Resource<RenderVKPlugin> plugin
 ) {
     if (!query.single().has_value()) {
         return;
@@ -36,8 +37,9 @@ void systems::create_context(
     spdlog::info("Creating device");
     context.device = Device::create(context.instance);
     spdlog::info("Creating swap chain");
-    context.swap_chain =
-        SwapChain::create(context.device, window_handle.window_handle);
+    context.swap_chain = SwapChain::create(
+        context.device, window_handle.window_handle, plugin->vsync
+    );
     cmd.insert_resource(context);
 }
 
@@ -48,26 +50,16 @@ void systems::recreate_swap_chain(
 }
 
 void systems::get_next_image(Resource<RenderContext> context) {
-    try {
-        context->swap_chain.next_image();
-    } catch (const std::exception& e) {
-        context->swap_chain.recreate();
-        context->swap_chain.next_image();
-    }
+    context->swap_chain.next_image();
 }
 
 void systems::present_frame(Resource<RenderContext> context) {
-    try {
-        context->device.queue.presentKHR(
-            vk::PresentInfoKHR()
-                .setSwapchains(context->swap_chain.swapchain)
-                .setPImageIndices(&context->swap_chain.image_index)
-                .setWaitSemaphores(context->swap_chain.render_finished_semaphore
-                )
-        );
-    } catch (const std::exception& e) {
-        context->swap_chain.recreate();
-    }
+    auto res = context->device.queue.presentKHR(
+        vk::PresentInfoKHR()
+            .setSwapchains(context->swap_chain.swapchain)
+            .setImageIndices(context->swap_chain.image_index)
+            .setWaitSemaphores(context->swap_chain.render_finished())
+    );
 }
 
 void systems::destroy_context(Command cmd, Resource<RenderContext> context) {

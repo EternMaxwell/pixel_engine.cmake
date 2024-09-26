@@ -8,6 +8,7 @@ namespace pixel_engine {
 namespace render_vk {
 using namespace prelude;
 struct RenderVKPlugin : Plugin {
+    bool vsync = true;
     void build(App& app) override {
         app.add_system(PreStartup(), systems::create_context)
             .in_set(window::WindowStartUpSets::after_window_creation)
