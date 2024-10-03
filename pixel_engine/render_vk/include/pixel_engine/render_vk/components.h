@@ -1,22 +1,19 @@
 #pragma once
 
-#ifndef GLFW_INCLUDE_VULKAN
-#define GLFW_INCLUDE_VULKAN
-#endif
-#include <GLFW/glfw3.h>
+#include <unordered_map>
 
-#include <vulkan/vulkan.hpp>
-
-#ifndef VMA_IMPLEMENTATION
-#define VMA_IMPLEMENTATION
-#define VMA_VULKAN_VERSION 1002000
-#endif
-#include <vk_mem_alloc.h>
-
-#include "vulkan/instance.h"
+#include "vulkan/device.h"
+#include "vulkan_headers.h"
 
 namespace pixel_engine {
 namespace render_vk {
-namespace components {}
+namespace components {
+using namespace vulkan;
+struct RenderContext {
+    Instance instance;
+    Device device;
+    SwapChain swap_chain;
+};
+}  // namespace components
 }  // namespace render_vk
 }  // namespace pixel_engine

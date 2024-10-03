@@ -725,6 +725,8 @@ struct App {
    public:
     App();
 
+    World* world();
+
     App* operator->();
 
     App& log_level(Loggers logger, spdlog::level::level_enum level);
