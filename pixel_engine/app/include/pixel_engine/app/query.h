@@ -17,16 +17,16 @@ template <typename... T>
 struct Without {};
 
 template <typename Get, typename With, typename Without>
-class Query {};
+class QueryBase {};
 
 template <typename... Qus, typename... Ins, typename... Exs>
-class Query<Get<Qus...>, With<Ins...>, Without<Exs...>> {
+class QueryBase<Get<Qus...>, With<Ins...>, Without<Exs...>> {
    private:
     entt::registry& registry;
     decltype(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{})) m_view;
 
    public:
-    Query(entt::registry& registry) : registry(registry) {
+    QueryBase(entt::registry& registry) : registry(registry) {
         m_view = registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{});
     }
 
@@ -101,13 +101,13 @@ class Query<Get<Qus...>, With<Ins...>, Without<Exs...>> {
 };
 
 template <typename... Qus, typename... Ins, typename... Exs>
-class Query<Get<entt::entity, Qus...>, With<Ins...>, Without<Exs...>> {
+class QueryBase<Get<entt::entity, Qus...>, With<Ins...>, Without<Exs...>> {
    private:
     entt::registry& registry;
     decltype(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{})) m_view;
 
    public:
-    Query(entt::registry& registry) : registry(registry) {
+    QueryBase(entt::registry& registry) : registry(registry) {
         m_view = registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{});
     }
 
@@ -183,6 +183,81 @@ class Query<Get<entt::entity, Qus...>, With<Ins...>, Without<Exs...>> {
     void for_each(std::function<void(entt::entity, Qus&...)> func) {
         m_view.each(func);
     }
+};
+
+template <typename G, typename W, typename WO>
+struct Extract {};
+
+template <typename... Gets, typename... Withs, typename... Withouts>
+struct Extract<Get<Gets...>, With<Withs...>, Without<Withouts...>> {
+    using type = QueryBase<
+        Get<std::add_const_t<Gets>...>,
+        With<std::add_const_t<Withs>...>,
+        Without<std::add_const_t<Withouts>...>>;
+
+   private:
+    type query;
+
+   public:
+    Extract(entt::registry& registry) : query(registry) {}
+    Extract(type query) : query(query) {}
+    Extract(type&& query) : query(query) {}
+    auto iter() { return query.iter(); }
+    auto single() { return query.single(); }
+    void for_each(std::function<void(typename type::iterator::value_type)> func
+    ) {
+        query.for_each(func);
+    }
+    auto get(entt::entity id) { return query.get(id); }
+    bool contains(entt::entity id) { return query.contains(id); }
+};
+
+template <typename... Gets, typename... Withs, typename... Withouts>
+struct Extract<
+    Get<entt::entity, Gets...>,
+    With<Withs...>,
+    Without<Withouts...>> {
+    using type = QueryBase<
+        Get<entt::entity, std::add_const_t<Gets>...>,
+        With<std::add_const_t<Withs>...>,
+        Without<std::add_const_t<Withouts>...>>;
+
+   private:
+    type query;
+
+   public:
+    Extract(entt::registry& registry) : query(registry) {}
+    Extract(type query) : query(query) {}
+    Extract(type&& query) : query(query) {}
+    auto iter() { return query.iter(); }
+    auto single() { return query.single(); }
+    void for_each(std::function<void(typename type::iterator::value_type)> func
+    ) {
+        query.for_each(func);
+    }
+    auto get(entt::entity id) { return query.get(id); }
+    bool contains(entt::entity id) { return query.contains(id); }
+};
+
+template <typename G, typename W, typename WO>
+struct Query {
+    using type = QueryBase<G, W, WO>;
+
+   private:
+    type query;
+
+   public:
+    Query(entt::registry& registry) : query(registry) {}
+    Query(type query) : query(query) {}
+    Query(type&& query) : query(query) {}
+    auto iter() { return query.iter(); }
+    auto single() { return query.single(); }
+    void for_each(std::function<void(typename type::iterator::value_type)> func
+    ) {
+        query.for_each(func);
+    }
+    auto get(entt::entity id) { return query.get(id); }
+    bool contains(entt::entity id) { return query.contains(id); }
 };
 }  // namespace app
 }  // namespace pixel_engine

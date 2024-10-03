@@ -1,3 +1,5 @@
+#include <spdlog/spdlog.h>
+
 #include "pixel_engine/app.h"
 #include "pixel_engine/app/app.h"
 #include "pixel_engine/app/command.h"
@@ -54,20 +56,20 @@ app::Schedule prelude::PostShutdown() {
     return app::Schedule(app::ExitStage::PostShutdown);
 }
 
-bool SystemNode::condition_pass(World* world) {
+bool SystemNode::condition_pass(SubApp* src, SubApp* dst) {
     bool pass = true;
     if (m_schedule.m_condition) {
-        pass &= m_schedule.m_condition->run(world);
+        pass &= m_schedule.m_condition->run(src, dst);
     }
     if (!pass) return false;
     for (auto& cond : m_conditions) {
-        pass &= cond->run(world);
+        pass &= cond->run(src, dst);
         if (!pass) return false;
     }
     return true;
 }
-void SystemNode::run(World* world) {
-    if (m_system) m_system->run(world);
+void SystemNode::run(SubApp* src, SubApp* dst) {
+    if (m_system) m_system->run(src, dst);
 }
 double SystemNode::reach_time() {
     if (m_reach_time.has_value()) {
@@ -91,36 +93,8 @@ void SystemNode::clear_temp() {
     m_temp_before.clear();
     m_temp_after.clear();
 }
-MsgQueue::MsgQueue(const MsgQueue& other) : m_queue(other.m_queue) {}
-auto& MsgQueue::operator=(const MsgQueue& other) {
-    m_queue = other.m_queue;
-    return *this;
-}
-void MsgQueue::push(std::weak_ptr<SystemNode> system) {
-    std::unique_lock<std::mutex> lk(m_mutex);
-    m_queue.push(system);
-    m_cv.notify_one();
-}
-std::weak_ptr<SystemNode> MsgQueue::pop() {
-    std::unique_lock<std::mutex> lk(m_mutex);
-    auto system = m_queue.front();
-    m_queue.pop();
-    return system;
-}
-std::weak_ptr<SystemNode> MsgQueue::front() {
-    std::unique_lock<std::mutex> lk(m_mutex);
-    return m_queue.front();
-}
-bool MsgQueue::empty() {
-    std::unique_lock<std::mutex> lk(m_mutex);
-    return m_queue.empty();
-}
-void MsgQueue::wait() {
-    std::unique_lock<std::mutex> lk(m_mutex);
-    m_cv.wait(lk, [&] { return !m_queue.empty(); });
-}
 
-void StageRunner::build(
+void SubStageRunner::build(
     const std::unordered_map<void*, std::shared_ptr<SystemNode>>& systems
 ) {
     build_logger->debug(
@@ -207,7 +181,7 @@ void StageRunner::build(
     );
 }
 
-void StageRunner::prepare() {
+void SubStageRunner::prepare() {
     std::erase_if(m_systems, [](auto system) { return system.expired(); });
     for (auto system : m_systems) {
         if (auto system_ptr = system.lock()) {
@@ -251,11 +225,11 @@ void StageRunner::prepare() {
     }
 }
 
-void StageRunner::notify(std::weak_ptr<SystemNode> system) {
+void SubStageRunner::notify(std::weak_ptr<SystemNode> system) {
     m_msg_queue.push(system);
 }
 
-void StageRunner::run(std::weak_ptr<SystemNode> system) {
+void SubStageRunner::run(std::weak_ptr<SystemNode> system) {
     if (auto system_ptr = system.lock()) {
         auto iter = (*m_workers).find(system_ptr->m_worker_name);
         if (iter == (*m_workers).end()) {
@@ -269,15 +243,16 @@ void StageRunner::run(std::weak_ptr<SystemNode> system) {
         }
         auto worker = iter->second;
         auto ftr = worker->submit_task([=] {
-            if (system_ptr->m_system && system_ptr->condition_pass(m_world)) {
-                system_ptr->run(m_world);
+            if (system_ptr->m_system &&
+                system_ptr->condition_pass(m_src.get(), m_dst.get())) {
+                system_ptr->run(m_src.get(), m_dst.get());
             }
             notify(system);
         });
     }
 }
 
-void StageRunner::run() {
+void SubStageRunner::run() {
     size_t m_unfinished_system_count = m_systems.size() + 1;
     size_t m_running_system_count = 0;
     run(m_head);
@@ -286,8 +261,9 @@ void StageRunner::run() {
         if (m_running_system_count == 0) {
             run_logger->warn(
                 "Deadlock detected, skipping remaining systems at stage {} "
-                ": {:d}.",
-                m_stage_type_hash->name(), m_stage_value
+                ": {:d}. With {:d} systems remaining.",
+                m_stage_type_hash->name(), m_stage_value,
+                m_unfinished_system_count
             );
             break;
         }
@@ -319,7 +295,39 @@ void StageRunner::run() {
     }
 }
 
-Runner::Runner(std::vector<std::pair<std::string, size_t>> workers) {
+StageRunner::StageRunner(
+    std::shared_ptr<SubApp> src,
+    std::shared_ptr<SubApp> dst,
+    std::unordered_map<const type_info*, std::vector<size_t>>* sets,
+    std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>* workers
+)
+    : m_src(src), m_dst(dst), m_sets(sets), m_workers(workers) {}
+
+void StageRunner::build(
+    const std::unordered_map<void*, std::shared_ptr<SystemNode>>& systems
+) {
+    for (auto& stage_runner : m_sub_stage_runners) {
+        stage_runner.build(systems);
+    }
+}
+
+void StageRunner::prepare() {
+    for (auto& stage_runner : m_sub_stage_runners) {
+        stage_runner.prepare();
+    }
+}
+
+void StageRunner::run() {
+    for (auto& stage_runner : m_sub_stage_runners) {
+        stage_runner.run();
+    }
+}
+
+Runner::Runner(
+    std::unordered_map<const type_info*, std::shared_ptr<SubApp>>* sub_apps,
+    std::vector<std::pair<std::string, size_t>> workers
+)
+    : m_sub_apps(sub_apps) {
     for (auto worker : workers) {
         add_worker(worker.first, worker.second);
     }
@@ -327,22 +335,122 @@ Runner::Runner(std::vector<std::pair<std::string, size_t>> workers) {
 void Runner::add_worker(std::string name, int num_threads) {
     m_workers.insert({name, std::make_shared<BS::thread_pool>(num_threads)});
 }
-void Runner::run_stage(BasicStage stage) {
-    for (auto& stage_runner : m_stages[stage]) {
-        stage_runner.prepare();
-        stage_runner.run();
+std::shared_ptr<StageRunnerInfo> Runner::prepare(
+    std::vector<std::shared_ptr<StageRunnerInfo>>& stages
+) {
+    for (auto& stage : stages) {
+        stage->reset();
     }
-    m_world->end_commands();
+    auto head = std::make_shared<StageRunnerInfo>();
+    std::sort(stages.begin(), stages.end(), [](auto a, auto b) {
+        return a->depth() < b->depth();
+    });
+    for (size_t i = 0; i < stages.size(); i++) {
+        for (size_t j = i + 1; j < stages.size(); j++) {
+            auto stage_i = stages[i];
+            auto stage_j = stages[j];
+            if (stage_i->depth() == stage_j->depth()) {
+                if (stage_i->conflict(stage_j)) {
+                    stage_i->m_after_temp.insert(stage_j);
+                    stage_j->m_before_temp.insert(stage_i);
+                }
+            }
+        }
+    }
+    for (auto& stage : stages) {
+        if (stage->depth() == 0) {
+            head->m_after_temp.insert(stage);
+            stage->m_before_temp.insert(head);
+        } else {
+            break;
+        }
+    }
+    for (auto& stage : stages) {
+        stage->before_count =
+            stage->m_before_temp.size() + stage->m_before.size();
+    }
+    return head;
+}
+void Runner::run(std::shared_ptr<StageRunnerInfo> stage) {
+    auto ftr = m_runner_pool.submit_task([=] {
+        auto ptr = stage->operator->();
+        if (ptr) {
+            ptr->prepare();
+            ptr->run();
+        }
+        m_msg_queue.push(stage);
+    });
+}
+void Runner::run(
+    std::vector<std::shared_ptr<StageRunnerInfo>>& stages,
+    std::shared_ptr<StageRunnerInfo> head
+) {
+    size_t m_unfinished_stage_count = stages.size() + 1;
+    size_t m_running_stage_count = 0;
+    run(head);
+    m_running_stage_count++;
+    while (m_unfinished_stage_count > 0) {
+        if (m_running_stage_count == 0) {
+            run_logger->warn("Deadlock detected, skipping remaining stages.");
+            break;
+        }
+        m_msg_queue.wait();
+        auto stage = m_msg_queue.front();
+        m_unfinished_stage_count--;
+        m_running_stage_count--;
+        for (auto& nextr : stage->m_after_temp) {
+            auto next = nextr.lock();
+            next->before_count--;
+            if (next->before_count == 0) {
+                run(next);
+                m_running_stage_count++;
+            }
+        }
+        for (auto& nextr : stage->m_after) {
+            auto next = nextr.lock();
+            next->before_count--;
+            if (next->before_count == 0) {
+                run(next);
+                m_running_stage_count++;
+            }
+        }
+        m_msg_queue.pop();
+    }
+}
+void Runner::run_startup() {
+    auto head = prepare(m_startup_stages_vec);
+    run(m_startup_stages_vec, head);
+}
+void Runner::run_transition() {
+    auto head = prepare(m_transition_stages_vec);
+    run(m_transition_stages_vec, head);
+}
+void Runner::run_loop() {
+    auto head = prepare(m_loop_stages_vec);
+    run(m_loop_stages_vec, head);
+}
+void Runner::run_exit() {
+    auto head = prepare(m_exit_stages_vec);
+    run(m_exit_stages_vec, head);
 }
 void Runner::build() {
     for (auto& [ptr, system] : m_systems) {
         system->m_systems_after.clear();
         system->m_systems_before.clear();
     }
-    for (auto& [stage, stage_runners] : m_stages) {
-        for (auto& stage_runner : stage_runners) {
-            stage_runner.build(m_systems);
-        }
+    for (auto& [stage, stage_runner] : m_startup_stages) {
+        stage_runner->operator->()->build(m_systems);
+    }
+    for (auto& [stage, stage_runner] : m_loop_stages) {
+        stage_runner->operator->()->build(m_systems);
+    }
+    for (auto& [stage, stage_runner] : m_exit_stages) {
+        stage_runner->operator->()->build(m_systems);
+    }
+}
+void Runner::end_commands() {
+    for (auto& [_, sub_app] : *m_sub_apps) {
+        sub_app->end_commands();
     }
 }
 
@@ -360,7 +468,7 @@ void Runner::removing_system(void* func) {
 Worker::Worker() : name("default") {}
 Worker::Worker(std::string str) : name(str) {}
 
-bool app::check_exit(app::EventReader<AppExit> reader) {
+bool pixel_engine::app::check_exit(app::EventReader<AppExit> reader) {
     if (!reader.empty()) run_logger->info("Exit event received.");
     return !reader.empty();
 }
@@ -369,7 +477,7 @@ void App::PluginCache::add_system(void* system_ptr) {
     m_system_ptrs.insert(system_ptr);
 }
 
-App::AddSystemReturn::AddSystemReturn(App* app, std::weak_ptr<SystemNode> sys)
+App::AddSystemReturn::AddSystemReturn(App* app, SystemNode* sys)
     : m_app(app), m_system(sys) {}
 App* App::AddSystemReturn::operator->() { return m_app; }
 App::AddSystemReturn& App::AddSystemReturn::use_worker(std::string name) {
@@ -385,41 +493,36 @@ App::AddSystemReturn& App::AddSystemReturn::run_if(
     return *this;
 }
 
-App::AddSystemReturn& App::AddSystemReturn::get_node(
-    std::shared_ptr<SystemNode>& node
-) {
-    node = m_system;
-    return *this;
-}
-
 void App::update_states() {
     run_logger->debug("Updating states.");
-    for (auto& update : m_state_update) {
-        auto ftr = m_runner.m_workers["default"]->submit_task([=] {
-            update->run(&m_world);
-        });
+    for (auto& [_, sub_app] : m_sub_apps) {
+        sub_app->update_states();
     }
     m_runner.m_workers["default"]->wait();
 }
 
 App::App() {
-    m_runner.m_world = &m_world;
-    m_runner.configure_stage(
-        BasicStage::Start, StartStage::PreStartup, StartStage::Startup,
-        StartStage::PostStartup
+    add_sub_app<MainSubApp>();
+    add_sub_app<RenderSubApp>();
+    m_main_sub_app = &typeid(MainSubApp);
+    m_runner.assign_startup_stage<MainSubApp, MainSubApp>(
+        StartStage::PreStartup, StartStage::Startup, StartStage::PostStartup
     );
-    m_runner.configure_stage(
-        BasicStage::StateTransition, StateTransitionStage::StateTransit
+    m_runner.assign_transition_stage<MainSubApp, MainSubApp>(
+        StateTransitionStage::StateTransit
     );
-    m_runner.configure_stage(
-        BasicStage::Loop, LoopStage::First, LoopStage::PreUpdate,
-        LoopStage::Update, LoopStage::PostUpdate, LoopStage::Last,
-        RenderStage::Prepare, RenderStage::PreRender, RenderStage::Render,
-        RenderStage::PostRender
+    m_runner.assign_loop_stage<MainSubApp, MainSubApp>(
+        LoopStage::First, LoopStage::PreUpdate, LoopStage::Update,
+        LoopStage::PostUpdate, LoopStage::Last
     );
-    m_runner.configure_stage(
-        BasicStage::Exit, ExitStage::PreShutdown, ExitStage::Shutdown,
-        ExitStage::PostShutdown
+    m_runner
+        .assign_loop_stage<MainSubApp, MainSubApp>(
+            RenderStage::Prepare, RenderStage::PreRender, RenderStage::Render,
+            RenderStage::PostRender
+        )
+        .after<LoopStage>();
+    m_runner.assign_exit_stage<MainSubApp, MainSubApp>(
+        ExitStage::PreShutdown, ExitStage::Shutdown, ExitStage::PostShutdown
     );
 }
 
@@ -457,24 +560,39 @@ App& App::enable_loop() {
     return *this;
 }
 
+void App::build_plugins() {
+    for (auto& [plugin_type, plugin] : m_plugins) {
+        m_building_plugin_type = plugin_type;
+        plugin->build(*this);
+        for (auto& [_, sub_app] : m_sub_apps) {
+            sub_app->emplace_resource(plugin_type, plugin);
+        }
+        m_building_plugin_type = nullptr;
+    }
+}
+
 void App::run() {
+    build_plugins();
+    auto& main_sub_app = m_sub_apps[m_main_sub_app];
     build_logger->info("Building app.");
     m_runner.build();
     build_logger->info("Building done.");
     run_logger->info("Running app.");
-    m_runner.run_stage(BasicStage::Start);
+    m_runner.run_startup();
     run_logger->debug("Running loop.");
     do {
         run_logger->debug("Run Loop systems.");
-        m_runner.run_stage(BasicStage::Loop);
+        m_runner.run_loop();
         run_logger->debug("Run state transition systems.");
-        m_runner.run_stage(BasicStage::StateTransition);
+        m_runner.run_transition();
         update_states();
         run_logger->debug("Tick events.");
-        m_world.tick_events();
-    } while (m_loop_enabled && !m_world.run_system_v(check_exit));
+        for (auto& [_, sub_app] : m_sub_apps) {
+            sub_app->tick_events();
+        }
+    } while (m_loop_enabled && !main_sub_app->run_system_v(check_exit));
     run_logger->info("Exiting app.");
-    m_runner.run_stage(BasicStage::Exit);
+    m_runner.run_exit();
     run_logger->info("App terminated.");
 }
 
@@ -500,7 +618,7 @@ void EntityCommand::despawn_recurse() {
 
 Command::Command(
     entt::registry* registry,
-    std::unordered_map<size_t, std::shared_ptr<void>>* resources,
+    std::unordered_map<const type_info*, std::shared_ptr<void>>* resources,
     std::unordered_map<entt::entity, std::unordered_set<entt::entity>>*
         entity_tree
 )
@@ -530,12 +648,14 @@ void Command::end() {
     }
 }
 
-Command World::command() {
-    return Command(&m_registry, &m_resources, &m_entity_tree);
+Command SubApp::command() {
+    return Command(
+        &m_world.m_registry, &m_world.m_resources, &m_world.m_entity_tree
+    );
 }
 
-void World::tick_events() {
-    for (auto& [key, events] : m_events) {
+void SubApp::tick_events() {
+    for (auto& [key, events] : m_world.m_events) {
         while (!events->empty()) {
             auto& evt = events->front();
             if (evt.ticks >= 1) {
@@ -550,7 +670,13 @@ void World::tick_events() {
     }
 }
 
-void World::end_commands() {
+void SubApp::update_states() {
+    for (auto& update : m_state_updates) {
+        update->run(this, this);
+    }
+}
+
+void SubApp::end_commands() {
     for (auto& cmd : m_commands) {
         cmd.end();
     }

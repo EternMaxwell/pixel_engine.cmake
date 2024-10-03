@@ -14,18 +14,31 @@
 #include "event.h"
 #include "query.h"
 #include "resource.h"
+#include "system.h"
+#include "tools.h"
+
 
 namespace pixel_engine {
 namespace app {
 
 struct World {
-   private:
     entt::registry m_registry;
     std::unordered_map<entt::entity, std::unordered_set<entt::entity>>
         m_entity_tree;
-    std::unordered_map<size_t, std::shared_ptr<void>> m_resources;
-    std::unordered_map<size_t, std::shared_ptr<std::deque<Event>>> m_events;
+    std::unordered_map<const type_info*, std::shared_ptr<void>> m_resources;
+    std::unordered_map<const type_info*, std::shared_ptr<std::deque<Event>>>
+        m_events;
+};
+
+template <typename T>
+struct BasicSystem;
+template <typename... Args>
+struct System;
+
+struct SubApp {
+    World m_world;
     std::vector<Command> m_commands;
+    std::vector<std::shared_ptr<BasicSystem<void>>> m_state_updates;
 
     template <typename T, typename... Args>
     T tuple_get(std::tuple<Args...> tuple) {
@@ -48,18 +61,22 @@ struct World {
         }
     }
 
+   public:
     template <typename T>
     struct value_type {
-        static T get(World* app) { static_assert(1, "value type not valid."); }
+        static T get(SubApp* src, SubApp* dst) {
+            static_assert(1, "value type not valid.");
+        }
     };
 
     template <>
     struct value_type<Command> {
-        static Command get(World* app) {
+        static Command get(SubApp* src, SubApp* dsta) {
+            auto dst = &dsta->m_world;
             Command cmd(
-                &app->m_registry, &app->m_resources, &app->m_entity_tree
+                &dst->m_registry, &dst->m_resources, &dst->m_entity_tree
             );
-            app->m_commands.push_back(cmd);
+            dsta->m_commands.push_back(cmd);
             return cmd;
         }
     };
@@ -67,20 +84,33 @@ struct World {
     template <typename... Gets, typename... Withs, typename... Exs>
     struct value_type<Query<Get<Gets...>, With<Withs...>, Without<Exs...>>> {
         static Query<Get<Gets...>, With<Withs...>, Without<Exs...>> get(
-            World* app
+            SubApp* src, SubApp* dst
         ) {
             return Query<Get<Gets...>, With<Withs...>, Without<Exs...>>(
-                app->m_registry
+                dst->m_world.m_registry
+            );
+        }
+    };
+
+    template <typename... Gets, typename... Withs, typename... Exs>
+    struct value_type<Extract<Get<Gets...>, With<Withs...>, Without<Exs...>>> {
+        static Extract<Get<Gets...>, With<Withs...>, Without<Exs...>> get(
+            SubApp* src, SubApp* dst
+        ) {
+            return Extract<Get<Gets...>, With<Withs...>, Without<Exs...>>(
+                src->m_world.m_registry
             );
         }
     };
 
     template <typename Res>
     struct value_type<Resource<Res>> {
-        static Resource<Res> get(World* app) {
-            if (app->m_resources.find(typeid(Res).hash_code()) !=
-                app->m_resources.end()) {
-                return Resource<Res>(app->m_resources[typeid(Res).hash_code()]);
+        static Resource<Res> get(SubApp* src, SubApp* dst) {
+            if (src->m_world.m_resources.find(&typeid(Res)) !=
+                src->m_world.m_resources.end()) {
+                return Resource<Res>(
+                    src->m_world.m_resources[&typeid(Res)]
+                );
             } else {
                 return Resource<Res>();
             }
@@ -89,35 +119,42 @@ struct World {
 
     template <typename Evt>
     struct value_type<EventWriter<Evt>> {
-        static EventWriter<Evt> get(World* app) {
-            if (app->m_events.find(typeid(Evt).hash_code()) ==
-                app->m_events.end()) {
-                app->m_events[typeid(Evt).hash_code()] =
+        static EventWriter<Evt> get(SubApp* src, SubApp* dst) {
+            if (dst->m_world.m_events.find(&typeid(Evt)) ==
+                dst->m_world.m_events.end()) {
+                dst->m_world.m_events[&typeid(Evt)] =
                     std::make_shared<std::deque<Event>>();
             }
-            return EventWriter<Evt>(app->m_events[typeid(Evt).hash_code()]);
+            return EventWriter<Evt>(
+                dst->m_world.m_events[&typeid(Evt)]
+            );
         }
     };
 
     template <typename Evt>
     struct value_type<EventReader<Evt>> {
-        static EventReader<Evt> get(World* app) {
-            if (app->m_events.find(typeid(Evt).hash_code()) ==
-                app->m_events.end()) {
-                app->m_events[typeid(Evt).hash_code()] =
+        static EventReader<Evt> get(SubApp* src, SubApp* dst) {
+            if (src->m_world.m_events.find(&typeid(Evt)) ==
+                src->m_world.m_events.end()) {
+                src->m_world.m_events[&typeid(Evt)] =
                     std::make_shared<std::deque<Event>>();
             }
-            return EventReader<Evt>(app->m_events[typeid(Evt).hash_code()]);
+            return EventReader<Evt>(
+                src->m_world.m_events[&typeid(Evt)]
+            );
         }
     };
 
+    SubApp() = default;
+
+   private:
     /*!
      * @brief This is where the systems get their parameters by
      * type. All possible type should be handled here.
      */
     template <typename... Args>
     std::tuple<Args...> get_values() {
-        return std::make_tuple(value_type<Args>::get(this)...);
+        return std::make_tuple(value_type<Args>::get(this, this)...);
     }
 
     /*! @brief Get a command object on this app.
@@ -125,9 +162,19 @@ struct World {
      */
     Command command();
 
-   public:
-    std::mutex m_system_mutex;
+    template <typename T>
+    std::shared_ptr<System<Resource<State<T>>, Resource<NextState<T>>>>
+    get_state_update() {
+        return std::make_shared<
+            System<Resource<State<T>>, Resource<NextState<T>>>>(
+            [](Resource<State<T>> state, Resource<NextState<T>> next_state) {
+                state->m_state = next_state->m_state;
+                state->just_created = false;
+            }
+        );
+    }
 
+   public:
     /*! @brief Insert a state.
      * If the state already exists, nothing will happen.
      * @tparam T The type of the state.
@@ -135,10 +182,11 @@ struct World {
      * @return The App object itself.
      */
     template <typename T>
-    World& insert_state(T state) {
+    SubApp& insert_state(T state) {
         Command cmd = command();
         cmd.insert_resource(State(state));
         cmd.insert_resource(NextState(state));
+        m_state_updates.push_back(get_state_update<T>());
         return *this;
     }
 
@@ -148,10 +196,11 @@ struct World {
      * @return The App object itself.
      */
     template <typename T>
-    World& init_state() {
+    SubApp& init_state() {
         Command cmd = command();
         cmd.init_resource<State<T>>();
         cmd.init_resource<NextState<T>>();
+        m_state_updates.push_back(get_state_update<T>());
         return *this;
     }
 
@@ -163,7 +212,7 @@ struct World {
      * @return World& The App object itself.
      */
     template <typename T>
-    World& insert_resource(T res) {
+    SubApp& insert_resource(T res) {
         Command cmd = command();
         cmd.insert_resource(res);
         return *this;
@@ -179,7 +228,7 @@ struct World {
      * @return World& The App object itself.
      */
     template <typename T, typename... Args>
-    World& insert_resource(Args... args) {
+    SubApp& insert_resource(Args... args) {
         Command cmd = command();
         cmd.insert_resource<T>(args...);
         return *this;
@@ -192,9 +241,14 @@ struct World {
      * @return World& The App object itself.
      */
     template <typename T>
-    World& init_resource() {
+    SubApp& init_resource() {
         Command cmd = command();
         cmd.init_resource<T>();
+        return *this;
+    }
+
+    SubApp& emplace_resource(const type_info* type, std::shared_ptr<void> res) {
+        m_world.m_resources.insert({type, res});
         return *this;
     }
 
@@ -203,54 +257,27 @@ struct World {
         return value_type<Resource<T>>::get(this);
     }
 
-    /*! @brief Run a system.
-     * @tparam Args The types of the arguments for the system.
-     * @param func The system to be run.
-     * @return The App object itself.
-     */
-    template <typename... Args>
-    World& run_system(std::function<void(Args...)> func) {
-        std::apply(func, get_values<Args...>());
-        return *this;
-    }
-
-    /*! @brief Run a system.
-     * @tparam Args The types of the arguments for the system.
-     * @param func The system to be run.
-     * @return The App object itself.
-     */
-    template <typename... Args>
-    World& run_system(void (*func)(Args...)) {
-        std::apply(func, get_values<Args...>());
-        return *this;
-    }
-
     void tick_events();
+
+    void update_states();
 
     void end_commands();
 
-    /*! @brief Run a system.
-     * @tparam Args1 The types of the arguments for the system.
-     * @tparam Args2 The types of the arguments for the condition.
-     * @param func The system to be run.
-     * @param condition The condition for the system to be run.
-     * @return The App object itself.
-     */
-    template <typename T, typename... Args>
-    T run_system_v(std::function<T(Args...)> func) {
-        return std::apply(func, get_values<Args...>());
+    template <typename T>
+    T get_app_parameter() {
+        return value_type<T>::get(this, this);
     }
 
-    /*! @brief Run a system.
-     * @tparam Args1 The types of the arguments for the system.
-     * @tparam Args2 The types of the arguments for the condition.
-     * @param func The system to be run.
-     * @param condition The condition for the system to be run.
-     * @return The App object itself.
-     */
-    template <typename T, typename... Args>
-    T run_system_v(T (*func)(Args...)) {
-        return std::apply(func, get_values<Args...>());
+    template <typename Ret, typename... Args>
+    Ret run_system_v(std::function<Ret(Args...)> func) {
+        auto values = get_values<Args...>();
+        return std::apply(func, values);
+    }
+
+    template <typename Ret, typename... Args>
+    Ret run_system_v(Ret (*func)(Args...)) {
+        auto values = get_values<Args...>();
+        return std::apply(func, values);
     }
 };
 }  // namespace app

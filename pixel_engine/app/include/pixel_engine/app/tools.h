@@ -6,7 +6,8 @@
 namespace pixel_engine {
 namespace app {
 struct App;
-}
+struct SubApp;
+}  // namespace app
 namespace internal_components {
 struct Bundle {};
 struct Parent {
@@ -17,6 +18,7 @@ struct NextState;
 template <typename T>
 struct State {
     friend class app::App;
+    friend class app::SubApp;
 
    protected:
     T m_state;

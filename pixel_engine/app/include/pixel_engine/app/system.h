@@ -409,7 +409,23 @@ struct BasicSystem {
         std::cout << std::endl;
     }
     const double get_avg_time() { return avg_time; }
-    virtual Ret run(World* world) = 0;
+    virtual Ret run(SubApp* src, SubApp* dst) = 0;
+};
+
+struct SubAppParaRetriever {
+    template <typename T>
+    static T get(SubApp* src, SubApp* dst) {
+        return SubApp::value_type<T>::get(src, dst);
+    }
+};
+
+template <typename Ret, typename... Args>
+struct SystemFunctionInvoker {
+    static Ret invoke(
+        std::function<Ret(Args...)> func, SubApp* src, SubApp* dst
+    ) {
+        return func(SubAppParaRetriever::get<Args>(src, dst)...);
+    }
 };
 
 template <typename... Args>
@@ -422,12 +438,12 @@ struct System : public BasicSystem<void> {
         : BasicSystem<void>(), func(func) {
         add_infos<Args...>();
     }
-    System(void (*func)(Args...)) : BasicSystem<void>(), func(func) {
-        add_infos<Args...>();
-    }
-    void run(World* world) override {
+    // System(void (*func)(Args...)) : BasicSystem<void>(), func(func) {
+    //     add_infos<Args...>();
+    // }
+    void run(SubApp* src, SubApp* dst) override {
         auto start = std::chrono::high_resolution_clock::now();
-        world->run_system_v(func);
+        SystemFunctionInvoker<void, Args...>::invoke(func, src, dst);
         auto end = std::chrono::high_resolution_clock::now();
         auto delta =
             std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
@@ -449,7 +465,9 @@ struct Condition : public BasicSystem<bool> {
     Condition(bool (*func)(Args...)) : BasicSystem<bool>(), func(func) {
         add_infos<Args...>();
     }
-    bool run(World* world) override { return world->run_system_v(func); }
+    bool run(SubApp* src, SubApp* dst) override {
+        return SystemFunctionInvoker<bool, Args...>::invoke(func, src, dst);
+    }
 };
 
 }  // namespace app

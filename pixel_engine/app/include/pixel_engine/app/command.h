@@ -78,7 +78,7 @@ struct EntityCommand {
 struct Command {
    private:
     entt::registry* const m_registry;
-    std::unordered_map<size_t, std::shared_ptr<void>>* m_resources;
+    std::unordered_map<const type_info*, std::shared_ptr<void>>* m_resources;
     std::unordered_map<entt::entity, std::unordered_set<entt::entity>>*
         m_entity_tree;
     std::shared_ptr<std::vector<entt::entity>> m_despawns;
@@ -87,7 +87,7 @@ struct Command {
    public:
     Command(
         entt::registry* registry,
-        std::unordered_map<size_t, std::shared_ptr<void>>* resources,
+        std::unordered_map<const type_info*, std::shared_ptr<void>>* resources,
         std::unordered_map<entt::entity, std::unordered_set<entt::entity>>*
             entity_tree
     );
@@ -128,9 +128,9 @@ struct Command {
      */
     template <typename T, typename... Args>
     void insert_resource(Args... args) {
-        if (m_resources->find(typeid(T).hash_code()) == m_resources->end()) {
+        if (m_resources->find(&typeid(T)) == m_resources->end()) {
             m_resources->emplace(std::make_pair(
-                typeid(T).hash_code(),
+                &typeid(T),
                 std::static_pointer_cast<void>(std::make_shared<T>(args...))
             ));
         }
@@ -138,9 +138,9 @@ struct Command {
 
     template <typename T>
     void insert_resource(T res) {
-        if (m_resources->find(typeid(T).hash_code()) == m_resources->end()) {
+        if (m_resources->find(&typeid(T)) == m_resources->end()) {
             m_resources->emplace(std::make_pair(
-                typeid(T).hash_code(),
+                &typeid(T),
                 std::static_pointer_cast<void>(std::make_shared<T>(res))
             ));
         }
@@ -152,7 +152,7 @@ struct Command {
      */
     template <typename T>
     void remove_resource() {
-        m_resources->erase(typeid(T).hash_code());
+        m_resources->erase(&typeid(T));
     }
 
     /*! @brief Insert Resource using default values.
@@ -161,9 +161,9 @@ struct Command {
      */
     template <typename T>
     void init_resource() {
-        if (m_resources->find(typeid(T).hash_code()) == m_resources->end()) {
+        if (m_resources->find(&typeid(T)) == m_resources->end()) {
             auto res = std::static_pointer_cast<void>(std::make_shared<T>());
-            m_resources->insert({typeid(T).hash_code(), res});
+            m_resources->insert({&typeid(T), res});
         }
     }
 

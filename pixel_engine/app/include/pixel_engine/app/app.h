@@ -111,15 +111,20 @@ struct SystemNode {
 
     SystemNode() = default;
     template <typename... Args>
+    SystemNode(void (*func)(Args...)) {
+        m_system = std::make_shared<System<Args...>>(func);
+        m_func_addr = func;
+    }
+    template <typename... Args>
     SystemNode(Schedule schedule, void (*func)(Args...)) {
         m_schedule = schedule;
         m_system = std::make_shared<System<Args...>>(func);
         m_func_addr = func;
     }
 
-    bool condition_pass(World* world);
+    bool condition_pass(SubApp* src, SubApp* dst);
 
-    void run(World* world);
+    void run(SubApp* src, SubApp* dst);
 
     double reach_time();
 
@@ -128,23 +133,58 @@ struct SystemNode {
     void clear_temp();
 };
 
-struct MsgQueue {
-    std::queue<std::weak_ptr<SystemNode>> m_queue;
+template <typename T>
+struct MsgQueueBase {
+    std::queue<T> m_queue;
     std::mutex m_mutex;
     std::condition_variable m_cv;
-    MsgQueue() = default;
-    MsgQueue(const MsgQueue& other);
-    auto& operator=(const MsgQueue& other);
-    void push(std::weak_ptr<SystemNode> system);
-    std::weak_ptr<SystemNode> pop();
-    std::weak_ptr<SystemNode> front();
-    bool empty();
-    void wait();
+    MsgQueueBase() = default;
+    MsgQueueBase(const MsgQueueBase& other) : m_queue(other.m_queue) {}
+    auto& operator=(const MsgQueueBase& other) {
+        m_queue = other.m_queue;
+        return *this;
+    }
+    void push(T system) {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_queue.push(system);
+        m_cv.notify_one();
+    }
+    T pop() {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        T system = m_queue.front();
+        m_queue.pop();
+        return system;
+    }
+    T front() {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return m_queue.front();
+    }
+    bool empty() {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return m_queue.empty();
+    }
+    void wait() {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_cv.wait(lock, [this] { return !m_queue.empty(); });
+    }
 };
 
-struct StageRunner {
+struct MsgQueue : MsgQueueBase<std::weak_ptr<SystemNode>> {};
+
+// new implementation should be runners -> stage -> substage,
+// where runners are startup, loop and exit.
+// stages can be assigned to a runner, and stage is distinguished by
+// the enum type. The assignment function should be like:
+//     Runners::assign_<runner>_stage(src, dst, stage, substages...);
+// where src and dst are SubApp objects, stage is the enum type of the
+// stage, and substages are the enum type of the substage.
+// which returns a AddStageReturn object, which can be used to set
+// the dependencies map of the stages in the runner.
+
+struct SubStageRunner {
    private:
-    World* m_world;
+    std::shared_ptr<SubApp> m_src;
+    std::shared_ptr<SubApp> m_dst;
     const type_info* m_stage_type_hash;
     size_t m_stage_value;
     std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>*
@@ -158,14 +198,16 @@ struct StageRunner {
 
    public:
     template <typename StageT>
-    StageRunner(
-        World* world,
+    SubStageRunner(
+        std::shared_ptr<SubApp> src,
+        std::shared_ptr<SubApp> dst,
         StageT stage,
         std::unordered_map<const type_info*, std::vector<size_t>>* sets,
         std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>*
             workers
     )
-        : m_world(world),
+        : m_src(src),
+          m_dst(dst),
           m_stage_type_hash(&typeid(StageT)),
           m_stage_value(static_cast<size_t>(stage)),
           m_sets(sets),
@@ -176,6 +218,37 @@ struct StageRunner {
     void prepare();
     void notify(std::weak_ptr<SystemNode> system);
     void run(std::weak_ptr<SystemNode> system);
+    void run();
+};
+
+struct StageRunner {
+    std::shared_ptr<SubApp> m_src;
+    std::shared_ptr<SubApp> m_dst;
+    std::vector<SubStageRunner> m_sub_stage_runners;
+    const type_info* m_stage_type_hash;
+    std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>*
+        m_workers;
+    std::unordered_map<const type_info*, std::vector<size_t>>* m_sets;
+    StageRunner(
+        std::shared_ptr<SubApp> src,
+        std::shared_ptr<SubApp> dst,
+        std::unordered_map<const type_info*, std::vector<size_t>>* sets,
+        std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>*
+            workers
+    );
+    template <typename Stage, typename... SubStages>
+    void assign_sub_stages(Stage stage, SubStages... substages) {
+        auto stages = {stage, substages...};
+        for (auto sub_stage : stages) {
+            m_sub_stage_runners.emplace_back(
+                m_src, m_dst, sub_stage, m_sets, m_workers
+            );
+        }
+    }
+    void build(
+        const std::unordered_map<void*, std::shared_ptr<SystemNode>>& systems
+    );
+    void prepare();
     void run();
 };
 
@@ -203,18 +276,265 @@ struct in_set {
     }
 };
 
+struct StageRunnerInfo {
+    std::shared_ptr<StageRunner> m_stage_runner;
+    std::unordered_set<std::weak_ptr<StageRunnerInfo>> m_before;
+    std::unordered_set<std::weak_ptr<StageRunnerInfo>> m_before_temp;
+    std::unordered_set<std::weak_ptr<StageRunnerInfo>> m_after;
+    std::unordered_set<std::weak_ptr<StageRunnerInfo>> m_after_temp;
+    size_t before_count = 0;
+    std::optional<size_t> m_depth;
+    StageRunnerInfo(
+        std::shared_ptr<SubApp> src,
+        std::shared_ptr<SubApp> dst,
+        std::unordered_map<const type_info*, std::vector<size_t>>* sets,
+        std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>*
+            workers
+    )
+        : m_stage_runner(std::make_shared<StageRunner>(src, dst, sets, workers)
+          ) {}
+    StageRunnerInfo() = default;
+    auto operator->() -> StageRunner* { return m_stage_runner.get(); }
+    void reset() {
+        m_before_temp.clear();
+        m_after_temp.clear();
+        m_depth.reset();
+        before_count = 0;
+    }
+    bool conflict(std::shared_ptr<StageRunnerInfo> other) {
+        if (m_stage_runner->m_src == other->m_stage_runner->m_src ||
+            m_stage_runner->m_dst == other->m_stage_runner->m_dst ||
+            m_stage_runner->m_src == other->m_stage_runner->m_dst ||
+            m_stage_runner->m_dst == other->m_stage_runner->m_src) {
+            return true;
+        }
+        return false;
+    }
+    size_t depth() {
+        if (m_depth) {
+            return *m_depth;
+        }
+        size_t max_depth = -1;
+        for (auto& before : m_before) {
+            size_t depth = before.lock()->depth();
+            if (depth > max_depth) {
+                max_depth = depth;
+            }
+        }
+        m_depth = max_depth + 1;
+        return *m_depth;
+    }
+};
+
+struct StageRunnerMsgQueue : MsgQueueBase<std::shared_ptr<StageRunnerInfo>> {};
+
 struct Runner {
-    World* m_world;
+    std::unordered_map<const type_info*, std::shared_ptr<SubApp>>* m_sub_apps;
     std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>> m_workers;
-    std::unordered_map<BasicStage, std::vector<StageRunner>> m_stages;
+    std::unordered_map<const type_info*, std::shared_ptr<StageRunnerInfo>>
+        m_startup_stages;
+    std::unordered_map<const type_info*, std::shared_ptr<StageRunnerInfo>>
+        m_transition_stages;
+    std::unordered_map<const type_info*, std::shared_ptr<StageRunnerInfo>>
+        m_loop_stages;
+    std::unordered_map<const type_info*, std::shared_ptr<StageRunnerInfo>>
+        m_exit_stages;
+    std::vector<std::shared_ptr<StageRunnerInfo>> m_startup_stages_vec;
+    std::vector<std::shared_ptr<StageRunnerInfo>> m_transition_stages_vec;
+    std::vector<std::shared_ptr<StageRunnerInfo>> m_loop_stages_vec;
+    std::vector<std::shared_ptr<StageRunnerInfo>> m_exit_stages_vec;
     std::unordered_map<void*, std::shared_ptr<SystemNode>> m_systems;
     std::unordered_map<const type_info*, std::vector<size_t>> m_sets;
-    template <typename... SubStages>
-    void configure_stage(BasicStage stage, SubStages... stages) {
-        std::vector<StageRunner> stage_runners = {
-            StageRunner(m_world, stages, &m_sets, &m_workers)...
-        };
-        m_stages[stage] = stage_runners;
+    BS::thread_pool m_runner_pool;
+    StageRunnerMsgQueue m_msg_queue;
+
+    struct AddStageReturn {
+       private:
+        Runner* m_runner;
+        const type_info* m_stage_type;
+        std::unordered_map<const type_info*, std::shared_ptr<StageRunnerInfo>>*
+            m_stages;
+
+       public:
+        AddStageReturn(
+            const type_info* stage_type,
+            Runner* runner,
+            std::unordered_map<
+                const type_info*,
+                std::shared_ptr<StageRunnerInfo>>* stages
+        )
+            : m_stage_type(stage_type), m_stages(stages), m_runner(runner) {}
+        template <typename Stage>
+        AddStageReturn& before() {
+            auto this_stage = m_stages->find(m_stage_type);
+            if (this_stage != m_stages->end()) {
+                auto stage = m_stages->find(&typeid(Stage));
+                if (stage != m_stages->end()) {
+                    this_stage->second->m_after.insert(stage->second);
+                    stage->second->m_before.insert(this_stage->second);
+                } else {
+                    setup_logger->warn(
+                        "Trying to add stage {} before stage {}, which does "
+                        "not exist.",
+                        typeid(Stage).name(), m_stage_type->name()
+                    );
+                }
+            }
+            return *this;
+        }
+        template <typename Stage>
+        AddStageReturn& after() {
+            auto this_stage = m_stages->find(m_stage_type);
+            if (this_stage != m_stages->end()) {
+                auto stage = m_stages->find(&typeid(Stage));
+                if (stage != m_stages->end()) {
+                    this_stage->second->m_before.insert(stage->second);
+                    stage->second->m_after.insert(this_stage->second);
+                } else {
+                    setup_logger->warn(
+                        "Trying to add stage {} after stage {}, which does not "
+                        "exist.",
+                        typeid(Stage).name(), m_stage_type->name()
+                    );
+                }
+            }
+            return *this;
+        }
+    };
+    template <typename Stage, typename... SubStages>
+    AddStageReturn assign_startup_stage(
+        std::shared_ptr<SubApp> src,
+        std::shared_ptr<SubApp> dst,
+        Stage stage,
+        SubStages... substages
+    ) {
+        auto stage_runner =
+            std::make_shared<StageRunnerInfo>(src, dst, &m_sets, &m_workers);
+        stage_runner->m_stage_runner->assign_sub_stages(stage, substages...);
+        m_startup_stages.insert({&typeid(Stage), stage_runner});
+        m_startup_stages_vec.push_back(stage_runner);
+        return AddStageReturn(&typeid(Stage), this, &m_startup_stages);
+    }
+    template <
+        typename SrcT,
+        typename DstT,
+        typename Stage,
+        typename... SubStages>
+    AddStageReturn assign_startup_stage(Stage stage, SubStages... substages) {
+        auto src = m_sub_apps->find(&typeid(SrcT));
+        auto dst = m_sub_apps->find(&typeid(DstT));
+        if (src == m_sub_apps->end() || dst == m_sub_apps->end()) {
+            setup_logger->warn(
+                "Trying to assign startup stage from {} to {}, which does not "
+                "exist.",
+                typeid(SrcT).name(), typeid(DstT).name()
+            );
+            return AddStageReturn(&typeid(Stage), this, &m_startup_stages);
+        }
+        return assign_startup_stage(
+            src->second, dst->second, stage, substages...
+        );
+    }
+    template <typename Stage, typename... SubStages>
+    AddStageReturn assign_transition_stage(
+        std::shared_ptr<SubApp> src,
+        std::shared_ptr<SubApp> dst,
+        Stage stage,
+        SubStages... substages
+    ) {
+        auto stage_runner =
+            std::make_shared<StageRunnerInfo>(src, dst, &m_sets, &m_workers);
+        stage_runner->m_stage_runner->assign_sub_stages(stage, substages...);
+        m_transition_stages.insert({&typeid(Stage), stage_runner});
+        m_transition_stages_vec.push_back(stage_runner);
+        return AddStageReturn(&typeid(Stage), this, &m_transition_stages);
+    }
+    template <
+        typename SrcT,
+        typename DstT,
+        typename Stage,
+        typename... SubStages>
+    AddStageReturn assign_transition_stage(
+        Stage stage, SubStages... substages
+    ) {
+        auto src = m_sub_apps->find(&typeid(SrcT));
+        auto dst = m_sub_apps->find(&typeid(DstT));
+        if (src == m_sub_apps->end() || dst == m_sub_apps->end()) {
+            setup_logger->warn(
+                "Trying to assign transition stage from {} to {}, which does "
+                "not "
+                "exist.",
+                typeid(SrcT).name(), typeid(DstT).name()
+            );
+            return AddStageReturn(&typeid(Stage), this, &m_transition_stages);
+        }
+        return assign_transition_stage(
+            src->second, dst->second, stage, substages...
+        );
+    }
+    template <typename Stage, typename... SubStages>
+    AddStageReturn assign_loop_stage(
+        std::shared_ptr<SubApp> src,
+        std::shared_ptr<SubApp> dst,
+        Stage stage,
+        SubStages... substages
+    ) {
+        auto stage_runner =
+            std::make_shared<StageRunnerInfo>(src, dst, &m_sets, &m_workers);
+        stage_runner->m_stage_runner->assign_sub_stages(stage, substages...);
+        m_loop_stages.insert({&typeid(Stage), stage_runner});
+        m_loop_stages_vec.push_back(stage_runner);
+        return AddStageReturn(&typeid(Stage), this, &m_loop_stages);
+    }
+    template <
+        typename SrcT,
+        typename DstT,
+        typename Stage,
+        typename... SubStages>
+    AddStageReturn assign_loop_stage(Stage stage, SubStages... substages) {
+        auto src = m_sub_apps->find(&typeid(SrcT));
+        auto dst = m_sub_apps->find(&typeid(DstT));
+        if (src == m_sub_apps->end() || dst == m_sub_apps->end()) {
+            setup_logger->warn(
+                "Trying to assign loop stage from {} to {}, which does not "
+                "exist.",
+                typeid(SrcT).name(), typeid(DstT).name()
+            );
+            return AddStageReturn(&typeid(Stage), this, &m_loop_stages);
+        }
+        return assign_loop_stage(src->second, dst->second, stage, substages...);
+    }
+    template <typename Stage, typename... SubStages>
+    AddStageReturn assign_exit_stage(
+        std::shared_ptr<SubApp> src,
+        std::shared_ptr<SubApp> dst,
+        Stage stage,
+        SubStages... substages
+    ) {
+        auto stage_runner =
+            std::make_shared<StageRunnerInfo>(src, dst, &m_sets, &m_workers);
+        stage_runner->m_stage_runner->assign_sub_stages(stage, substages...);
+        m_exit_stages.insert({&typeid(Stage), stage_runner});
+        m_exit_stages_vec.push_back(stage_runner);
+        return AddStageReturn(&typeid(Stage), this, &m_exit_stages);
+    }
+    template <
+        typename SrcT,
+        typename DstT,
+        typename Stage,
+        typename... SubStages>
+    AddStageReturn assign_exit_stage(Stage stage, SubStages... substages) {
+        auto src = m_sub_apps->find(&typeid(SrcT));
+        auto dst = m_sub_apps->find(&typeid(DstT));
+        if (src == m_sub_apps->end() || dst == m_sub_apps->end()) {
+            setup_logger->warn(
+                "Trying to assign exit stage from {} to {}, which does not "
+                "exist.",
+                typeid(SrcT).name(), typeid(DstT).name()
+            );
+            return AddStageReturn(&typeid(Stage), this, &m_exit_stages);
+        }
+        return assign_exit_stage(src->second, dst->second, stage, substages...);
     }
     template <typename T, typename... Sets>
     void configure_sets(T set, Sets... sets) {
@@ -222,14 +542,29 @@ struct Runner {
             static_cast<size_t>(set), static_cast<size_t>(sets)...
         };
     }
-    Runner(std::vector<std::pair<std::string, size_t>> workers);
+    Runner(
+        std::unordered_map<const type_info*, std::shared_ptr<SubApp>>* sub_apps,
+        std::vector<std::pair<std::string, size_t>> workers
+    );
     void add_worker(std::string name, int num_threads);
-    void run_stage(BasicStage stage);
+    std::shared_ptr<StageRunnerInfo> prepare(
+        std::vector<std::shared_ptr<StageRunnerInfo>>& stages
+    );
+    void run(std::shared_ptr<StageRunnerInfo> stage);
+    void run(
+        std::vector<std::shared_ptr<StageRunnerInfo>>& stages,
+        std::shared_ptr<StageRunnerInfo> head
+    );
+    void run_startup();
+    void run_transition();
+    void run_loop();
+    void run_exit();
     void build();
+    void end_commands();
     void removing_system(void* func);
 
     template <typename... Args>
-    std::shared_ptr<SystemNode> add_system(
+    SystemNode* add_system(
         Schedule schedule,
         void (*func)(Args...),
         std::string worker_name = "default",
@@ -255,7 +590,21 @@ struct Runner {
             afters.ptrs.begin(), afters.ptrs.end()
         );
         m_systems.insert({(void*)func, node});
-        return node;
+        return node.get();
+    }
+
+    template <typename... Args>
+    SystemNode* add_system(void (*func)(Args...)) {
+        if (m_systems.find(func) != m_systems.end()) {
+            setup_logger->warn(
+                "Trying to add system {:#016x} : {}, which already exists.",
+                (size_t)func, typeid(func).name()
+            );
+            return nullptr;
+        }
+        std::shared_ptr<SystemNode> node = std::make_shared<SystemNode>(func);
+        m_systems.insert({(void*)func, node});
+        return node.get();
     }
 };
 
@@ -276,6 +625,12 @@ struct Plugin {
 };
 
 struct App {
+    auto operator=(const App&) -> App& = delete;
+    auto operator=(App&&) -> App& = delete;
+    auto operator=(const App&&) -> App& = delete;
+    App(const App&) = delete;
+    App(App&&) = delete;
+    App(const App&&) = delete;
     enum Loggers { Setup, Build, Run };
     struct PluginCache {
        private:
@@ -293,11 +648,11 @@ struct App {
 
     struct AddSystemReturn {
        private:
-        std::shared_ptr<SystemNode> m_system;
+        SystemNode* m_system;
         App* m_app;
 
        public:
-        AddSystemReturn(App* app, std::weak_ptr<SystemNode> sys);
+        AddSystemReturn(App* app, SystemNode* sys);
         App* operator->();
         template <typename... Sets>
         AddSystemReturn& in_set(Sets... sets) {
@@ -329,32 +684,43 @@ struct App {
             }
             return *this;
         }
+        template <typename T>
+        AddSystemReturn& in_stage(T stage) {
+            if (m_system) {
+                m_system->m_schedule = Schedule(stage);
+            }
+            return *this;
+        }
         AddSystemReturn& use_worker(std::string name);
         AddSystemReturn& run_if(std::shared_ptr<BasicSystem<bool>> cond);
-        AddSystemReturn& get_node(std::shared_ptr<SystemNode>& node);
     };
 
    private:
-    World m_world;
-    Runner m_runner = Runner({{"default", 8}, {"single", 1}});
+    std::unordered_map<const type_info*, std::shared_ptr<SubApp>> m_sub_apps;
+    const type_info* m_main_sub_app = nullptr;
+    Runner m_runner = Runner(&m_sub_apps, {{"default", 8}, {"single", 1}});
     std::vector<std::shared_ptr<BasicSystem<void>>> m_state_update;
     std::unordered_map<const type_info*, PluginCache> m_plugin_caches;
+    std::unordered_map<const type_info*, std::shared_ptr<Plugin>> m_plugins;
     bool m_loop_enabled = false;
     const type_info* m_building_plugin_type = nullptr;
 
-    template <typename T>
-    auto state_update() {
-        using namespace internal_components;
-        return
-            [&](Resource<State<T>> state, Resource<NextState<T>> state_next) {
-                if (state.has_value() && state_next.has_value()) {
-                    state->just_created = false;
-                    state->m_state = state_next->m_state;
-                }
-            };
-    }
-
     void update_states();
+
+    struct MainSubApp {};
+    struct RenderSubApp {};
+
+    template <typename T>
+    void add_sub_app() {
+        if (m_sub_apps.find(&typeid(T)) != m_sub_apps.end()) {
+            setup_logger->warn(
+                "Trying to add sub app {}, which already exists.",
+                typeid(T).name()
+            );
+            return;
+        }
+        m_sub_apps.insert({&typeid(T), std::make_shared<SubApp>()});
+    }
 
    public:
     App();
@@ -397,6 +763,14 @@ struct App {
         }
         return AddSystemReturn(this, ptr);
     }
+    template <typename... Args>
+    AddSystemReturn add_system(void (*func)(Args...)) {
+        auto ptr = m_runner.add_system(func);
+        if (m_building_plugin_type && ptr) {
+            m_plugin_caches[m_building_plugin_type].add_system((void*)func);
+        }
+        return AddSystemReturn(this, ptr);
+    }
 
     template <typename T>
     App& add_plugin(T&& plugin) {
@@ -410,11 +784,12 @@ struct App {
         m_building_plugin_type = &typeid(T);
         PluginCache cache(plugin);
         m_plugin_caches.insert({m_building_plugin_type, cache});
-        m_world.insert_resource(plugin);
-        plugin.build(*this);
+        m_plugins.insert({m_building_plugin_type, std::make_shared<T>(plugin)});
         m_building_plugin_type = nullptr;
         return *this;
     }
+
+    void build_plugins();
 
     template <typename T>
     App& remove_plugin() {
@@ -436,25 +811,15 @@ struct App {
 
     template <typename T>
     App& insert_state(T state) {
-        m_world.insert_state(state);
-        m_state_update.push_back(
-            std::make_unique<
-                System<Resource<State<T>>, Resource<NextState<T>>>>(
-                state_update<T>()
-            )
-        );
+        auto& sub_app = m_sub_apps[m_main_sub_app];
+        sub_app->insert_state(state);
         return *this;
     }
 
     template <typename T>
     App& init_state() {
-        m_world.init_state<T>();
-        m_state_update.push_back(
-            std::make_unique<
-                System<Resource<State<T>>, Resource<NextState<T>>>>(
-                state_update<T>()
-            )
-        );
+        auto& sub_app = m_sub_apps[m_main_sub_app];
+        sub_app->init_state<T>();
         return *this;
     }
 
@@ -462,7 +827,7 @@ struct App {
         typename T,
         typename U = std::enable_if_t<std::is_base_of<Plugin, T>::value>>
     auto get_plugin() {
-        return m_world.get_resource<T>();
+        return std::dynamic_pointer_cast<T>(m_plugins[&typeid(T)]);
     }
 };
 }  // namespace app
