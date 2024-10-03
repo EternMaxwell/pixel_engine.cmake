@@ -501,8 +501,6 @@ void App::update_states() {
     m_runner.m_workers["default"]->wait();
 }
 
-World* App::world() { return &m_world; }
-
 App::App() {
     add_sub_app<MainSubApp>();
     add_sub_app<RenderSubApp>();
