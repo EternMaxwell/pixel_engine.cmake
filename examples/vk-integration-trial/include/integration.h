@@ -1310,6 +1310,21 @@ void record_command_buffer(
     );
     cmd.drawIndexed(indices.size(), 1, 0, 0, 0);
     cmd.endRendering();
+    vk::ImageMemoryBarrier barrier;
+    barrier.setOldLayout(vk::ImageLayout::eUndefined);
+    barrier.setNewLayout(vk::ImageLayout::ePresentSrcKHR);
+    barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+    barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+    barrier.setImage(render_context->swap_chain.current_image().image);
+    barrier.setSubresourceRange(
+        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
+    );
+    barrier.setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+    barrier.setDstAccessMask(vk::AccessFlagBits::eMemoryRead);
+    cmd.pipelineBarrier(
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits::eBottomOfPipe, {}, {}, {}, barrier
+    );
     cmd.end();
 }
 
@@ -1353,13 +1368,10 @@ void end_draw(
     vk::PipelineStageFlags wait_stages[] = {
         vk::PipelineStageFlagBits::eColorAttachmentOutput
     };
-    submit_info.setWaitSemaphores(
-        render_context->swap_chain.image_available()
-    );
+    submit_info.setWaitSemaphores(render_context->swap_chain.image_available());
     submit_info.setWaitDstStageMask(wait_stages);
     submit_info.setCommandBuffers(cmd);
-    submit_info.setSignalSemaphores(
-        render_context->swap_chain.render_finished()
+    submit_info.setSignalSemaphores(render_context->swap_chain.render_finished()
     );
     queue.submit(submit_info, render_context->swap_chain.fence());
     // free cmd
