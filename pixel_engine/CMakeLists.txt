@@ -2,6 +2,7 @@
 
 add_subdirectory(app)
 add_subdirectory(window)
+add_subdirectory(render_ogl)
 add_subdirectory(vulkan_graph)
 add_subdirectory(render_vk)
 
