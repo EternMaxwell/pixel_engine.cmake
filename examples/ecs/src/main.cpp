@@ -16,8 +16,14 @@
 struct test_t {
     test_t() { std::cout << "Constructor called" << std::endl; }
     test_t(const test_t&) = delete;
-    test_t(test_t&&) = default;
-    test_t& operator=(test_t&&) = default;
+    test_t(test_t&&) {
+        std::cout << "Move constructor called" << std::endl;
+    }
+    test_t& operator=(const test_t&) = delete;
+    test_t& operator=(test_t&&) {
+        std::cout << "Move assignment called" << std::endl;
+        return *this;
+    }
     ~test_t() { std::cout << "Destructor called" << std::endl; }
 };
 
@@ -36,14 +42,6 @@ int main() {
     test_state::test();
     std::cout << "===========TEST PARALLEL RUN==========" << std::endl;
     test_parallel_run::test();
-
-    entt::registry registry;
-
-    auto test = test_t();
-
-    auto entity = registry.create();
-    registry.emplace<test_t>(entity, test);
-    std::cout << "pushed" << std::endl;
 
     return 0;
 }

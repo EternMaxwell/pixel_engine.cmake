@@ -69,7 +69,7 @@ void registry_emplace_single(
 ) {
     if constexpr (is_bundle<std::remove_reference_t<T>>::value &&
                   std::is_base_of_v<Bundle, std::remove_reference_t<T>>) {
-        registry_emplace_tuple(registry, entity, arg.unpack());
+        registry_emplace_tuple(registry, entity, std::forward<T>(arg).unpack());
     } else if constexpr (!std::is_same_v<Bundle, std::remove_reference_t<T>>) {
         registry->emplace<std::remove_reference_t<T>>(entity, std::move(arg));
     }
@@ -79,7 +79,10 @@ template <typename... Args>
 void registry_emplace(
     entt::registry* registry, entt::entity entity, Args&&... args
 ) {
-    auto&& arr = {(registry_emplace_single(registry, entity, args), 0)...};
+    auto&& arr = {(
+        registry_emplace_single(registry, entity, std::forward<Args>(args)), 0
+    )...};
+    spdlog::info("end of registry_emplace");
 }
 
 template <typename... Args, size_t... I>
@@ -89,7 +92,10 @@ void registry_emplace_tuple(
     std::tuple<Args...>&& tuple,
     std::index_sequence<I...> _
 ) {
-    registry_emplace(registry, entity, std::move(std::get<I>(tuple))...);
+    registry_emplace(
+        registry, entity,
+        std::forward<decltype(std::get<I>(tuple))>(std::get<I>(tuple))...
+    );
 }
 
 template <typename... Args>
@@ -97,7 +103,7 @@ void registry_emplace_tuple(
     entt::registry* registry, entt::entity entity, std::tuple<Args...>&& tuple
 ) {
     registry_emplace_tuple(
-        registry, entity, std::move(tuple),
+        registry, entity, std::forward<decltype(tuple)>(tuple),
         std::make_index_sequence<sizeof...(Args)>()
     );
 }

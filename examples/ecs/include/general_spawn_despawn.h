@@ -11,6 +11,12 @@ using namespace prelude;
 
 struct Health {
     float life;
+    Health(Health&& other) = default;
+    Health(float life = 100.0f) : life(life) {}
+    Health& operator=(const Health& other) = delete;
+    Health(const Health& other) = delete;
+    Health& operator=(Health&& other) = default;
+    ~Health() { std::cout << "Health destructor" << std::endl; }
 };
 
 struct Position {
@@ -31,7 +37,7 @@ struct InnerBundle : Bundle {
 
 struct HealthPositionBundle : Bundle {
     InnerBundle inner;
-    Health health{.life = 100.0f};
+    Health health;
     Position position;
 
     auto unpack() {
@@ -53,7 +59,7 @@ void spawn(Command command) {
         if (random > 50) {
             command.spawn(HealthPositionBundle());
         } else {
-            command.spawn(Health{.life = 100.0f});
+            command.spawn(Health{});
         }
     }
     std::cout << std::endl;

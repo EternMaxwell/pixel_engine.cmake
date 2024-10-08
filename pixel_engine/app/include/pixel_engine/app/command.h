@@ -58,9 +58,7 @@ struct EntityCommand {
      */
     template <typename... Args>
     void emplace(Args&&... args) {
-        app_tools::registry_emplace(
-            m_registry, m_entity, args...
-        );
+        app_tools::registry_emplace(m_registry, m_entity, args...);
     }
 
     template <typename... Args>
@@ -110,7 +108,10 @@ struct Command {
     template <typename... Args>
     entt::entity spawn(Args&&... args) {
         auto entity = m_registry->create();
-        app_tools::registry_emplace(m_registry, entity, args...);
+        app_tools::registry_emplace(
+            m_registry, entity, std::forward<Args>(args)...
+        );
+        spdlog::info("end of command spawn");
         return entity;
     }
 
@@ -132,10 +133,11 @@ struct Command {
     void insert_resource(Args&&... args) {
         if (m_resources->find(&typeid(T)) == m_resources->end()) {
             m_resources->emplace(std::make_pair(
-                &typeid(T),
-                std::static_pointer_cast<void>(
-                    std::make_shared<std::remove_reference_t<T>>(args...)
-                )
+                &typeid(T), std::static_pointer_cast<void>(
+                                std::make_shared<std::remove_reference_t<T>>(
+                                    std::forward<Args>(args)...
+                                )
+                            )
             ));
         }
     }
@@ -144,10 +146,11 @@ struct Command {
     void insert_resource(T&& res) {
         if (m_resources->find(&typeid(T)) == m_resources->end()) {
             m_resources->emplace(std::make_pair(
-                &typeid(T),
-                std::static_pointer_cast<void>(
-                    std::make_shared<std::remove_reference_t<T>>(std::move(res))
-                )
+                &typeid(T), std::static_pointer_cast<void>(
+                                std::make_shared<std::remove_reference_t<T>>(
+                                    std::forward<T>(res)
+                                )
+                            )
             ));
         }
     }
