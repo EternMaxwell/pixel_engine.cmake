@@ -121,8 +121,13 @@ struct VertexAttribs {
     std::vector<VertexAttrib> attribs;
     VertexAttrib& operator[](size_t index);
     void add(
-        uint32_t location, uint32_t size, int type, bool normalized,
-        uint32_t stride, uint64_t offset);
+        uint32_t location,
+        uint32_t size,
+        int type,
+        bool normalized,
+        uint32_t stride,
+        uint64_t offset
+    );
 };
 
 /**
@@ -400,8 +405,14 @@ struct ImageTextureBindings {
      * @param format `int` The format of the texture
      */
     void set(
-        size_t index, const TexturePtr& image, int level, bool layered,
-        int layer, int access, int format);
+        size_t index,
+        const TexturePtr& image,
+        int level,
+        bool layered,
+        int layer,
+        int access,
+        int format
+    );
     ImageTexture& operator[](size_t index);
 };
 
@@ -679,11 +690,14 @@ struct FrameBufferPtr {
     void create();
     void bind() const;
     void attachTexture(
-        uint32_t attachment, const TexturePtr& texture, int level);
+        uint32_t attachment, const TexturePtr& texture, int level
+    );
     void attachTextureLayer(
-        uint32_t attachment, const TexturePtr& texture, int level, int layer);
+        uint32_t attachment, const TexturePtr& texture, int level, int layer
+    );
     void attachRenderBuffer(
-        uint32_t attachment, const RenderBufferPtr& render_buffer);
+        uint32_t attachment, const RenderBufferPtr& render_buffer
+    );
     bool check();
     bool unique() const;
 };
@@ -714,9 +728,11 @@ struct PipelineBundle : Bundle {
     FrameBufferPtr frame_buffer;
 
     auto unpack() {
-        return std::tie(
-            pipeline, layout, program, viewport, depth_range,
-            per_sample_operations, frame_buffer);
+        return std::forward_as_tuple(
+            std::move(pipeline), std::move(layout), std::move(program),
+            std::move(viewport), std::move(depth_range),
+            std::move(per_sample_operations), std::move(frame_buffer)
+        );
     }
 };
 }  // namespace components

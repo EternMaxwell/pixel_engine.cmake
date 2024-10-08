@@ -60,49 +60,51 @@ struct is_bundle<T, std::void_t<decltype(std::declval<T>().unpack())>>
 
 template <typename... Args>
 void registry_emplace_tuple(
-    entt::registry* registry, entt::entity entity, std::tuple<Args...>& tuple
+    entt::registry* registry, entt::entity entity, std::tuple<Args...>&& tuple
 );
 
-template <typename T, typename... Args>
-void registry_emplace(
-    entt::registry* registry, entt::entity entity, T arg, Args... args
+template <typename T>
+void registry_emplace_single(
+    entt::registry* registry, entt::entity entity, T&& arg
 ) {
-    if constexpr (is_bundle<T>::value && std::is_base_of_v<Bundle, T>) {
-        auto&& bundle = arg.unpack();
-        registry_emplace_tuple(registry, entity, bundle);
+    if constexpr (is_bundle<std::remove_reference_t<T>>::value &&
+                  std::is_base_of_v<Bundle, std::remove_reference_t<T>>) {
+        registry_emplace_tuple(registry, entity, arg.unpack());
     } else if constexpr (!std::is_same_v<Bundle, std::remove_reference_t<T>>) {
-        registry->emplace<T>(entity, arg);
+        registry->emplace<std::remove_reference_t<T>>(entity, std::move(arg));
     }
-    if constexpr (sizeof...(Args) > 0) {
-        registry_emplace(registry, entity, args...);
-    }
+}
+
+template <typename... Args>
+void registry_emplace(
+    entt::registry* registry, entt::entity entity, Args&&... args
+) {
+    auto&& arr = {(registry_emplace_single(registry, entity, args), 0)...};
 }
 
 template <typename... Args, size_t... I>
 void registry_emplace_tuple(
     entt::registry* registry,
     entt::entity entity,
-    std::tuple<Args...>& tuple,
+    std::tuple<Args...>&& tuple,
     std::index_sequence<I...> _
 ) {
-    registry_emplace(registry, entity, std::get<I>(tuple)...);
+    registry_emplace(registry, entity, std::move(std::get<I>(tuple))...);
 }
 
 template <typename... Args>
 void registry_emplace_tuple(
-    entt::registry* registry, entt::entity entity, std::tuple<Args...>& tuple
+    entt::registry* registry, entt::entity entity, std::tuple<Args...>&& tuple
 ) {
     registry_emplace_tuple(
-        registry, entity, tuple, std::make_index_sequence<sizeof...(Args)>()
+        registry, entity, std::move(tuple),
+        std::make_index_sequence<sizeof...(Args)>()
     );
 }
 
-template <typename T, typename... Args>
+template <typename... Args>
 void registry_erase(entt::registry* registry, entt::entity entity) {
-    registry->remove<T>(entity);
-    if constexpr (sizeof...(Args) > 0) {
-        registry_erase<Args...>(registry, entity);
-    }
+    auto&& arr = {(registry->remove<Args>(entity), 0)...};
 }
 
 template <typename T, typename Tuple>

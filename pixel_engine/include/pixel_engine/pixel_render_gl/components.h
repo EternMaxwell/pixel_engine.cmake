@@ -39,7 +39,11 @@ struct PixelGroupBundle : Bundle {
     PixelSize size;
     Transform transform;
 
-    auto unpack() { return std::tie(pixels, size, transform); }
+    auto&& unpack() {
+        return std::forward_as_tuple(
+            std::move(pixels), std::move(size), std::move(transform)
+        );
+    }
 };
 
 struct PixelPipeline {};

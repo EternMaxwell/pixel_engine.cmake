@@ -42,7 +42,7 @@ struct EntityCommand {
      * @return The child entity id.
      */
     template <typename... Args>
-    entt::entity spawn(Args... args) {
+    entt::entity spawn(Args&&... args) {
         auto child = m_registry->create();
         app_tools::registry_emplace(
             m_registry, child, Parent{.id = m_entity}, args...
@@ -57,8 +57,10 @@ struct EntityCommand {
      * @param args The components to be added to the entity.
      */
     template <typename... Args>
-    void emplace(Args... args) {
-        app_tools::registry_emplace(m_registry, m_entity, args...);
+    void emplace(Args&&... args) {
+        app_tools::registry_emplace(
+            m_registry, m_entity, args...
+        );
     }
 
     template <typename... Args>
@@ -106,7 +108,7 @@ struct Command {
      * @return The child entity id.
      */
     template <typename... Args>
-    entt::entity spawn(Args... args) {
+    entt::entity spawn(Args&&... args) {
         auto entity = m_registry->create();
         app_tools::registry_emplace(m_registry, entity, args...);
         return entity;
@@ -127,21 +129,25 @@ struct Command {
      * @param args The arguments to be passed to the constructor of T
      */
     template <typename T, typename... Args>
-    void insert_resource(Args... args) {
+    void insert_resource(Args&&... args) {
         if (m_resources->find(&typeid(T)) == m_resources->end()) {
             m_resources->emplace(std::make_pair(
                 &typeid(T),
-                std::static_pointer_cast<void>(std::make_shared<T>(args...))
+                std::static_pointer_cast<void>(
+                    std::make_shared<std::remove_reference_t<T>>(args...)
+                )
             ));
         }
     }
 
     template <typename T>
-    void insert_resource(T res) {
+    void insert_resource(T&& res) {
         if (m_resources->find(&typeid(T)) == m_resources->end()) {
             m_resources->emplace(std::make_pair(
                 &typeid(T),
-                std::static_pointer_cast<void>(std::make_shared<T>(res))
+                std::static_pointer_cast<void>(
+                    std::make_shared<std::remove_reference_t<T>>(std::move(res))
+                )
             ));
         }
     }
@@ -162,7 +168,9 @@ struct Command {
     template <typename T>
     void init_resource() {
         if (m_resources->find(&typeid(T)) == m_resources->end()) {
-            auto res = std::static_pointer_cast<void>(std::make_shared<T>());
+            auto res = std::static_pointer_cast<void>(
+                std::make_shared<std::remove_reference_t<T>>()
+            );
             m_resources->insert({&typeid(T), res});
         }
     }
