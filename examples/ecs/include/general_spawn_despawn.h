@@ -11,16 +11,39 @@ using namespace prelude;
 
 struct Health {
     float life;
+    bool valid;
+    Health(Health&& other) : life(other.life), valid(true) {
+        other.life = 0.0f;
+        other.valid = false;
+        std::cout << "Health move constructor" << std::endl;
+    }
+    Health(float life = 0.0f) : life(life), valid(true) {}
+    Health& operator=(const Health& other) = delete;
+    Health(const Health& other) = delete;
+    Health& operator=(Health&& other) = default;
+    ~Health() {
+        if (!valid) return;
+        std::cout << "Health destructor" << std::endl;
+    }
 };
 
 struct Position {
     float x, y;
-    Position(Position&& other) = default;
-    Position(float x = 0.0f, float y = 0.0f) : x(x), y(y) {}
+    bool valid;
+    Position(Position&& other) : x(other.x), y(other.y), valid(true) {
+        other.x = 0.0f;
+        other.y = 0.0f;
+        other.valid = false;
+        std::cout << "Position move constructor" << std::endl;
+    }
+    Position(float x = 0.0f, float y = 0.0f) : x(x), y(y), valid(true) {}
     Position& operator=(const Position& other) = delete;
     Position(const Position& other) = delete;
     Position& operator=(Position&& other) = default;
-    ~Position() { std::cout << "Position destructor" << std::endl; }
+    ~Position() {
+        if (!valid) return;
+        std::cout << "Position destructor" << std::endl;
+    }
 };
 
 struct InnerBundle : Bundle {
@@ -31,8 +54,10 @@ struct InnerBundle : Bundle {
 
 struct HealthPositionBundle : Bundle {
     InnerBundle inner;
-    Health health{.life = 100.0f};
+    Health health;
     Position position;
+
+    HealthPositionBundle() : health(100.0f), position(0.0f, 0.0f) {}
 
     auto unpack() {
         return std::forward_as_tuple(
@@ -53,7 +78,8 @@ void spawn(Command command) {
         if (random > 50) {
             command.spawn(HealthPositionBundle());
         } else {
-            command.spawn(Health{.life = 100.0f});
+            Health health(100.0f);
+            command.spawn(health);
         }
     }
     std::cout << std::endl;

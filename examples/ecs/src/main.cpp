@@ -14,11 +14,13 @@
 #include "state_nextstate.h"
 
 struct test_t {
+    int* a;
     test_t() { std::cout << "Constructor called" << std::endl; }
+    test_t(int* a) : a(a) { std::cout << "Constructor called" << std::endl; }
     test_t(const test_t&) = delete;
-    test_t(test_t&&) = default;
+    test_t(test_t&& other) : a(other.a) { other.a = nullptr; }
     test_t& operator=(test_t&&) = default;
-    ~test_t() { std::cout << "Destructor called" << std::endl; }
+    ~test_t() { std::cout << "Destructor called with a = " << a << std::endl; }
 };
 
 int main() {
@@ -38,11 +40,10 @@ int main() {
     test_parallel_run::test();
 
     entt::registry registry;
-
-    auto test = test_t();
+    int a = 10;
 
     auto entity = registry.create();
-    registry.emplace<test_t>(entity, test);
+    registry.emplace<test_t>(entity, std::move(test_t(&a)));
     std::cout << "pushed" << std::endl;
 
     return 0;
