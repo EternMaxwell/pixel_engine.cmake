@@ -111,7 +111,6 @@ struct Command {
         app_tools::registry_emplace(
             m_registry, entity, std::forward<Args>(args)...
         );
-        spdlog::info("end of command spawn");
         return entity;
     }
 

@@ -82,7 +82,6 @@ void registry_emplace(
     auto&& arr = {(
         registry_emplace_single(registry, entity, std::forward<Args>(args)), 0
     )...};
-    spdlog::info("end of registry_emplace");
 }
 
 template <typename... Args, size_t... I>
