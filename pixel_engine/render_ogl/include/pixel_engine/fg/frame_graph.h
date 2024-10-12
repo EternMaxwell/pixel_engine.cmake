@@ -20,7 +20,7 @@ std::unique_ptr<actual_t> create_actual(context_t* ctx, desc_t& desc) {
 }
 
 template <typename context_t, typename actual_t>
-void destroy_actual(context_t* ctx, std::unique_ptr<actual_t>& actual) {
+void destroy_actual(context_t* ctx, actual_t* actual) {
     static_assert(false, "destroy_actual not implemented for this type");
 }
 
@@ -47,12 +47,12 @@ void write_barrier(
 
 template <typename context_t, typename... Args>
 std::unique_ptr<context_t> create_context(Args... args) {
-    static_assert(false, "create_context not implemented for this type");
+    return std::make_unique<context_t>(args...);
 }
 
 template <typename context_t>
 void destroy_context(std::unique_ptr<context_t>& context) {
-    static_assert(false, "destroy_context not implemented for this type");
+    context.reset();
 }
 
 struct resource_base {
@@ -84,11 +84,7 @@ struct resource_base {
     std::unordered_set<const render_pass_base*> read_passes;
     std::unordered_set<const render_pass_base*> write_passes;
 };
-template <
-    typename context_t,
-    typename desc_t,
-    typename actual_t,
-    typename usage_t>
+template <typename context_t, typename desc_t, typename actual_t>
 struct resource;
 struct render_pass_base {
    public:
@@ -123,21 +119,16 @@ struct framegraph {
         destroy_context<context_t>(context);
     }
 
-    template <
-        typename context_t,
-        typename desc_t,
-        typename actual_t,
-        typename usage_t>
-    resource<context_t, desc_t, actual_t, usage_t>* create_resource(
-        const std::string& name, desc_t desc, usage_t usage
+    template <typename context_t, typename desc_t, typename actual_t>
+    resource<context_t, desc_t, actual_t>* create_resource(
+        const std::string& name, desc_t desc
     ) {
         size_t id;
         if (free_resources.empty()) {
             id = resources.size();
             resources.emplace_back(
-                std::make_unique<
-                    resource<context_t, desc_t, actual_t, usage_t>>(
-                    name, desc, usage
+                std::make_unique<resource<context_t, desc_t, actual_t>>(
+                    name, desc, get_context<context_t>()
                 )
             );
         } else {
@@ -172,6 +163,18 @@ struct framegraph {
         resources[id]->unrealize(*this);
     }
 
+    void remove_resource(resource_base& resource) {
+        auto id = resource.get_id();
+        resources[id]->unrealize(*this);
+        free_resources.push(id);
+        resource_map.erase(resource.get_name());
+    }
+
+    void reset_resource(resource_base& resource) {
+        auto id = resource.get_id();
+        resources[id]->unrealize(*this);
+    }
+
    private:
     friend struct resource_base;
     friend struct render_pass_base;
@@ -181,18 +184,16 @@ struct framegraph {
     std::unordered_map<std::string, size_t> resource_map;
     std::unique_ptr<void> context;
 };
-template <
-    typename context_t,
-    typename desc_t,
-    typename actual_t,
-    typename usage_t>
+template <typename context_t, typename desc_t, typename actual_t>
 struct resource : public resource_base {
    public:
     auto& get_desc() { return desc; }
     auto* get_actual() { return actual.get(); }
 
-    resource(const std::string& name, desc_t desc, usage_t usage)
-        : desc(desc), usage(usage) {
+    resource(
+        const std::string& name, desc_t desc, context_t* context
+    )
+        : desc(desc), context(context) {
         this->name = name;
     }
 
@@ -210,10 +211,11 @@ struct resource : public resource_base {
     }
     void unrealize(framegraph& fg) override {
         if (actual) {
-            destroy_actual(fg.get_context<context_t>(), actual);
+            destroy_actual(fg.get_context<context_t>(), actual.get());
             actual.reset();
         }
     }
+
     void read_barrier(framegraph& fg) override {
         if (actual) {
             read_barrier(fg.get_context<context_t>(), actual, usage);
@@ -226,7 +228,7 @@ struct resource : public resource_base {
     }
 
     desc_t desc;
-    usage_t usage;
+    context_t* context;
     std::unique_ptr<actual_t> actual;
 };
 }  // namespace fg
