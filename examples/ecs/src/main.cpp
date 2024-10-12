@@ -13,6 +13,20 @@
 #include "spawn_with_child.h"
 #include "state_nextstate.h"
 
+struct test_t {
+    test_t() { std::cout << "Constructor called" << std::endl; }
+    test_t(const test_t&) = delete;
+    test_t(test_t&&) {
+        std::cout << "Move constructor called" << std::endl;
+    }
+    test_t& operator=(const test_t&) = delete;
+    test_t& operator=(test_t&&) {
+        std::cout << "Move assignment called" << std::endl;
+        return *this;
+    }
+    ~test_t() { std::cout << "Destructor called" << std::endl; }
+};
+
 int main() {
     std::cout << "==TEST GENERAL SPAWN DESPAWN===" << std::endl;
     test_spawn_despawn::test();

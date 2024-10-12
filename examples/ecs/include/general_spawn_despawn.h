@@ -11,10 +11,22 @@ using namespace prelude;
 
 struct Health {
     float life;
+    Health(Health&& other) = default;
+    Health(float life = 100.0f) : life(life) {}
+    Health& operator=(const Health& other) = delete;
+    Health(const Health& other) = delete;
+    Health& operator=(Health&& other) = default;
+    ~Health() { std::cout << "Health destructor" << std::endl; }
 };
 
 struct Position {
     float x, y;
+    Position(Position&& other) = default;
+    Position(float x = 0.0f, float y = 0.0f) : x(x), y(y) {}
+    Position& operator=(const Position& other) = delete;
+    Position(const Position& other) = delete;
+    Position& operator=(Position&& other) = default;
+    ~Position() { std::cout << "Position destructor" << std::endl; }
 };
 
 struct InnerBundle : Bundle {
@@ -25,10 +37,14 @@ struct InnerBundle : Bundle {
 
 struct HealthPositionBundle : Bundle {
     InnerBundle inner;
-    Health health{.life = 100.0f};
-    Position position{.x = 0.0f, .y = 0.0f};
+    Health health;
+    Position position;
 
-    auto unpack() { return std::tie(inner, health, position); }
+    auto unpack() {
+        return std::forward_as_tuple(
+            std::move(inner), std::move(health), std::move(position)
+        );
+    }
 };
 
 void spawn(Command command) {
@@ -43,7 +59,7 @@ void spawn(Command command) {
         if (random > 50) {
             command.spawn(HealthPositionBundle());
         } else {
-            command.spawn(Health{.life = 100.0f});
+            command.spawn(Health{});
         }
     }
     std::cout << std::endl;

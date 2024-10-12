@@ -15,7 +15,11 @@ struct Camera2dBundle : app::Bundle {
     OrthoProjection projection = OrthoProjection();
     Camera2d camera;
 
-    auto unpack() { return std::tie(transform, projection, camera); }
+    auto unpack() {
+        return std::forward_as_tuple(
+            std::move(transform), std::move(projection), std::move(camera)
+        );
+    }
 };
 }  // namespace components
 
