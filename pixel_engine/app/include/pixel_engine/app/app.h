@@ -640,26 +640,11 @@ struct Runner {
         before afters = before(),
         in_set sets = in_set()
     ) {
-        bool exists = std::apply(
-            [this](auto&&... args) {
-                std::vector<bool> list = {
-                    (setup_logger->warn(
-                         "Trying to add system {:#016x} : {}, which already "
-                         "exists.",
-                         (size_t)args, typeid(args).name()
-                     ),
-                     m_systems.find(args) != m_systems.end())...
-                };
-                for (auto b : list) {
-                    if (b) {
-                        return true;
-                    }
-                }
-                return false;
-            },
-            funcs
-        );
-        if (exists) {
+        if (m_systems.find(std::get<0>(funcs)) != m_systems.end()) {
+            setup_logger->warn(
+                "Trying to add system {:#016x} : {}, which already exists.",
+                (size_t)std::get<0>(funcs), typeid(std::get<0>(funcs)).name()
+            );
             return nullptr;
         }
         std::shared_ptr<SystemNode> node =
@@ -694,25 +679,11 @@ struct Runner {
 
     template <typename... Args>
     SystemNode* add_system(std::tuple<Args...> funcs) {
-        bool exists = std::apply(
-            [this](auto&&... args) {
-                auto list = {
-                    (setup_logger->warn(
-                         "Trying to add system {:#016x} : {}, which already "
-                         "exists.",
-                         (size_t)args, typeid(args).name()
-                     ),
-                     m_systems.find(args) != m_systems.end())...
-                };
-                for (auto b : list) {
-                    if (b) {
-                        return true;
-                    }
-                }
-            },
-            funcs
-        );
-        if (exists) {
+        if (m_systems.find(std::get<0>(funcs)) != m_systems.end()) {
+            setup_logger->warn(
+                "Trying to add system {:#016x} : {}, which already exists.",
+                (size_t)std::get<0>(funcs), typeid(std::get<0>(funcs)).name()
+            );
             return nullptr;
         }
         std::shared_ptr<SystemNode> node = std::make_shared<SystemNode>(funcs);
