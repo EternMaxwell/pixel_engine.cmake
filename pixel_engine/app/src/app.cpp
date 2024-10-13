@@ -1,5 +1,7 @@
 #include <spdlog/spdlog.h>
 
+#include <numeric>
+
 #include "pixel_engine/app.h"
 #include "pixel_engine/app/app.h"
 #include "pixel_engine/app/command.h"
@@ -56,6 +58,15 @@ app::Schedule prelude::PostShutdown() {
     return app::Schedule(app::ExitStage::PostShutdown);
 }
 
+bool SystemNode::contrary_to(SystemNode* other) {
+    for (auto& sys1 : m_system) {
+        for (auto& sys2 : other->m_system) {
+            if (sys1->contrary_to(sys2)) return true;
+        }
+    }
+    return false;
+}
+
 bool SystemNode::condition_pass(SubApp* src, SubApp* dst) {
     bool pass = true;
     if (m_schedule.m_condition) {
@@ -69,19 +80,22 @@ bool SystemNode::condition_pass(SubApp* src, SubApp* dst) {
     return true;
 }
 void SystemNode::run(SubApp* src, SubApp* dst) {
-    if (m_system) m_system->run(src, dst);
+    for (auto system : m_system)
+        if (system) system->run(src, dst);
 }
 double SystemNode::reach_time() {
     if (m_reach_time.has_value()) {
         return m_reach_time.value();
     } else {
         double max_time = 0.0;
+        double avg_time = std::accumulate(
+            m_system.begin(), m_system.end(), 0.0,
+            [](double sum, auto system) { return sum + system->get_avg_time(); }
+        );
         for (auto system : m_systems_before) {
             if (auto system_ptr = system.lock()) {
-                max_time = std::max(
-                    max_time, system_ptr->reach_time() +
-                                  system_ptr->m_system->get_avg_time()
-                );
+                max_time =
+                    std::max(max_time, system_ptr->reach_time() + avg_time);
             }
         }
         m_reach_time = max_time;
@@ -136,10 +150,11 @@ void SubStageRunner::build(
             }
         }
     }
+    std::unordered_set<std::weak_ptr<SystemNode>> tmp;
     for (auto& [addr, system] : systems) {
         if (system->m_schedule.m_stage_type_hash == m_stage_type_hash &&
             system->m_schedule.m_stage_value == m_stage_value) {
-            m_systems.push_back(system);
+            tmp.insert(system);
             for (auto before_ptr : system->m_system_ptrs_before) {
                 if (systems.find(before_ptr) != systems.end()) {
                     auto sys_before = systems.find(before_ptr)->second;
@@ -165,6 +180,10 @@ void SubStageRunner::build(
                 }
             }
         }
+    }
+    m_systems.reserve(tmp.size());
+    for (auto& system : tmp) {
+        m_systems.push_back(system);
     }
     if (build_logger->level() == spdlog::level::debug)
         for (auto& [addr, system] : systems) {
@@ -198,8 +217,7 @@ void SubStageRunner::prepare() {
         for (size_t j = i + 1; j < m_systems.size(); j++) {
             if (auto system_ptr = m_systems[i].lock()) {
                 if (auto system_ptr2 = m_systems[j].lock()) {
-                    if (system_ptr->m_system->contrary_to(system_ptr2->m_system
-                        )) {
+                    if (system_ptr->contrary_to(system_ptr2.get())) {
                         system_ptr->m_temp_after.insert(system_ptr2);
                         system_ptr2->m_temp_before.insert(system_ptr);
                     }
@@ -243,7 +261,7 @@ void SubStageRunner::run(std::weak_ptr<SystemNode> system) {
         }
         auto worker = iter->second;
         auto ftr = worker->submit_task([=] {
-            if (system_ptr->m_system &&
+            if (system_ptr->m_system.size() &&
                 system_ptr->condition_pass(m_src.get(), m_dst.get())) {
                 system_ptr->run(m_src.get(), m_dst.get());
             }
@@ -374,9 +392,17 @@ std::shared_ptr<StageRunnerInfo> Runner::prepare(
 void Runner::run(std::shared_ptr<StageRunnerInfo> stage) {
     auto ftr = m_runner_pool.submit_task([=] {
         auto ptr = stage->operator->();
-        if (ptr) {
-            ptr->prepare();
-            ptr->run();
+        try {
+            if (ptr) {
+                ptr->prepare();
+                ptr->run();
+            }
+        } catch (const std::exception& e) {
+            run_logger->error(
+                "Error occurred while running stage {}.",
+                ptr->m_stage_type_hash->name()
+            );
+            run_logger->error("{}", e.what());
         }
         m_msg_queue.push(stage);
     });

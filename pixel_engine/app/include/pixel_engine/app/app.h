@@ -96,8 +96,9 @@ struct SystemNode {
     std::unordered_set<std::shared_ptr<BasicSystem<bool>>> m_conditions;
     std::vector<SystemSet> m_in_sets;
     void* m_func_addr;
+    std::vector<void*> m_func_addrs;
     std::string m_worker_name = "default";
-    std::shared_ptr<BasicSystem<void>> m_system;
+    std::vector<std::shared_ptr<BasicSystem<void>>> m_system;
     std::unordered_set<void*> m_system_ptrs_before;
     std::unordered_set<void*> m_system_ptrs_after;
     std::unordered_set<std::weak_ptr<SystemNode>> m_systems_before;
@@ -112,15 +113,51 @@ struct SystemNode {
     SystemNode() = default;
     template <typename... Args>
     SystemNode(void (*func)(Args...)) {
-        m_system = std::make_shared<System<Args...>>(func);
+        m_system = {std::make_shared<System<Args...>>(func)};
         m_func_addr = func;
+        m_func_addrs = {func};
+    }
+    template <typename... Args>
+    SystemNode(std::tuple<Args...> funcs) {
+        m_system = std::apply(
+            [this](auto&&... args) {
+                m_func_addrs = {args...};
+                return std::vector<std::shared_ptr<BasicSystem<void>>>{
+                    SystemNode::create_system(args)...
+                };
+            },
+            funcs
+        );
+        m_func_addr = std::get<0>(funcs);
     }
     template <typename... Args>
     SystemNode(Schedule schedule, void (*func)(Args...)) {
         m_schedule = schedule;
-        m_system = std::make_shared<System<Args...>>(func);
+        m_system = {std::make_shared<System<Args...>>(func)};
         m_func_addr = func;
     }
+    template <typename... Args>
+    SystemNode(Schedule schedule, std::tuple<Args...> funcs) {
+        m_schedule = schedule;
+        m_system = std::apply(
+            [this](auto&&... args) {
+                m_func_addrs = {args...};
+                return std::vector<std::shared_ptr<BasicSystem<void>>>{
+                    SystemNode::create_system(args)...
+                };
+            },
+            funcs
+        );
+        m_func_addr = std::get<0>(funcs);
+    }
+
+    template <typename... Args>
+    static std::shared_ptr<BasicSystem<void>> create_system(void (*func)(Args...
+    )) {
+        return std::make_shared<System<Args...>>(func);
+    }
+
+    bool contrary_to(SystemNode* other);
 
     bool condition_pass(SubApp* src, SubApp* dst);
 
@@ -244,6 +281,7 @@ struct StageRunner {
                 m_src, m_dst, sub_stage, m_sets, m_workers
             );
         }
+        m_stage_type_hash = &typeid(Stage);
     }
     void build(
         const std::unordered_map<void*, std::shared_ptr<SystemNode>>& systems
@@ -594,6 +632,53 @@ struct Runner {
     }
 
     template <typename... Args>
+    SystemNode* add_system(
+        Schedule schedule,
+        std::tuple<Args...> funcs,
+        std::string worker_name = "default",
+        after befores = after(),
+        before afters = before(),
+        in_set sets = in_set()
+    ) {
+        bool exists = std::apply(
+            [this](auto&&... args) {
+                std::vector<bool> list = {
+                    (setup_logger->warn(
+                         "Trying to add system {:#016x} : {}, which already "
+                         "exists.",
+                         (size_t)args, typeid(args).name()
+                     ),
+                     m_systems.find(args) != m_systems.end())...
+                };
+                for (auto b : list) {
+                    if (b) {
+                        return true;
+                    }
+                }
+                return false;
+            },
+            funcs
+        );
+        if (exists) {
+            return nullptr;
+        }
+        std::shared_ptr<SystemNode> node =
+            std::make_shared<SystemNode>(schedule, funcs);
+        node->m_in_sets = sets.sets;
+        node->m_worker_name = worker_name;
+        node->m_system_ptrs_before.insert(
+            befores.ptrs.begin(), befores.ptrs.end()
+        );
+        node->m_system_ptrs_after.insert(
+            afters.ptrs.begin(), afters.ptrs.end()
+        );
+        for (auto func : node->m_func_addrs) {
+            m_systems.insert({func, node});
+        }
+        return node.get();
+    }
+
+    template <typename... Args>
     SystemNode* add_system(void (*func)(Args...)) {
         if (m_systems.find(func) != m_systems.end()) {
             setup_logger->warn(
@@ -604,6 +689,36 @@ struct Runner {
         }
         std::shared_ptr<SystemNode> node = std::make_shared<SystemNode>(func);
         m_systems.insert({(void*)func, node});
+        return node.get();
+    }
+
+    template <typename... Args>
+    SystemNode* add_system(std::tuple<Args...> funcs) {
+        bool exists = std::apply(
+            [this](auto&&... args) {
+                auto list = {
+                    (setup_logger->warn(
+                         "Trying to add system {:#016x} : {}, which already "
+                         "exists.",
+                         (size_t)args, typeid(args).name()
+                     ),
+                     m_systems.find(args) != m_systems.end())...
+                };
+                for (auto b : list) {
+                    if (b) {
+                        return true;
+                    }
+                }
+            },
+            funcs
+        );
+        if (exists) {
+            return nullptr;
+        }
+        std::shared_ptr<SystemNode> node = std::make_shared<SystemNode>(funcs);
+        for (auto func : node->m_func_addrs) {
+            m_systems.insert({func, node});
+        }
         return node.get();
     }
 };
@@ -755,6 +870,22 @@ struct App {
         }
         return AddSystemReturn(this, ptr);
     }
+    template <typename... Args, typename... TupleT>
+    AddSystemReturn add_system(
+        Schedule schedule, std::tuple<Args...> funcs, TupleT... modifiers
+    ) {
+        auto mod_tuple = std::make_tuple(modifiers...);
+        auto ptr = m_runner.add_system(
+            schedule, funcs, app_tools::tuple_get<Worker>(mod_tuple).name,
+            app_tools::tuple_get<after>(mod_tuple),
+            app_tools::tuple_get<before>(mod_tuple),
+            app_tools::tuple_get<in_set>(mod_tuple)
+        );
+        if (m_building_plugin_type && ptr) {
+            m_plugin_caches[m_building_plugin_type].add_system((void*)std::get<0>(funcs));
+        }
+        return AddSystemReturn(this, ptr);
+    }
     template <typename... Args>
     AddSystemReturn add_system(Schedule schedule, void (*func)(Args...)) {
         auto ptr = m_runner.add_system(schedule, func);
@@ -764,10 +895,26 @@ struct App {
         return AddSystemReturn(this, ptr);
     }
     template <typename... Args>
+    AddSystemReturn add_system(Schedule schedule, std::tuple<Args...> funcs) {
+        auto ptr = m_runner.add_system(schedule, funcs);
+        if (m_building_plugin_type && ptr) {
+            m_plugin_caches[m_building_plugin_type].add_system((void*)std::get<0>(funcs));
+        }
+        return AddSystemReturn(this, ptr);
+    }
+    template <typename... Args>
     AddSystemReturn add_system(void (*func)(Args...)) {
         auto ptr = m_runner.add_system(func);
         if (m_building_plugin_type && ptr) {
             m_plugin_caches[m_building_plugin_type].add_system((void*)func);
+        }
+        return AddSystemReturn(this, ptr);
+    }
+    template <typename... Args>
+    AddSystemReturn add_system(std::tuple<Args...> funcs) {
+        auto ptr = m_runner.add_system(funcs);
+        if (m_building_plugin_type && ptr) {
+            m_plugin_caches[m_building_plugin_type].add_system((void*)std::get<0>(funcs));
         }
         return AddSystemReturn(this, ptr);
     }
