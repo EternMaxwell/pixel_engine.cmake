@@ -27,10 +27,23 @@ void create_context(
         With<window::components::PrimaryWindow>> query,
     Resource<RenderVKPlugin> plugin
 );
-void recreate_swap_chain(Command cmd, Resource<RenderContext> context);
-void get_next_image(Resource<RenderContext> context);
-void present_frame(Resource<RenderContext> context);
-void destroy_context(Command cmd, Resource<RenderContext> context);
+void recreate_swap_chain(
+    Command cmd,
+    Query<Get<PhysicalDevice, Device, Surface, Swapchain>, With<RenderContext>>
+        query
+);
+void get_next_image(
+    Command cmd, Query<Get<Device, Swapchain>, With<RenderContext>> query
+);
+void present_frame(
+    Command cmd, Query<Get<Swapchain, Queue>, With<RenderContext>> query
+);
+void destroy_context(
+    Command cmd,
+    Query<
+        Get<Instance, Device, Surface, Swapchain, CommandPool>,
+        With<RenderContext>> query
+);
 }  // namespace systems
 }  // namespace render_vk
 }  // namespace pixel_engine
