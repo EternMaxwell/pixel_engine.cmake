@@ -45,10 +45,12 @@ The sequence of the four basic stages are represented below:
 
 ```cpp
 /**
-    -> startup -> loop -> transition -> exit
+    -> startup -> transition -> loop -> transition -> exit
                 <-     loop here    <-
  */
 ```
+
+*Note that the transition after the loop is put there in case that exit the stage and exit app in the same frame which causes the on_exit to be ignored.*
 
 Stages with Substages can be attached to a BasicStage with src and dst SubApp specified.
 Stage and its SubStages is represented with a enum type, and can be added to a custom app inheriting the App, in constructor like following:
