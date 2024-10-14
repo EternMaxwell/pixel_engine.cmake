@@ -22,6 +22,6 @@ class TestPlugin : public Plugin {
    public:
     TestPlugin() {}
 
-    void build(App& app) { app.add_system(Update(), test_fun); }
+    void build(App& app) { app.add_system(test_fun).in_stage(app::Update); }
 };
 }  // namespace test_queue_test

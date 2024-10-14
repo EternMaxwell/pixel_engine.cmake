@@ -34,12 +34,12 @@ void main() { fragColor = color; })";
 }  // namespace pixel_shader_source
 
 void pixel_engine::pixel_render_gl::PixelRenderGLPlugin::build(App& app) {
-    app.add_system(
-           PreStartup(), create_pipeline,
-           in_set(render_gl::RenderGLStartupSets::after_context_creation)
-    )
+    app.add_system(create_pipeline)
+        .in_stage(app::PreStartup)
+        .in_set(render_gl::RenderGLStartupSets::after_context_creation)
         .use_worker("single")
-        ->add_system(Render(), draw)
+        ->add_system(draw)
+        .in_stage(app::Render)
         .use_worker("single");
 }
 

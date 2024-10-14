@@ -6,13 +6,16 @@ using namespace pixel_engine::sprite_render_gl::systems;
 using namespace pixel_engine::prelude;
 
 void pixel_engine::sprite_render_gl::SpriteRenderGLPlugin::build(App& app) {
-    app.add_system(Startup(), create_pipeline)
+    app.add_system(create_pipeline)
+        .in_stage(app::Startup)
         .use_worker("single")
         ->configure_sets(
             SpriteRenderGLSets::before_draw, SpriteRenderGLSets::draw,
             SpriteRenderGLSets::after_draw
         )
-        .add_system(Render(), draw_sprite, in_set(SpriteRenderGLSets::draw))
+        .add_system(draw_sprite)
+        .in_stage(app::Render)
+        .in_set(SpriteRenderGLSets::draw)
         .use_worker("single");
 }
 

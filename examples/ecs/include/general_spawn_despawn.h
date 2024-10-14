@@ -141,14 +141,28 @@ void despawn(
 class SpawnDespawnPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(Startup(), spawn)
-            ->add_system(Startup(), print_count_1, after(spawn))
-            ->add_system(Startup(), print_1, after(print_count_1))
-            ->add_system(Startup(), change_component_data, after(print_1))
-            ->add_system(Startup(), print_count_2, after(change_component_data))
-            ->add_system(Startup(), print_2, after(print_count_2))
-            ->add_system(Startup(), despawn, after(print_2))
-            ->add_system(Update(), print_count_3);
+        app.add_system(spawn)
+            .in_stage(app::Startup)
+            ->add_system(print_count_1)
+            .after(spawn)
+            .in_stage(app::Startup)
+            ->add_system(print_1)
+            .after(print_count_1)
+            .in_stage(app::Startup)
+            ->add_system(change_component_data)
+            .after(print_1)
+            .in_stage(app::Startup)
+            ->add_system(print_count_2)
+            .after(change_component_data)
+            .in_stage(app::Startup)
+            ->add_system(print_2)
+            .after(print_count_2)
+            .in_stage(app::Startup)
+            ->add_system(despawn)
+            .after(print_2)
+            .in_stage(app::Startup)
+            ->add_system(print_count_3)
+            .in_stage(app::Update);
     }
 };
 

@@ -30,7 +30,6 @@ void systems::create_context(
         return;
     }
     auto [window_handle] = query.single().value();
-    spdlog::info("Creating Vulkan instance");
     Instance instance =
         Instance::create("Pixel Engine", VK_MAKE_VERSION(0, 1, 0), logger);
     PhysicalDevice physical_device = PhysicalDevice::create(instance);
@@ -95,7 +94,6 @@ void systems::destroy_context(
         Get<Instance, Device, Surface, Swapchain, CommandPool>,
         With<RenderContext>> query
 ) {
-    spdlog::info("Destroying render context");
     if (!query.single().has_value()) {
         return;
     }

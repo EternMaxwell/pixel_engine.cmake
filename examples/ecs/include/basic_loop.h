@@ -20,7 +20,10 @@ void exit_app(EventWriter<AppExit> exit_event) {
 class LoopTestPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(Update(), print_hello)->add_system(Update(), exit_app);
+        app.add_system(print_hello)
+            .in_stage(app::Update)
+            ->add_system(exit_app)
+            .in_stage(app::Update);
     }
 };
 

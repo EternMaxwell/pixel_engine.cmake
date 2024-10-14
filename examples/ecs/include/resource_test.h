@@ -76,18 +76,29 @@ void change_resource(Resource<Res> resource) {
 class ResourceTestPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(Startup(), set_resource)
-            ->add_system(Startup(), access_resource1, after(set_resource))
-            ->add_system(Startup(), remove_resource1, after(access_resource1))
-            ->add_system(
-                Startup(), set_resource_with_init, after(remove_resource1)
-            )
-            ->add_system(
-                Startup(), access_resource2, after(set_resource_with_init)
-            )
-            ->add_system(Startup(), change_resource, after(access_resource2))
-            ->add_system(Startup(), access_resource3, after(change_resource))
-            ->add_system(Startup(), remove_resource2, after(access_resource3));
+        app.add_system(set_resource)
+            .in_stage(app::Startup)
+            ->add_system(access_resource1)
+            .after(set_resource)
+            .in_stage(app::Startup)
+            ->add_system(remove_resource1)
+            .after(access_resource1)
+            .in_stage(app::Startup)
+            ->add_system(set_resource_with_init)
+            .after(remove_resource1)
+            .in_stage(app::Startup)
+            ->add_system(access_resource2)
+            .after(set_resource_with_init)
+            .in_stage(app::Startup)
+            ->add_system(change_resource)
+            .after(access_resource2)
+            .in_stage(app::Startup)
+            ->add_system(access_resource3)
+            .after(change_resource)
+            .in_stage(app::Startup)
+            ->add_system(remove_resource2)
+            .after(access_resource3)
+            .in_stage(app::Startup);
     }
 };
 

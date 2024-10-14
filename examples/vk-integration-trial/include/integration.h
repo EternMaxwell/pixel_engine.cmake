@@ -1086,83 +1086,121 @@ struct VK_TrialPlugin : Plugin {
         window_plugin->set_primary_window_hints({{GLFW_CLIENT_API, GLFW_NO_API}}
         );
 
+        using namespace pixel_engine;
+
         app.enable_loop();
-        app.add_system(PreStartup(), create_renderer).use_worker("single");
-        app.add_system(Startup(), create_vertex_buffer).use_worker("single");
-        app.add_system(Startup(), create_index_buffer).use_worker("single");
-        app.add_system(Startup(), create_uniform_buffers).use_worker("single");
-        app.add_system(
-               Shutdown(), destroy_uniform_buffers, after(wait_for_device)
-        )
-            .use_worker("single");
-        app.add_system(Startup(), create_depth_image).use_worker("single");
-        app.add_system(Shutdown(), destroy_depth_image)
+        app.add_system(create_renderer)
+            .use_worker("single")
+            .in_stage(app::PreStartup);
+        app.add_system(create_vertex_buffer)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(create_index_buffer)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(create_uniform_buffers)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(destroy_uniform_buffers)
             .after(wait_for_device)
+            .in_stage(app::Shutdown)
             .use_worker("single");
-        app.add_system(Startup(), create_depth_image_view)
+        app.add_system(create_depth_image)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(destroy_depth_image)
+            .after(wait_for_device)
+            .use_worker("single")
+            .in_stage(app::Shutdown);
+        app.add_system(create_depth_image_view)
             .after(create_depth_image)
-            .use_worker("single");
-        app.add_system(Shutdown(), destroy_depth_image_view)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(destroy_depth_image_view)
             .after(wait_for_device)
             .before(destroy_depth_image)
-            .use_worker("single");
-        app.add_system(Startup(), create_texture_image).use_worker("single");
-        app.add_system(Shutdown(), destroy_texture_image)
+            .use_worker("single")
+            .in_stage(app::Shutdown);
+        app.add_system(create_texture_image)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(destroy_texture_image)
             .after(wait_for_device)
-            .use_worker("single");
-        app.add_system(Startup(), create_texture_image_view)
+            .use_worker("single")
+            .in_stage(app::Shutdown);
+        app.add_system(create_texture_image_view)
             .after(create_texture_image)
-            .use_worker("single");
-        app.add_system(Shutdown(), destroy_texture_image_view)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(destroy_texture_image_view)
             .after(wait_for_device)
             .before(destroy_texture_image)
-            .use_worker("single");
-        app.add_system(Startup(), create_texture_image_sampler)
+            .use_worker("single")
+            .in_stage(app::Shutdown);
+        app.add_system(create_texture_image_sampler)
             .after(create_texture_image_view)
             .before(create_descriptor_sets)
-            .use_worker("single");
-        app.add_system(Shutdown(), destroy_texture_image_sampler)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(destroy_texture_image_sampler)
             .after(wait_for_device)
             .before(destroy_texture_image_view)
-            .use_worker("single");
-        app.add_system(Startup(), create_descriptor_set_layout)
+            .use_worker("single")
+            .in_stage(app::Shutdown);
+        app.add_system(create_descriptor_set_layout)
             .before(create_descriptor_pool)
             .before(create_graphics_pipeline)
-            .use_worker("single");
-        app.add_system(Shutdown(), destroy_descriptor_set_layout)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(destroy_descriptor_set_layout)
             .after(wait_for_device)
-            .use_worker("single");
-        app.add_system(Startup(), create_descriptor_pool).use_worker("single");
-        app.add_system(
-               Shutdown(), destroy_descriptor_pool,
-               before(destroy_descriptor_set_layout), after(wait_for_device)
-        )
-            .use_worker("single");
-        app.add_system(
-               Startup(), create_descriptor_sets,
-               after(create_descriptor_pool, create_uniform_buffers)
-        )
-            .use_worker("single");
-        app.add_system(Startup(), create_render_pass).use_worker("single");
-        app.add_system(
-               Startup(), create_graphics_pipeline, after(create_render_pass)
-        )
-            .use_worker("single");
-        app.add_system(Render(), draw_frame).use_worker("single");
-        app.add_system(Shutdown(), wait_for_device).use_worker("single");
-        app.add_system(Shutdown(), free_vertex_buffer, after(wait_for_device))
-            .use_worker("single");
-        app.add_system(Shutdown(), free_index_buffer, after(wait_for_device))
-            .use_worker("single");
-        app.add_system(Shutdown(), destroy_pipeline, after(wait_for_device))
-            .use_worker("single");
-        app.add_system(Shutdown(), destroy_render_pass, after(wait_for_device))
-            .use_worker("single");
+            .use_worker("single")
+            .in_stage(app::Shutdown);
+        app.add_system(create_descriptor_pool)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(destroy_descriptor_pool)
+            .use_worker("single")
+            .in_stage(app::Shutdown)
+            .before(destroy_descriptor_set_layout)
+            .after(wait_for_device);
+        app.add_system(create_descriptor_sets)
+            .after(create_descriptor_pool, create_uniform_buffers)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(create_render_pass)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(create_graphics_pipeline)
+            .after(create_render_pass)
+            .use_worker("single")
+            .in_stage(app::Startup);
+        app.add_system(draw_frame).use_worker("single").in_stage(app::Render);
+        app.add_system(wait_for_device)
+            .use_worker("single")
+            .in_stage(app::Shutdown);
+        app.add_system(free_vertex_buffer)
+            .after(wait_for_device)
+            .use_worker("single")
+            .in_stage(app::Shutdown);
+        app.add_system(free_index_buffer)
+            .after(wait_for_device)
+            .use_worker("single")
+            .in_stage(app::Shutdown);
+        app.add_system(destroy_pipeline)
+            .after(wait_for_device)
+            .use_worker("single")
+            .in_stage(app::Shutdown);
+        app.add_system(destroy_render_pass)
+            .after(wait_for_device)
+            .use_worker("single")
+            .in_stage(app::Shutdown);
     }
 };
 
 void run() {
     App app;
+    app.log_level(App::Loggers::Build, spdlog::level::debug);
     app.add_plugin(pixel_engine::window::WindowPlugin{});
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});

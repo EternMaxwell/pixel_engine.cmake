@@ -53,8 +53,7 @@ void pixel_engine::task_queue::TaskQueuePlugin::build(App& app) {
     app.configure_sets(
            TaskQueueSets::insert_task_queue, TaskQueueSets::after_insertion
     )
-        .add_system(
-            PreStartup(), systems::insert_task_queue,
-            in_set(TaskQueueSets::insert_task_queue)
-        );
+        .add_system(systems::insert_task_queue)
+        .in_stage(app::PreStartup)
+        .in_set(TaskQueueSets::insert_task_queue);
 }

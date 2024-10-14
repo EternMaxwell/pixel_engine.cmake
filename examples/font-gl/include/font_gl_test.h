@@ -55,9 +55,12 @@ void camera_ortho_to_primary_window(
 class TestPlugin : public Plugin {
    public:
     void build(App& app) {
-        app.add_system(Startup(), create_camera)
-            ->add_system(Startup(), create_text)
-            ->add_system(PreRender(), camera_ortho_to_primary_window);
+        app.add_system(create_camera)
+            .in_stage(app::Startup)
+            ->add_system(create_text)
+            .in_stage(app::Startup)
+            ->add_system(camera_ortho_to_primary_window)
+            .in_stage(app::PreRender);
     }
 };
 }  // namespace font_gl_test

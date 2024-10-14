@@ -308,22 +308,22 @@ void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
             RenderGLPipelineCompletionSets::pipeline_completion,
             RenderGLPipelineCompletionSets::after_pipeline_completion
         )
-        .add_system(
-            PreStartup(), context_creation,
-            in_set(
-                window::WindowStartUpSets::after_window_creation,
-                RenderGLStartupSets::context_creation
-            )
+        .add_system(context_creation)
+        .in_stage(app::PreStartup)
+        .in_set(
+            window::WindowStartUpSets::after_window_creation,
+            RenderGLStartupSets::context_creation
         )
         .use_worker("single")
-        ->add_system(PreRender(), clear_color)
+        ->add_system(clear_color)
+        .in_stage(app::PreRender)
         .use_worker("single")
-        ->add_system(PreRender(), update_viewport)
+        ->add_system(update_viewport)
+        .in_stage(app::PreRender)
         .use_worker("single")
-        ->add_system(
-            PreRender(), complete_pipeline,
-            in_set(RenderGLPipelineCompletionSets::pipeline_completion)
-        )
+        ->add_system(complete_pipeline)
+        .in_stage(app::PreRender)
+        .in_set(RenderGLPipelineCompletionSets::pipeline_completion)
         .use_worker("single");
 }
 
