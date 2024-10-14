@@ -43,11 +43,12 @@ enum RenderStage { Prepare, PreRender, Render, PostRender };
 enum ExitStage { PreShutdown, Shutdown, PostShutdown };
 
 struct SystemStage {
-    const type_info* m_stage_type_hash;
+    const type_info* m_stage_type;
     size_t m_stage_value;
+    SystemStage() = default;
     template <typename T>
     SystemStage(T t) {
-        m_stage_type_hash = &typeid(T);
+        m_stage_type = &typeid(T);
         m_stage_value = static_cast<size_t>(t);
     }
 };
@@ -59,24 +60,6 @@ struct SystemSet {
     SystemSet(T t) {
         m_set_type_hash = &typeid(T);
         m_set_value = static_cast<size_t>(t);
-    }
-};
-
-struct Schedule {
-    const type_info* m_stage_type_hash;
-    size_t m_stage_value;
-    std::shared_ptr<BasicSystem<bool>> m_condition;
-    Schedule() = default;
-    template <typename T>
-    Schedule(T t) {
-        m_stage_type_hash = &typeid(T);
-        m_stage_value = static_cast<size_t>(t);
-    }
-    template <typename T, typename... Args>
-    Schedule(T t, std::function<bool(Args...)> func) {
-        m_stage_type_hash = &typeid(T);
-        m_stage_value = static_cast<size_t>(t);
-        m_condition = std::make_shared<Condition<Args...>>(func);
     }
 };
 
@@ -92,7 +75,7 @@ struct SetMap {
 };
 
 struct SystemNode {
-    Schedule m_schedule;
+    SystemStage m_stage;
     std::unordered_set<std::shared_ptr<BasicSystem<bool>>> m_conditions;
     std::vector<SystemSet> m_in_sets;
     void* m_func_addr;
@@ -119,26 +102,6 @@ struct SystemNode {
     }
     template <typename... Args>
     SystemNode(std::tuple<Args...> funcs) {
-        m_system = std::apply(
-            [this](auto&&... args) {
-                m_func_addrs = {args...};
-                return std::vector<std::shared_ptr<BasicSystem<void>>>{
-                    SystemNode::create_system(args)...
-                };
-            },
-            funcs
-        );
-        m_func_addr = std::get<0>(funcs);
-    }
-    template <typename... Args>
-    SystemNode(Schedule schedule, void (*func)(Args...)) {
-        m_schedule = schedule;
-        m_system = {std::make_shared<System<Args...>>(func)};
-        m_func_addr = func;
-    }
-    template <typename... Args>
-    SystemNode(Schedule schedule, std::tuple<Args...> funcs) {
-        m_schedule = schedule;
         m_system = std::apply(
             [this](auto&&... args) {
                 m_func_addrs = {args...};
@@ -222,7 +185,7 @@ struct SubStageRunner {
    private:
     std::shared_ptr<SubApp> m_src;
     std::shared_ptr<SubApp> m_dst;
-    const type_info* m_stage_type_hash;
+    const type_info* m_stage_type;
     size_t m_stage_value;
     std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>*
         m_workers;
@@ -245,7 +208,7 @@ struct SubStageRunner {
     )
         : m_src(src),
           m_dst(dst),
-          m_stage_type_hash(&typeid(StageT)),
+          m_stage_type(&typeid(StageT)),
           m_stage_value(static_cast<size_t>(stage)),
           m_sets(sets),
           m_workers(workers) {}
@@ -262,7 +225,7 @@ struct StageRunner {
     std::shared_ptr<SubApp> m_src;
     std::shared_ptr<SubApp> m_dst;
     std::vector<SubStageRunner> m_sub_stage_runners;
-    const type_info* m_stage_type_hash;
+    const type_info* m_stage_type;
     std::unordered_map<std::string, std::shared_ptr<BS::thread_pool>>*
         m_workers;
     std::unordered_map<const type_info*, std::vector<size_t>>* m_sets;
@@ -281,7 +244,7 @@ struct StageRunner {
                 m_src, m_dst, sub_stage, m_sets, m_workers
             );
         }
-        m_stage_type_hash = &typeid(Stage);
+        m_stage_type = &typeid(Stage);
     }
     void build(
         const std::unordered_map<void*, std::shared_ptr<SystemNode>>& systems
@@ -574,6 +537,27 @@ struct Runner {
         }
         return assign_exit_stage(src->second, dst->second, stage, substages...);
     }
+    template <typename T>
+    bool stage_is_startup() {
+        return m_startup_stages.find(&typeid(T)) != m_startup_stages.end();
+    }
+    bool stage_is_startup(const type_info* type);
+    template <typename T>
+    bool stage_is_transition() {
+        return m_transition_stages.find(&typeid(T)) !=
+               m_transition_stages.end();
+    }
+    bool stage_is_transition(const type_info* type);
+    template <typename T>
+    bool stage_is_loop() {
+        return m_loop_stages.find(&typeid(T)) != m_loop_stages.end();
+    }
+    bool stage_is_loop(const type_info* type);
+    template <typename T>
+    bool stage_is_exit() {
+        return m_exit_stages.find(&typeid(T)) != m_exit_stages.end();
+    }
+    bool stage_is_exit(const type_info* type);
     template <typename T, typename... Sets>
     void configure_sets(T set, Sets... sets) {
         m_sets[&typeid(T)] = {
@@ -600,68 +584,6 @@ struct Runner {
     void build();
     void end_commands();
     void removing_system(void* func);
-
-    template <typename... Args>
-    SystemNode* add_system(
-        Schedule schedule,
-        void (*func)(Args...),
-        std::string worker_name = "default",
-        after befores = after(),
-        before afters = before(),
-        in_set sets = in_set()
-    ) {
-        if (m_systems.find(func) != m_systems.end()) {
-            setup_logger->warn(
-                "Trying to add system {:#016x} : {}, which already exists.",
-                (size_t)func, typeid(func).name()
-            );
-            return nullptr;
-        }
-        std::shared_ptr<SystemNode> node =
-            std::make_shared<SystemNode>(schedule, func);
-        node->m_in_sets = sets.sets;
-        node->m_worker_name = worker_name;
-        node->m_system_ptrs_before.insert(
-            befores.ptrs.begin(), befores.ptrs.end()
-        );
-        node->m_system_ptrs_after.insert(
-            afters.ptrs.begin(), afters.ptrs.end()
-        );
-        m_systems.insert({(void*)func, node});
-        return node.get();
-    }
-
-    template <typename... Args>
-    SystemNode* add_system(
-        Schedule schedule,
-        std::tuple<Args...> funcs,
-        std::string worker_name = "default",
-        after befores = after(),
-        before afters = before(),
-        in_set sets = in_set()
-    ) {
-        if (m_systems.find(std::get<0>(funcs)) != m_systems.end()) {
-            setup_logger->warn(
-                "Trying to add system {:#016x} : {}, which already exists.",
-                (size_t)std::get<0>(funcs), typeid(std::get<0>(funcs)).name()
-            );
-            return nullptr;
-        }
-        std::shared_ptr<SystemNode> node =
-            std::make_shared<SystemNode>(schedule, funcs);
-        node->m_in_sets = sets.sets;
-        node->m_worker_name = worker_name;
-        node->m_system_ptrs_before.insert(
-            befores.ptrs.begin(), befores.ptrs.end()
-        );
-        node->m_system_ptrs_after.insert(
-            afters.ptrs.begin(), afters.ptrs.end()
-        );
-        for (auto func : node->m_func_addrs) {
-            m_systems.insert({func, node});
-        }
-        return node.get();
-    }
 
     template <typename... Args>
     SystemNode* add_system(void (*func)(Args...)) {
@@ -773,12 +695,85 @@ struct App {
         template <typename T>
         AddSystemReturn& in_stage(T stage) {
             if (m_system) {
-                m_system->m_schedule = Schedule(stage);
+                m_system->m_stage = SystemStage(stage);
             }
             return *this;
         }
         AddSystemReturn& use_worker(std::string name);
         AddSystemReturn& run_if(std::shared_ptr<BasicSystem<bool>> cond);
+        template <typename T>
+        AddSystemReturn& on_enter(T state) {
+            if (m_system) {
+                if (!m_app->m_runner.stage_is_transition(
+                        m_system->m_stage.m_stage_type
+                    )) {
+                    setup_logger->warn(
+                        "Trying to add on_enter condition to a system in a "
+                        "non-transition stage."
+                    );
+                    return *this;
+                }
+                m_system->m_conditions.insert(
+                    std::make_shared<
+                        Condition<Resource<State<T>>, Resource<NextState<T>>>>(
+                        [&](Resource<State<T>> cur,
+                            Resource<NextState<T>> next) {
+                            return cur->is_just_created() ||
+                                   (!cur->is_state(state) &&
+                                    next->is_state(state));
+                        }
+                    )
+                );
+            }
+            return *this;
+        }
+        template <typename T>
+        AddSystemReturn& on_exit(T state) {
+            if (m_system) {
+                if (!m_app->m_runner.stage_is_transition(
+                        m_system->m_stage.m_stage_type
+                    )) {
+                    setup_logger->warn(
+                        "Trying to add on_exit condition to a system in a "
+                        "non-transition stage."
+                    );
+                    return *this;
+                }
+                m_system->m_conditions.insert(
+                    std::make_shared<
+                        Condition<Resource<State<T>>, Resource<NextState<T>>>>(
+                        [&](Resource<State<T>> cur,
+                            Resource<NextState<T>> next) {
+                            return cur->is_state(state) &&
+                                   !next->is_state(state);
+                        }
+                    )
+                );
+            }
+            return *this;
+        }
+        template <typename T>
+        AddSystemReturn& on_change() {
+            if (m_system) {
+                if (!m_app->m_runner.stage_is_transition(
+                        m_system->m_stage.m_stage_type
+                    )) {
+                    setup_logger->warn(
+                        "Trying to add on_change condition to a system in a "
+                        "non-transition stage."
+                    );
+                    return *this;
+                }
+                m_system->m_conditions.insert(
+                    std::make_shared<
+                        Condition<Resource<State<T>>, Resource<NextState<T>>>>(
+                        [&](Resource<State<T>> cur, Resource<NextState<T>> next
+                        ) { return !cur->is_state(*next); }
+                    )
+                );
+            }
+            return *this;
+        }
     };
 
    private:
@@ -824,55 +819,6 @@ struct App {
         m_runner.configure_sets(set, sets...);
         return *this;
     }
-
-    template <typename... Args, typename... TupleT>
-    AddSystemReturn add_system(
-        Schedule schedule, void (*func)(Args...), TupleT... modifiers
-    ) {
-        auto mod_tuple = std::make_tuple(modifiers...);
-        auto ptr = m_runner.add_system(
-            schedule, func, app_tools::tuple_get<Worker>(mod_tuple).name,
-            app_tools::tuple_get<after>(mod_tuple),
-            app_tools::tuple_get<before>(mod_tuple),
-            app_tools::tuple_get<in_set>(mod_tuple)
-        );
-        if (m_building_plugin_type && ptr) {
-            m_plugin_caches[m_building_plugin_type].add_system((void*)func);
-        }
-        return AddSystemReturn(this, ptr);
-    }
-    template <typename... Args, typename... TupleT>
-    AddSystemReturn add_system(
-        Schedule schedule, std::tuple<Args...> funcs, TupleT... modifiers
-    ) {
-        auto mod_tuple = std::make_tuple(modifiers...);
-        auto ptr = m_runner.add_system(
-            schedule, funcs, app_tools::tuple_get<Worker>(mod_tuple).name,
-            app_tools::tuple_get<after>(mod_tuple),
-            app_tools::tuple_get<before>(mod_tuple),
-            app_tools::tuple_get<in_set>(mod_tuple)
-        );
-        if (m_building_plugin_type && ptr) {
-            m_plugin_caches[m_building_plugin_type].add_system((void*)std::get<0>(funcs));
-        }
-        return AddSystemReturn(this, ptr);
-    }
-    template <typename... Args>
-    AddSystemReturn add_system(Schedule schedule, void (*func)(Args...)) {
-        auto ptr = m_runner.add_system(schedule, func);
-        if (m_building_plugin_type && ptr) {
-            m_plugin_caches[m_building_plugin_type].add_system((void*)func);
-        }
-        return AddSystemReturn(this, ptr);
-    }
-    template <typename... Args>
-    AddSystemReturn add_system(Schedule schedule, std::tuple<Args...> funcs) {
-        auto ptr = m_runner.add_system(schedule, funcs);
-        if (m_building_plugin_type && ptr) {
-            m_plugin_caches[m_building_plugin_type].add_system((void*)std::get<0>(funcs));
-        }
-        return AddSystemReturn(this, ptr);
-    }
     template <typename... Args>
     AddSystemReturn add_system(void (*func)(Args...)) {
         auto ptr = m_runner.add_system(func);
@@ -885,7 +831,9 @@ struct App {
     AddSystemReturn add_system(std::tuple<Args...> funcs) {
         auto ptr = m_runner.add_system(funcs);
         if (m_building_plugin_type && ptr) {
-            m_plugin_caches[m_building_plugin_type].add_system((void*)std::get<0>(funcs));
+            m_plugin_caches[m_building_plugin_type].add_system(
+                (void*)std::get<0>(funcs)
+            );
         }
         return AddSystemReturn(this, ptr);
     }
@@ -913,7 +861,11 @@ struct App {
     App& remove_plugin() {
         if (m_plugin_caches.find(&typeid(T)) != m_plugin_caches.end()) {
             for (auto system_ptr : m_plugin_caches[&typeid(T)].m_system_ptrs) {
-                m_runner.removing_system(system_ptr);
+                if (m_runner.stage_is_loop(system_ptr->m_stage.m_stage_type) ||
+                    m_runner.stage_is_transition(
+                        system_ptr->m_stage.m_stage_type
+                    ))
+                    m_runner.removing_system(system_ptr);
             }
             m_plugin_caches.erase(&typeid(T));
         } else {

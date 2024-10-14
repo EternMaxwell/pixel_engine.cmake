@@ -39,49 +39,6 @@ using in_set = app::in_set;
 
 using Plugin = app::Plugin;
 
-app::Schedule PreStartup();
-app::Schedule Startup();
-app::Schedule PostStartup();
-app::Schedule First();
-app::Schedule PreUpdate();
-app::Schedule Update();
-app::Schedule PostUpdate();
-app::Schedule Last();
-app::Schedule Prepare();
-app::Schedule PreRender();
-app::Schedule Render();
-app::Schedule PostRender();
-app::Schedule PreShutdown();
-app::Schedule Shutdown();
-app::Schedule PostShutdown();
-template <typename T>
-app::Schedule OnEnter(T t) {
-    std::function<bool(Resource<State<T>>, Resource<NextState<T>>)> condition =
-        [=](Resource<State<T>> cur, Resource<NextState<T>> next) {
-            if (cur->is_just_created() && cur->is_state(t)) return true;
-            if (!cur->is_state(t) && next->is_state(t)) return true;
-            return false;
-        };
-    return app::Schedule(app::StateTransit, condition);
-}
-template <typename T>
-app::Schedule OnExit(T t) {
-    std::function<bool(Resource<State<T>>, Resource<NextState<T>>)> condition =
-        [=](Resource<State<T>> cur, Resource<NextState<T>> next) {
-            if (cur->is_state(t) && !next->is_state(t)) return true;
-            return false;
-        };
-    return app::Schedule(app::StateTransit, condition);
-}
-template <typename T>
-app::Schedule OnChange() {
-    std::function<bool(Resource<State<T>>, Resource<NextState<T>>)> condition =
-        [=](Resource<State<T>> cur, Resource<NextState<T>> next) {
-            if (!cur->is_state(next)) return true;
-            return false;
-        };
-    return app::Schedule(app::StateTransit, condition);
-}
 template <typename T>
 std::shared_ptr<app::BasicSystem<bool>> in_state(const T&& t) {
     return std::make_shared<app::Condition<Resource<State<T>>>>(
