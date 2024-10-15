@@ -94,10 +94,10 @@ void SubStageRunner::build(
                 for (auto& system_i : set_systems[i]) {
                     for (auto& system_j : set_systems[j]) {
                         system_i.lock()->m_system_ptrs_after.insert(
-                            system_j.lock()->m_func_addr
+                            system_j.lock()->m_func_addrs[0]
                         );
                         system_j.lock()->m_system_ptrs_before.insert(
-                            system_i.lock()->m_func_addr
+                            system_i.lock()->m_func_addrs[0]
                         );
                     }
                 }
@@ -205,7 +205,7 @@ void SubStageRunner::run(std::weak_ptr<SystemNode> system) {
             run_logger->warn(
                 "Worker name : {} is not a valid name, which is used by system "
                 "{:#016x}",
-                system_ptr->m_worker_name, (size_t)system_ptr->m_func_addr
+                system_ptr->m_worker_name, (size_t)system_ptr->m_func_addrs[0]
             );
             notify(system);
             return;
@@ -360,8 +360,22 @@ void Runner::run(std::shared_ptr<StageRunnerInfo> stage) {
         auto ptr = stage->operator->();
         try {
             if (ptr) {
-                ptr->prepare();
+                double prepare_time = 0.0;
+                if (stage->m_current_run_time_rate > stage->m_run_time_rate) {
+                    auto start = std::chrono::high_resolution_clock::now();
+                    ptr->prepare();
+                    auto end = std::chrono::high_resolution_clock::now();
+                    prepare_time =
+                        std::chrono::duration<double>(end - start).count();
+                }
+                double run_time = 0.0;
+                auto start = std::chrono::high_resolution_clock::now();
                 ptr->run();
+                auto end = std::chrono::high_resolution_clock::now();
+                run_time = std::chrono::duration<double>(end - start).count();
+                stage->m_current_run_time_rate =
+                    (run_time / prepare_time) * 0.2 +
+                    stage->m_current_run_time_rate * 0.8;
             }
         } catch (const std::exception& e) {
             run_logger->error(
@@ -432,12 +446,23 @@ void Runner::build() {
     }
     for (auto& [stage, stage_runner] : m_startup_stages) {
         stage_runner->operator->()->build(m_systems);
+        stage_runner->m_run_time_rate = m_run_time_rate;
+        stage_runner->operator->()->prepare();
+    }
+    for (auto& [stage, stage_runner] : m_transition_stages) {
+        stage_runner->operator->()->build(m_systems);
+        stage_runner->m_run_time_rate = m_run_time_rate;
+        stage_runner->operator->()->prepare();
     }
     for (auto& [stage, stage_runner] : m_loop_stages) {
         stage_runner->operator->()->build(m_systems);
+        stage_runner->m_run_time_rate = m_run_time_rate;
+        stage_runner->operator->()->prepare();
     }
     for (auto& [stage, stage_runner] : m_exit_stages) {
         stage_runner->operator->()->build(m_systems);
+        stage_runner->m_run_time_rate = m_run_time_rate;
+        stage_runner->operator->()->prepare();
     }
 }
 void Runner::end_commands() {
@@ -454,6 +479,19 @@ void Runner::removing_system(void* func) {
             "Trying to remove system {:#016x}, which does not exist.",
             (size_t)func
         );
+    }
+}
+
+void Runner::set_run_time_rate(double rate) {
+    if (rate >= 0.0 && rate <= 1.0) {
+        m_run_time_rate = rate;
+    } else {
+        setup_logger->warn(
+            "Trying to set run time rate to {}, which is not in the range [0, "
+            "1]. Clamp to [0, 1].",
+            rate
+        );
+        m_run_time_rate = std::clamp(rate, 0.0, 1.0);
     }
 }
 
@@ -552,6 +590,11 @@ App& App::enable_loop() {
     return *this;
 }
 
+App& App::set_run_time_rate(double rate) {
+    m_runner.set_run_time_rate(rate);
+    return *this;
+}
+
 void App::build_plugins() {
     for (auto& [plugin_type, plugin] : m_plugins) {
         m_building_plugin_type = plugin_type;
@@ -572,11 +615,13 @@ void App::run() {
     run_logger->info("Running app.");
     m_runner.run_startup();
     run_logger->debug("Running loop.");
+    m_runner.end_commands();
     do {
         run_logger->debug("Run state transition systems.");
         m_runner.run_transition();
         run_logger->debug("Run Loop systems.");
         m_runner.run_loop();
+        m_runner.end_commands();
         update_states();
         run_logger->debug("Tick events.");
         for (auto& [_, sub_app] : m_sub_apps) {
@@ -585,8 +630,10 @@ void App::run() {
     } while (m_loop_enabled && !main_sub_app->run_system_v(check_exit));
     run_logger->debug("Run state transition systems.");
     m_runner.run_transition();
+    m_runner.end_commands();
     run_logger->info("Exiting app.");
     m_runner.run_exit();
+    m_runner.end_commands();
     run_logger->info("App terminated.");
 }
 

@@ -78,7 +78,6 @@ struct SystemNode {
     SystemStage m_stage;
     std::unordered_set<std::shared_ptr<BasicSystem<bool>>> m_conditions;
     std::vector<SystemSet> m_in_sets;
-    void* m_func_addr;
     std::vector<void*> m_func_addrs;
     std::string m_worker_name = "default";
     std::vector<std::shared_ptr<BasicSystem<void>>> m_system;
@@ -97,7 +96,11 @@ struct SystemNode {
     template <typename... Args>
     SystemNode(void (*func)(Args...)) {
         m_system = {std::make_shared<System<Args...>>(func)};
-        m_func_addr = func;
+        m_func_addrs = {func};
+    }
+    template <typename T, typename... Args>
+    SystemNode(T stage, void (*func)(Args...)) : m_stage(stage) {
+        m_system = {std::make_shared<System<Args...>>(func)};
         m_func_addrs = {func};
     }
     template <typename... Args>
@@ -111,7 +114,18 @@ struct SystemNode {
             },
             funcs
         );
-        m_func_addr = std::get<0>(funcs);
+    }
+    template <typename T, typename... Args>
+    SystemNode(T stage, std::tuple<Args...> funcs) : m_stage(stage) {
+        m_system = std::apply(
+            [this](auto&&... args) {
+                m_func_addrs = {args...};
+                return std::vector<std::shared_ptr<BasicSystem<void>>>{
+                    SystemNode::create_system(args)...
+                };
+            },
+            funcs
+        );
     }
 
     template <typename... Args>
@@ -285,6 +299,11 @@ struct StageRunnerInfo {
     std::unordered_set<std::weak_ptr<StageRunnerInfo>> m_after_temp;
     size_t before_count = 0;
     std::optional<size_t> m_depth;
+
+    double m_run_time_rate = 0.0;
+
+    double m_current_run_time_rate = 0.5;
+
     StageRunnerInfo(
         std::shared_ptr<SubApp> src,
         std::shared_ptr<SubApp> dst,
@@ -348,6 +367,8 @@ struct Runner {
     std::unordered_map<const type_info*, std::vector<size_t>> m_sets;
     BS::thread_pool m_runner_pool;
     StageRunnerMsgQueue m_msg_queue;
+
+    double m_run_time_rate = 0.0;
 
     struct AddStageReturn {
        private:
@@ -584,6 +605,7 @@ struct Runner {
     void build();
     void end_commands();
     void removing_system(void* func);
+    void set_run_time_rate(double rate);
 
     template <typename... Args>
     SystemNode* add_system(void (*func)(Args...)) {
@@ -598,17 +620,79 @@ struct Runner {
         m_systems.insert({(void*)func, node});
         return node.get();
     }
-
-    template <typename... Args>
-    SystemNode* add_system(std::tuple<Args...> funcs) {
-        if (m_systems.find(std::get<0>(funcs)) != m_systems.end()) {
+    template <typename T, typename... Args>
+    SystemNode* add_system(T stage, void (*func)(Args...)) {
+        if (m_systems.find(func) != m_systems.end()) {
             setup_logger->warn(
                 "Trying to add system {:#016x} : {}, which already exists.",
-                (size_t)std::get<0>(funcs), typeid(std::get<0>(funcs)).name()
+                (size_t)func, typeid(func).name()
             );
             return nullptr;
         }
+        std::shared_ptr<SystemNode> node =
+            std::make_shared<SystemNode>(stage, func);
+        m_systems.insert({(void*)func, node});
+        return node.get();
+    }
+
+    template <typename... Args>
+    SystemNode* add_system(std::tuple<Args...> funcs) {
+        static_assert(
+            sizeof...(Args) > 0,
+            "System tuple must have at least 1 "
+            "system."
+        );
         std::shared_ptr<SystemNode> node = std::make_shared<SystemNode>(funcs);
+        bool exists = false;
+        std::string warn;
+        for (auto func : node->m_func_addrs) {
+            if (m_systems.find(func) != m_systems.end()) {
+                warn += fmt::format(
+                    "\tSystem {:#016x} : {}, ", (size_t)func,
+                    typeid(func).name()
+                );
+                exists = true;
+            }
+        }
+        if (exists) {
+            setup_logger->warn(
+                "Trying to add system tuple with systems already existing:\n{}",
+                warn
+            );
+            return nullptr;
+        }
+        for (auto func : node->m_func_addrs) {
+            m_systems.insert({func, node});
+        }
+        return node.get();
+    }
+    template <typename T, typename... Args>
+    SystemNode* add_system(T stage, std::tuple<Args...> funcs) {
+        static_assert(
+            sizeof...(Args) > 0,
+            "System tuple must have at least 1 "
+            "system."
+        );
+        std::shared_ptr<SystemNode> node =
+            std::make_shared<SystemNode>(stage, funcs);
+        bool exists = false;
+        std::string warn;
+        for (auto func : node->m_func_addrs) {
+            if (m_systems.find(func) != m_systems.end()) {
+                warn += fmt::format(
+                    "\tSystem {:#016x} : {}, ", (size_t)func,
+                    typeid(func).name()
+                );
+                exists = true;
+            }
+        }
+        if (exists) {
+            setup_logger->warn(
+                "Trying to add system tuple with systems already existing:\n{}",
+                warn
+            );
+            return nullptr;
+        }
         for (auto func : node->m_func_addrs) {
             m_systems.insert({func, node});
         }
@@ -813,6 +897,8 @@ struct App {
     App& log_level(spdlog::level::level_enum level);
 
     App& enable_loop();
+
+    App& set_run_time_rate(double rate);
 
     template <typename T, typename... Args>
     App& configure_sets(T set, Args... sets) {
