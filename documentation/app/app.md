@@ -365,9 +365,30 @@ These are all the infomation you need to know to write a system.
 To add systems to app, use `add_system`, which is a overloaded and template function in `app`.
 A simple example has be writen at the first of this page. We will talk deeper here.
 
-`add_system` accepts several different type of input arguments, but the preferred and recommanded one is `add_system(void(func*)(Args...))`. All `add_system` will return a `AddSystemReturn` object, which will reference a `SystemNode` ptr in `Runner` in `App`. `SystemNode` is the internal wrapper of a system, containing more detailed informations for the `Runner` to run, and the user has no need to understand it. All you need to know currently is that a `SystemNode` can be mapped using a function ptr, which is the function ptr in the `add_system` input arguments. `AddSystemReturn` has functions for the user or the caller to modify the detailed information in referenced `SystemNode`, like in which stage, in what set, has what conditions, the relationship with other systems and in what state should it be run.
+`add_system` accepts two types of input arguments:
 
-The API for `AddSystemNode`:
+```cpp
+template <typename... Args>
+AddSystemReturn& add_system(void(func*)(Args...));
+// Add a system with single function to the app.
+
+template <typename T, typename... Args>
+AddSystemReturn& add_system(T stage, void(func*)(Args...));
+// Add a system with single function and in Stage stage to the app.
+
+template <typename... Args>
+AddSystemReturn& add_system(std::tuple<Args...>);
+// Args should be function pointers.
+// Add a system with more functions in it to the app.
+
+template <typename T, typename... Args>
+AddSystemReturn& add_system(T stage, std::tuple<Args...>);
+// Add a system in stage with functions in tuple to the app.
+```
+
+All `add_system` will return a `AddSystemReturn` object, which will reference a `SystemNode` ptr in `Runner` in `App`. `SystemNode` is the internal wrapper of a system, containing more detailed informations for the `Runner` to run, and the user has no need to understand it. All you need to know currently is that a `SystemNode` can be mapped using a function ptr, which is the function ptr in the `add_system` input arguments. `AddSystemReturn` has functions for the user or the caller to modify the detailed information in referenced `SystemNode`, like in which stage, in what set, has what conditions, the relationship with other systems and in what state should it be run.
+
+The API for `AddSystemReturn`:
 
 ```cpp
 template <typename... Sets>
@@ -477,7 +498,7 @@ Or use the helper functions to create conditions easily, like `in_state`.
 
 ### System Tuple
 
-`System` can also be added using tuple of functions. For example:
+`System` can be added using tuple of functions, the functions for this have been represented above in the `Add system` part. For example:
 
 ```cpp
 App app;
@@ -674,6 +695,36 @@ struct CombinedPlugin : Plugin {
     }
 };
 ```
+
+## `App.run()`
+
+This part is about what the `run()` function do exactly in app.
+
+First we need to understand the whole process of the app from setup to run.
+
+### Setup
+
+This stage in app includes invoking app constructor, system adding, plugin adding, stage assignment, set configuring. In other word, it is all the modification on app before calling `App::run()` and in building plugins. There is a unique logger for this stage in app. You are allowed to change the log level by calling `App::log_level(App::Loggers::Setup, spdlog::log_level)`, where `App::Loggers` is an enum with values `Setup`, `Build`, `Run`.
+
+In this stage, systems added are not added to the internal runners for every substage in `Runner`. But plugins are built.
+
+### Build
+
+This stage happens in `App::run()` after building plugin. In this stage, `StageRunner`s and `SubstageRunner`s are built, extracting the systems in their stage to its internal container. In this stage, the afters and befores specified for each system in the `setup` stage (they are functions pointers which will map to actual systems) will be added to the system's internal afters and befores list (the actual system reference). And dependencies given by system sets will be added to the internal afters and befores.
+
+In this stage, system sets that do not exist will be ignored, dependencies between systems in different `Substage`s will be ignored.
+
+### Run
+
+This stage is the one that do the running. However, before running, each `BasicStage` need to be **prepared**. Systems in them and in same `Substage`s will be assigned temporary dependencies if they conflicts with others based on their average running time. Then the runner will do the actual running.
+
+Also the preparation does not have to perform each frame, you are allowed to change how the prepare will work. By using the following function:
+
+```cpp
+App& set_run_time_rates(double);
+```
+
+This set how much time should be spent on running the systems at max. Accepted range [0, 1]. This means that when the rate of time spent on running systems go higher than the set value, app will perform preparation before running basic stage. 0 means prepare each frame. 1 means never prepare. In this case only prepare once with the average time all in default value which is 1ms.
 
 ## Beta features
 
