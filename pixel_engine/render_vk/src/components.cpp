@@ -45,7 +45,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(
 
     msg += std::format(
         "\tmessageIDName   = <{}>\n\tmessageIdNumber = {:#018x}\n",
-        pCallbackData->pMessageIdName, pCallbackData->messageIdNumber
+        pCallbackData->pMessageIdName,
+        *((uint32_t*)(&pCallbackData->messageIdNumber))
     );
 
     if (0 < pCallbackData->queueLabelCount) {
@@ -327,6 +328,36 @@ CommandBuffer CommandBuffer::allocate_secondary(
     )[0];
     return CommandBuffer{command_buffer};
 }
+std::vector<CommandBuffer> CommandBuffer::allocate_primary(
+    Device& device, CommandPool& command_pool, uint32_t count
+) {
+    auto command_buffers = device->allocateCommandBuffers(
+        vk::CommandBufferAllocateInfo()
+            .setCommandPool(command_pool)
+            .setLevel(vk::CommandBufferLevel::ePrimary)
+            .setCommandBufferCount(count)
+    );
+    std::vector<CommandBuffer> buffers;
+    for (auto& command_buffer : command_buffers) {
+        buffers.push_back(CommandBuffer{command_buffer});
+    }
+    return buffers;
+}
+std::vector<CommandBuffer> CommandBuffer::allocate_secondary(
+    Device& device, CommandPool& command_pool, uint32_t count
+) {
+    auto command_buffers = device->allocateCommandBuffers(
+        vk::CommandBufferAllocateInfo()
+            .setCommandPool(command_pool)
+            .setLevel(vk::CommandBufferLevel::eSecondary)
+            .setCommandBufferCount(count)
+    );
+    std::vector<CommandBuffer> buffers;
+    for (auto& command_buffer : command_buffers) {
+        buffers.push_back(CommandBuffer{command_buffer});
+    }
+    return buffers;
+}
 
 void CommandBuffer::free(Device& device, CommandPool& command_pool) {
     device->freeCommandBuffers(command_pool, command_buffer);
@@ -338,6 +369,13 @@ vk::CommandBuffer* CommandBuffer::operator->() { return &command_buffer; }
 vk::CommandBuffer& CommandBuffer::operator*() { return command_buffer; }
 
 AllocationCreateInfo::AllocationCreateInfo() { create_info = {}; }
+AllocationCreateInfo::AllocationCreateInfo(
+    const VmaMemoryUsage& usage, const VmaAllocationCreateFlags& flags
+) {
+    create_info.usage = usage;
+    create_info.flags = flags;
+}
+
 AllocationCreateInfo::operator VmaAllocationCreateInfo() const {
     return create_info;
 }
@@ -396,6 +434,32 @@ Buffer Buffer::create(
     );
     return buffer;
 }
+Buffer Buffer::create_device(
+    Device& device, uint64_t size, vk::BufferUsageFlags usage
+) {
+    return create(
+        device,
+        vk::BufferCreateInfo().setSize(size).setUsage(usage).setSharingMode(
+            vk::SharingMode::eExclusive
+        ),
+        AllocationCreateInfo()
+            .setUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE)
+            .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+    );
+}
+Buffer Buffer::create_host(
+    Device& device, uint64_t size, vk::BufferUsageFlags usage
+) {
+    return create(
+        device,
+        vk::BufferCreateInfo().setSize(size).setUsage(usage).setSharingMode(
+            vk::SharingMode::eExclusive
+        ),
+        AllocationCreateInfo()
+            .setUsage(VMA_MEMORY_USAGE_AUTO_PREFER_HOST)
+            .setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT)
+    );
+}
 
 void Buffer::destroy(Device& device) {
     vmaDestroyBuffer(device.allocator, buffer, allocation);
@@ -427,6 +491,87 @@ Image Image::create(
     );
     return image;
 }
+Image Image::create_1d(
+    Device& device,
+    uint32_t width,
+    uint32_t levels,
+    uint32_t layers,
+    vk::Format format,
+    vk::ImageUsageFlags usage
+) {
+    return create(
+        device,
+        vk::ImageCreateInfo()
+            .setImageType(vk::ImageType::e1D)
+            .setExtent(vk::Extent3D(width, 1, 1))
+            .setMipLevels(levels)
+            .setArrayLayers(layers)
+            .setFormat(format)
+            .setUsage(usage)
+            .setInitialLayout(vk::ImageLayout::eUndefined)
+            .setSamples(vk::SampleCountFlagBits::e1)
+            .setTiling(vk::ImageTiling::eOptimal)
+            .setSharingMode(vk::SharingMode::eExclusive),
+        AllocationCreateInfo()
+            .setUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE)
+            .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+    );
+}
+Image Image::create_2d(
+    Device& device,
+    uint32_t width,
+    uint32_t height,
+    uint32_t levels,
+    uint32_t layers,
+    vk::Format format,
+    vk::ImageUsageFlags usage
+) {
+    return create(
+        device,
+        vk::ImageCreateInfo()
+            .setImageType(vk::ImageType::e2D)
+            .setExtent(vk::Extent3D(width, height, 1))
+            .setMipLevels(levels)
+            .setArrayLayers(layers)
+            .setFormat(format)
+            .setUsage(usage)
+            .setInitialLayout(vk::ImageLayout::eUndefined)
+            .setSamples(vk::SampleCountFlagBits::e1)
+            .setTiling(vk::ImageTiling::eOptimal)
+            .setSharingMode(vk::SharingMode::eExclusive),
+        AllocationCreateInfo()
+            .setUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE)
+            .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+    );
+}
+Image Image::create_3d(
+    Device& device,
+    uint32_t width,
+    uint32_t height,
+    uint32_t depth,
+    uint32_t levels,
+    uint32_t layers,
+    vk::Format format,
+    vk::ImageUsageFlags usage
+) {
+    return create(
+        device,
+        vk::ImageCreateInfo()
+            .setImageType(vk::ImageType::e3D)
+            .setExtent(vk::Extent3D(width, height, depth))
+            .setMipLevels(levels)
+            .setArrayLayers(layers)
+            .setFormat(format)
+            .setUsage(usage)
+            .setInitialLayout(vk::ImageLayout::eUndefined)
+            .setSamples(vk::SampleCountFlagBits::e1)
+            .setTiling(vk::ImageTiling::eOptimal)
+            .setSharingMode(vk::SharingMode::eExclusive),
+        AllocationCreateInfo()
+            .setUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE)
+            .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+    );
+}
 
 void Image::destroy(Device& device) {
     vmaDestroyImage(device.allocator, image, allocation);
@@ -444,6 +589,93 @@ ImageView ImageView::create(
     image_view.image_view = device->createImageView(create_info);
     return image_view;
 }
+ImageView ImageView::create_1d(
+    Device& device,
+    Image& image,
+    vk::Format format,
+    vk::ImageAspectFlags aspect_flags,
+    uint32_t base_level,
+    uint32_t level_count,
+    uint32_t base_layer,
+    uint32_t layer_count
+) {
+    return create(
+        device,
+        vk::ImageViewCreateInfo()
+            .setImage(image)
+            .setViewType(vk::ImageViewType::e1D)
+            .setFormat(format)
+            .setSubresourceRange(vk::ImageSubresourceRange(
+                aspect_flags, base_level, level_count, base_layer, layer_count
+            ))
+    );
+}
+ImageView ImageView::create_1d(
+    Device& device,
+    Image& image,
+    vk::Format format,
+    vk::ImageAspectFlags aspect_flags
+) {
+    return create_1d(device, image, format, aspect_flags, 0, 1, 0, 1);
+}
+ImageView ImageView::create_2d(
+    Device& device,
+    Image& image,
+    vk::Format format,
+    vk::ImageAspectFlags aspect_flags,
+    uint32_t base_level,
+    uint32_t level_count,
+    uint32_t base_layer,
+    uint32_t layer_count
+) {
+    return create(
+        device,
+        vk::ImageViewCreateInfo()
+            .setImage(image)
+            .setViewType(vk::ImageViewType::e2D)
+            .setFormat(format)
+            .setSubresourceRange(vk::ImageSubresourceRange(
+                aspect_flags, base_level, level_count, base_layer, layer_count
+            ))
+    );
+}
+ImageView ImageView::create_2d(
+    Device& device,
+    Image& image,
+    vk::Format format,
+    vk::ImageAspectFlags aspect_flags
+) {
+    return create_2d(device, image, format, aspect_flags, 0, 1, 0, 1);
+}
+ImageView ImageView::create_3d(
+    Device& device,
+    Image& image,
+    vk::Format format,
+    vk::ImageAspectFlags aspect_flags,
+    uint32_t base_level,
+    uint32_t level_count,
+    uint32_t base_layer,
+    uint32_t layer_count
+) {
+    return create(
+        device,
+        vk::ImageViewCreateInfo()
+            .setImage(image)
+            .setViewType(vk::ImageViewType::e3D)
+            .setFormat(format)
+            .setSubresourceRange(vk::ImageSubresourceRange(
+                aspect_flags, base_level, level_count, base_layer, layer_count
+            ))
+    );
+}
+ImageView ImageView::create_3d(
+    Device& device,
+    Image& image,
+    vk::Format format,
+    vk::ImageAspectFlags aspect_flags
+) {
+    return create_3d(device, image, format, aspect_flags, 0, 1, 0, 1);
+}
 
 void ImageView::destroy(Device& device) {
     device->destroyImageView(image_view);
@@ -458,6 +690,32 @@ Sampler Sampler::create(Device& device, vk::SamplerCreateInfo create_info) {
     Sampler sampler;
     sampler.sampler = device->createSampler(create_info);
     return sampler;
+}
+Sampler Sampler::create(
+    Device& device,
+    vk::Filter min_filter,
+    vk::Filter mag_filter,
+    vk::SamplerAddressMode u_address_mode,
+    vk::SamplerAddressMode v_address_mode,
+    vk::SamplerAddressMode w_address_mode,
+    vk::BorderColor border_color
+) {
+    return create(
+        device, vk::SamplerCreateInfo()
+                    .setMagFilter(mag_filter)
+                    .setMinFilter(min_filter)
+                    .setAddressModeU(u_address_mode)
+                    .setAddressModeV(v_address_mode)
+                    .setAddressModeW(w_address_mode)
+                    .setAnisotropyEnable(VK_TRUE)
+                    .setBorderColor(border_color)
+                    .setCompareEnable(VK_TRUE)
+                    .setCompareOp(vk::CompareOp::eAlways)
+                    .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                    .setMipLodBias(0.0f)
+                    .setMinLod(0.0f)
+                    .setMaxLod(0.0f)
+    );
 }
 
 void Sampler::destroy(Device& device) { device->destroySampler(sampler); }
@@ -474,6 +732,13 @@ DescriptorSetLayout DescriptorSetLayout::create(
     descriptor_set_layout.descriptor_set_layout =
         device->createDescriptorSetLayout(create_info);
     return descriptor_set_layout;
+}
+DescriptorSetLayout DescriptorSetLayout::create(
+    Device& device, const std::vector<vk::DescriptorSetLayoutBinding>& bindings
+) {
+    return create(
+        device, vk::DescriptorSetLayoutCreateInfo().setBindings(bindings)
+    );
 }
 
 void DescriptorSetLayout::destroy(Device& device) {
@@ -500,6 +765,41 @@ PipelineLayout PipelineLayout::create(
     pipeline_layout.pipeline_layout = device->createPipelineLayout(create_info);
     return pipeline_layout;
 }
+PipelineLayout PipelineLayout::create(
+    Device& device, DescriptorSetLayout& descriptor_set_layout
+) {
+    return create(
+        device,
+        vk::PipelineLayoutCreateInfo().setSetLayouts(*descriptor_set_layout)
+    );
+}
+PipelineLayout PipelineLayout::create(
+    Device& device,
+    DescriptorSetLayout& descriptor_set_layout,
+    vk::PushConstantRange& push_constant_range
+) {
+    return create(
+        device, vk::PipelineLayoutCreateInfo()
+                    .setSetLayouts(*descriptor_set_layout)
+                    .setPushConstantRanges(push_constant_range)
+    );
+}
+PipelineLayout PipelineLayout::create(
+    Device& device,
+    std::vector<DescriptorSetLayout>& descriptor_set_layouts,
+    std::vector<vk::PushConstantRange>& push_constant_ranges
+) {
+    std::vector<vk::DescriptorSetLayout> descriptor_set_layouts_vk;
+    descriptor_set_layouts_vk.reserve(descriptor_set_layouts.size());
+    for (auto& layout : descriptor_set_layouts) {
+        descriptor_set_layouts_vk.push_back(*layout);
+    }
+    return create(
+        device, vk::PipelineLayoutCreateInfo()
+                    .setSetLayouts(descriptor_set_layouts_vk)
+                    .setPushConstantRanges(push_constant_ranges)
+    );
+}
 
 void PipelineLayout::destroy(Device& device) {
     device->destroyPipelineLayout(pipeline_layout);
@@ -522,6 +822,21 @@ Pipeline Pipeline::create(
 }
 Pipeline Pipeline::create(
     Device& device, vk::GraphicsPipelineCreateInfo create_info
+) {
+    return create(device, vk::PipelineCache(), create_info);
+}
+Pipeline Pipeline::create(
+    Device& device,
+    vk::PipelineCache pipeline_cache,
+    vk::ComputePipelineCreateInfo create_info
+) {
+    Pipeline pipeline;
+    pipeline.pipeline =
+        device->createComputePipeline(pipeline_cache, create_info).value;
+    return pipeline;
+}
+Pipeline Pipeline::create(
+    Device& device, vk::ComputePipelineCreateInfo create_info
 ) {
     return create(device, vk::PipelineCache(), create_info);
 }
@@ -558,7 +873,6 @@ DescriptorSet DescriptorSet::create(
         device->allocateDescriptorSets(allocate_info)[0];
     return descriptor_set;
 }
-
 DescriptorSet DescriptorSet::create(
     Device& device,
     DescriptorPool& descriptor_pool,
@@ -568,6 +882,27 @@ DescriptorSet DescriptorSet::create(
     allocate_info.setDescriptorPool(descriptor_pool)
         .setSetLayouts(descriptor_set_layout);
     return create(device, allocate_info);
+}
+std::vector<DescriptorSet> DescriptorSet::create(
+    Device& device,
+    DescriptorPool& descriptor_pool,
+    std::vector<DescriptorSetLayout>& descriptor_set_layouts
+) {
+    std::vector<vk::DescriptorSetLayout> descriptor_set_layouts_vk;
+    descriptor_set_layouts_vk.reserve(descriptor_set_layouts.size());
+    for (auto& layout : descriptor_set_layouts) {
+        descriptor_set_layouts_vk.push_back(*layout);
+    }
+    vk::DescriptorSetAllocateInfo allocate_info;
+    allocate_info.setDescriptorPool(descriptor_pool)
+        .setSetLayouts(descriptor_set_layouts_vk);
+    auto descriptor_sets = device->allocateDescriptorSets(allocate_info);
+    std::vector<DescriptorSet> sets;
+    sets.reserve(descriptor_sets.size());
+    for (auto& descriptor_set : descriptor_sets) {
+        sets.push_back(DescriptorSet{descriptor_set});
+    }
+    return sets;
 }
 
 void DescriptorSet::destroy(Device& device, DescriptorPool& descriptor_pool) {

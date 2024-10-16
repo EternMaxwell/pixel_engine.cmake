@@ -106,12 +106,21 @@ struct CommandBuffer {
     static CommandBuffer allocate_secondary(
         Device& device, CommandPool& command_pool
     );
+    static std::vector<CommandBuffer> allocate_primary(
+        Device& device, CommandPool& command_pool, uint32_t count
+    );
+    static std::vector<CommandBuffer> allocate_secondary(
+        Device& device, CommandPool& command_pool, uint32_t count
+    );
 
     vk::CommandBuffer command_buffer;
 };
 
 struct AllocationCreateInfo {
     AllocationCreateInfo();
+    AllocationCreateInfo(
+        const VmaMemoryUsage& usage, const VmaAllocationCreateFlags& flags
+    );
 
     operator VmaAllocationCreateInfo() const;
     AllocationCreateInfo& setUsage(VmaMemoryUsage usage);
@@ -142,6 +151,12 @@ struct Buffer {
         vk::BufferCreateInfo create_info,
         AllocationCreateInfo alloc_info
     );
+    static Buffer create_device(
+        Device& device, uint64_t size, vk::BufferUsageFlags usage
+    );
+    static Buffer create_host(
+        Device& device, uint64_t size, vk::BufferUsageFlags usage
+    );
 
     vk::Buffer buffer;
     VmaAllocation allocation;
@@ -160,6 +175,33 @@ struct Image {
         vk::ImageCreateInfo create_info,
         AllocationCreateInfo alloc_info
     );
+    static Image create_1d(
+        Device& device,
+        uint32_t width,
+        uint32_t levels,
+        uint32_t layers,
+        vk::Format format,
+        vk::ImageUsageFlags usage
+    );
+    static Image create_2d(
+        Device& device,
+        uint32_t width,
+        uint32_t height,
+        uint32_t levels,
+        uint32_t layers,
+        vk::Format format,
+        vk::ImageUsageFlags usage
+    );
+    static Image create_3d(
+        Device& device,
+        uint32_t width,
+        uint32_t height,
+        uint32_t depth,
+        uint32_t levels,
+        uint32_t layers,
+        vk::Format format,
+        vk::ImageUsageFlags usage
+    );
 
     vk::Image image;
     VmaAllocation allocation;
@@ -176,6 +218,54 @@ struct ImageView {
     static ImageView create(
         Device& device, vk::ImageViewCreateInfo create_info
     );
+    static ImageView create_1d(
+        Device& device,
+        Image& image,
+        vk::Format format,
+        vk::ImageAspectFlags aspect_flags,
+        uint32_t base_level,
+        uint32_t level_count,
+        uint32_t base_layer,
+        uint32_t layer_count
+    );
+    static ImageView create_1d(
+        Device& device,
+        Image& image,
+        vk::Format format,
+        vk::ImageAspectFlags aspect_flags
+    );
+    static ImageView create_2d(
+        Device& device,
+        Image& image,
+        vk::Format format,
+        vk::ImageAspectFlags aspect_flags,
+        uint32_t base_level,
+        uint32_t level_count,
+        uint32_t base_layer,
+        uint32_t layer_count
+    );
+    static ImageView create_2d(
+        Device& device,
+        Image& image,
+        vk::Format format,
+        vk::ImageAspectFlags aspect_flags
+    );
+    static ImageView create_3d(
+        Device& device,
+        Image& image,
+        vk::Format format,
+        vk::ImageAspectFlags aspect_flags,
+        uint32_t base_level,
+        uint32_t level_count,
+        uint32_t base_layer,
+        uint32_t layer_count
+    );
+    static ImageView create_3d(
+        Device& device,
+        Image& image,
+        vk::Format format,
+        vk::ImageAspectFlags aspect_flags
+    );
 
     vk::ImageView image_view;
 };
@@ -189,6 +279,15 @@ struct Sampler {
     vk::Sampler& operator*();
 
     static Sampler create(Device& device, vk::SamplerCreateInfo create_info);
+    static Sampler create(
+        Device& device,
+        vk::Filter min_filter,
+        vk::Filter mag_filter,
+        vk::SamplerAddressMode u_address_mode,
+        vk::SamplerAddressMode v_address_mode,
+        vk::SamplerAddressMode w_address_mode,
+        vk::BorderColor border_color = vk::BorderColor::eFloatTransparentBlack
+    );
 
     vk::Sampler sampler;
 };
@@ -204,6 +303,10 @@ struct DescriptorSetLayout {
     static DescriptorSetLayout create(
         Device& device, vk::DescriptorSetLayoutCreateInfo create_info
     );
+    static DescriptorSetLayout create(
+        Device& device,
+        const std::vector<vk::DescriptorSetLayoutBinding>& bindings
+    );
 
     vk::DescriptorSetLayout descriptor_set_layout;
 };
@@ -218,6 +321,19 @@ struct PipelineLayout {
 
     static PipelineLayout create(
         Device& device, vk::PipelineLayoutCreateInfo create_info
+    );
+    static PipelineLayout create(
+        Device& device, DescriptorSetLayout& descriptor_set_layout
+    );
+    static PipelineLayout create(
+        Device& device,
+        DescriptorSetLayout& descriptor_set_layout,
+        vk::PushConstantRange& push_constant_range
+    );
+    static PipelineLayout create(
+        Device& device,
+        std::vector<DescriptorSetLayout>& descriptor_set_layout,
+        std::vector<vk::PushConstantRange>& push_constant_ranges
     );
 
     vk::PipelineLayout pipeline_layout;
@@ -238,6 +354,14 @@ struct Pipeline {
     );
     static Pipeline create(
         Device& device, vk::GraphicsPipelineCreateInfo create_info
+    );
+    static Pipeline create(
+        Device& device,
+        vk::PipelineCache pipeline_cache,
+        vk::ComputePipelineCreateInfo create_info
+    );
+    static Pipeline create(
+        Device& device, vk::ComputePipelineCreateInfo create_info
     );
 
     vk::Pipeline pipeline;
@@ -273,6 +397,11 @@ struct DescriptorSet {
         Device& device,
         DescriptorPool& descriptor_pool,
         vk::DescriptorSetLayout descriptor_set_layout
+    );
+    static std::vector<DescriptorSet> create(
+        Device& device,
+        DescriptorPool& descriptor_pool,
+        std::vector<DescriptorSetLayout>& descriptor_set_layouts
     );
 
     vk::DescriptorSet descriptor_set;
