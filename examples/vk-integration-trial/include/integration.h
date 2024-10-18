@@ -1200,9 +1200,9 @@ struct VK_TrialPlugin : Plugin {
 
 void run() {
     App app;
-    app.log_level(App::Loggers::Build, spdlog::level::debug);
     app.add_plugin(pixel_engine::window::WindowPlugin{});
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
+    app.add_plugin(pixel_engine::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});
     app.run();
 }

@@ -3,6 +3,7 @@
 #include "pixel_engine/asset_server_gl/asset_server_gl.h"
 #include "pixel_engine/camera/components.h"
 #include "pixel_engine/entity.h"
+#include "pixel_engine/font.h"
 #include "pixel_engine/font_gl/font.h"
 #include "pixel_engine/pixel_render_gl/pixel_render_gl.h"
 #include "pixel_engine/render_gl/render_gl.h"

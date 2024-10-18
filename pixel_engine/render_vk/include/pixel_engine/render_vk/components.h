@@ -9,7 +9,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "vulkan/device.h"
 #include "vulkan_headers.h"
 
 namespace pixel_engine {
