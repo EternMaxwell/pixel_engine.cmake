@@ -1080,11 +1080,25 @@ void wait_for_device(Query<Get<Device>, With<RenderContext>> query) {
     device->waitIdle();
 }
 
+void create_text(
+    Command command,
+    Resource<pixel_engine::font::resources::FT2Library> ft2_library
+) {
+    pixel_engine::font::components::Text text;
+    auto font_face =
+        ft2_library->load_font("../assets/fonts/FiraSans-Bold.ttf");
+    text.font = pixel_engine::font::components::Font{.font_face = font_face};
+    text.font.pixels = 32;
+    text.text = L"Helloy, World!你好，世界！";
+    command.spawn(text, pixel_engine::font::components::TextPos{100, 100});
+}
+
 struct VK_TrialPlugin : Plugin {
     void build(App &app) override {
         auto window_plugin = app.get_plugin<WindowPlugin>();
         window_plugin->set_primary_window_hints({{GLFW_CLIENT_API, GLFW_NO_API}}
         );
+        window_plugin->primary_window_vsync = false;
 
         using namespace pixel_engine;
 
@@ -1175,7 +1189,10 @@ struct VK_TrialPlugin : Plugin {
             .after(create_render_pass)
             .use_worker("single")
             .in_stage(app::Startup);
-        app.add_system(draw_frame).use_worker("single").in_stage(app::Render);
+        app.add_system(draw_frame)
+            .use_worker("single")
+            .in_stage(app::Render)
+            .before(pixel_engine::font::systems::draw_text);
         app.add_system(wait_for_device)
             .use_worker("single")
             .in_stage(app::Shutdown);
@@ -1195,11 +1212,13 @@ struct VK_TrialPlugin : Plugin {
             .after(wait_for_device)
             .use_worker("single")
             .in_stage(app::Shutdown);
+        app.add_system(create_text).in_stage(app::Startup);
     }
 };
 
 void run() {
     App app;
+    app.set_run_time_rate(1.0);
     app.add_plugin(pixel_engine::window::WindowPlugin{});
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
     app.add_plugin(pixel_engine::font::FontPlugin{});

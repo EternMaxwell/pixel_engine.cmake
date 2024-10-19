@@ -7,13 +7,15 @@
 
 #include <glm/glm.hpp>
 #include <string>
-
+#include <unordered_map>
 
 namespace pixel_engine {
 namespace font {
 namespace components {
 using namespace prelude;
 using namespace render_vk::components;
+
+static std::unordered_map<std::string, FT_Face> font_faces;
 
 struct Font {
     bool antialias = true;
@@ -32,6 +34,11 @@ struct Text {
     float height = 0;
     float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     float center[2] = {0.0f, 0.0f};
+};
+
+struct TextPos {
+    int x;
+    int y;
 };
 
 struct TextVertex {
@@ -56,6 +63,7 @@ struct TextRenderer {
     Buffer text_texture_staging_buffer;
     Image text_texture_image;
     ImageView text_texture_image_view;
+    Sampler text_texture_sampler;
 };
 }  // namespace components
 }  // namespace font

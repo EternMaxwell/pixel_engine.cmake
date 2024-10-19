@@ -5,6 +5,9 @@ layout(location = 1) in vec4 color;
 
 layout(location = 0) out vec4 frag_color;
 
-layout(binding = 1) uniform sampler2D tex;
+layout(binding = 1) uniform usampler2D tex;
 
-void main() { frag_color = texture(tex, tex_coords) * color; }
+void main() {
+    float v = texture(tex, tex_coords).r / 255.0;
+    frag_color = v * color;
+}
