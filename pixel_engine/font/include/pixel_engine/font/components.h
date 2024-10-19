@@ -5,7 +5,9 @@
 #include <pixel_engine/app.h>
 #include <pixel_engine/render_vk.h>
 
+#include <glm/glm.hpp>
 #include <string>
+
 
 namespace pixel_engine {
 namespace font {
@@ -15,8 +17,13 @@ using namespace render_vk::components;
 
 struct Font {
     bool antialias = true;
-    int pixels = 16;
+    int pixels = 64;
     FT_Face font_face;
+};
+
+struct TextUniformBuffer {
+    glm::mat4 view;
+    glm::mat4 proj;
 };
 
 struct Text {
@@ -27,13 +34,22 @@ struct Text {
     float center[2] = {0.0f, 0.0f};
 };
 
+struct TextVertex {
+    float pos[3];
+    float uv[2];
+    float color[4];
+};
+
 struct TextRenderer {
     DescriptorSetLayout text_descriptor_set_layout;
     DescriptorPool text_descriptor_pool;
     DescriptorSet text_descriptor_set;
 
     RenderPass text_render_pass;
+    PipelineLayout text_pipeline_layout;
     Pipeline text_pipeline;
+
+    Buffer text_uniform_buffer;
 
     Buffer text_vertex_buffer;
 

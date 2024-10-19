@@ -3,7 +3,6 @@
 #include "render_vk/components.h"
 #include "render_vk/resources.h"
 #include "render_vk/systems.h"
-#include "render_vk/vulkan/device.h"
 #include "render_vk/vulkan_headers.h"
 
 namespace pixel_engine {
