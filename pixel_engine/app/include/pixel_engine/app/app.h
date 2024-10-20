@@ -913,9 +913,27 @@ struct App {
         }
         return AddSystemReturn(this, ptr);
     }
+    template <typename T, typename... Args>
+    AddSystemReturn add_system(T state, void (*func)(Args...)) {
+        auto ptr = m_runner.add_system(state, func);
+        if (m_building_plugin_type && ptr) {
+            m_plugin_caches[m_building_plugin_type].add_system((void*)func);
+        }
+        return AddSystemReturn(this, ptr);
+    }
     template <typename... Args>
     AddSystemReturn add_system(std::tuple<Args...> funcs) {
         auto ptr = m_runner.add_system(funcs);
+        if (m_building_plugin_type && ptr) {
+            m_plugin_caches[m_building_plugin_type].add_system(
+                (void*)std::get<0>(funcs)
+            );
+        }
+        return AddSystemReturn(this, ptr);
+    }
+    template <typename T, typename... Args>
+    AddSystemReturn add_system(T state, std::tuple<Args...> funcs) {
+        auto ptr = m_runner.add_system(state, funcs);
         if (m_building_plugin_type && ptr) {
             m_plugin_caches[m_building_plugin_type].add_system(
                 (void*)std::get<0>(funcs)
