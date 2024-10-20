@@ -1,3 +1,5 @@
+#include <unordered_map>
+
 #include "pixel_engine/font.h"
 
 using namespace pixel_engine;
@@ -22,7 +24,6 @@ void systems::create_renderer(
     Query<Get<Device, Queue, CommandPool>, With<RenderContext>> query,
     Resource<FontPlugin> font_plugin
 ) {
-    logger->set_level(spdlog::level::debug);
     if (!query.single().has_value()) return;
     auto [device, queue, command_pool] = query.single().value();
     auto canvas_width = font_plugin->canvas_width;
@@ -69,7 +70,7 @@ void systems::create_renderer(
             vk::BufferUsageFlagBits::eTransferDst
     );
     vk::BufferCreateInfo buffer_create_info;
-    buffer_create_info.setSize(216);
+    buffer_create_info.setSize(sizeof(TextVertex) * 6 * 4096);
     buffer_create_info.setUsage(
         vk::BufferUsageFlagBits::eTransferDst |
         vk::BufferUsageFlagBits::eVertexBuffer
@@ -80,44 +81,6 @@ void systems::create_renderer(
     alloc_info.setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT);
     text_renderer.text_vertex_buffer =
         Buffer::create(device, buffer_create_info, alloc_info);
-    text_renderer.text_texture_staging_buffer = Buffer::create_host(
-        device, canvas_width * canvas_height,
-        vk::BufferUsageFlagBits::eTransferSrc
-    );
-    text_renderer.text_texture_image = Image::create_2d(
-        device, canvas_width, canvas_height, 1, 1, vk::Format::eR8Uint,
-        vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst
-    );
-    vk::ImageViewCreateInfo image_view_info;
-    text_renderer.text_texture_image_view = ImageView::create_2d(
-        device, text_renderer.text_texture_image, vk::Format::eR8Uint,
-        vk::ImageAspectFlagBits::eColor
-    );
-    // transition image layout
-    auto command_buffer = CommandBuffer::allocate_primary(device, command_pool);
-    command_buffer->begin(vk::CommandBufferBeginInfo{});
-    vk::ImageMemoryBarrier barrier;
-    barrier.setOldLayout(vk::ImageLayout::eUndefined);
-    barrier.setNewLayout(vk::ImageLayout::eTransferDstOptimal);
-    barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-    barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-    barrier.setImage(text_renderer.text_texture_image);
-    barrier.setSubresourceRange(
-        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
-    );
-    barrier.setSrcAccessMask({});
-    barrier.setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
-    command_buffer->pipelineBarrier(
-        vk::PipelineStageFlagBits::eTopOfPipe,
-        vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, barrier
-    );
-    command_buffer->end();
-    auto submit_info = vk::SubmitInfo().setCommandBuffers(*command_buffer);
-    Fence fence = Fence::create(device, vk::FenceCreateInfo());
-    queue->submit(submit_info, fence);
-    device->waitForFences(*fence, VK_TRUE, UINT64_MAX);
-    fence.destroy(device);
-    command_buffer.free(device, command_pool);
 
     vk::RenderPassCreateInfo render_pass_info;
     vk::AttachmentDescription color_attachment;
@@ -186,7 +149,7 @@ void systems::create_renderer(
     binding_description.setBinding(0);
     binding_description.setStride(sizeof(TextVertex));
     binding_description.setInputRate(vk::VertexInputRate::eVertex);
-    std::array<vk::VertexInputAttributeDescription, 3> attribute_descriptions =
+    std::array<vk::VertexInputAttributeDescription, 4> attribute_descriptions =
         {vk::VertexInputAttributeDescription()
              .setBinding(0)
              .setLocation(0)
@@ -201,7 +164,12 @@ void systems::create_renderer(
              .setBinding(0)
              .setLocation(2)
              .setFormat(vk::Format::eR32G32B32A32Sfloat)
-             .setOffset(offsetof(TextVertex, color))};
+             .setOffset(offsetof(TextVertex, color)),
+         vk::VertexInputAttributeDescription()
+             .setBinding(0)
+             .setLocation(3)
+             .setFormat(vk::Format::eR32Sint)
+             .setOffset(offsetof(TextVertex, image_index))};
     vertex_input_info.setVertexBindingDescriptions({binding_description});
     vertex_input_info.setVertexAttributeDescriptions(attribute_descriptions);
 
@@ -273,12 +241,12 @@ void systems::create_renderer(
         device, vk::SamplerCreateInfo()
                     .setMagFilter(vk::Filter::eNearest)
                     .setMinFilter(vk::Filter::eNearest)
-                    .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-                    .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-                    .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+                    .setAddressModeU(vk::SamplerAddressMode::eClampToBorder)
+                    .setAddressModeV(vk::SamplerAddressMode::eClampToBorder)
+                    .setAddressModeW(vk::SamplerAddressMode::eClampToBorder)
                     .setAnisotropyEnable(VK_TRUE)
                     .setMaxAnisotropy(16)
-                    .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                    .setBorderColor(vk::BorderColor::eIntTransparentBlack)
                     .setUnnormalizedCoordinates(VK_FALSE)
                     .setCompareEnable(VK_FALSE)
                     .setCompareOp(vk::CompareOp::eAlways)
@@ -292,10 +260,6 @@ void systems::create_renderer(
     buffer_info.setBuffer(text_renderer.text_uniform_buffer);
     buffer_info.setOffset(0);
     buffer_info.setRange(sizeof(TextUniformBuffer));
-    vk::DescriptorImageInfo image_info;
-    image_info.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-    image_info.setImageView(text_renderer.text_texture_image_view);
-    image_info.setSampler(text_renderer.text_texture_sampler);
     vk::WriteDescriptorSet descriptor_write;
     descriptor_write.setDstSet(*text_renderer.text_descriptor_set);
     descriptor_write.setDstBinding(0);
@@ -303,16 +267,7 @@ void systems::create_renderer(
     descriptor_write.setDescriptorType(vk::DescriptorType::eUniformBuffer);
     descriptor_write.setDescriptorCount(1);
     descriptor_write.setPBufferInfo(&buffer_info);
-    vk::WriteDescriptorSet descriptor_write2;
-    descriptor_write2.setDstSet(*text_renderer.text_descriptor_set);
-    descriptor_write2.setDstBinding(1);
-    descriptor_write2.setDstArrayElement(0);
-    descriptor_write2.setDescriptorType(
-        vk::DescriptorType::eCombinedImageSampler
-    );
-    descriptor_write2.setDescriptorCount(1);
-    descriptor_write2.setPImageInfo(&image_info);
-    auto descriptor_writes = {descriptor_write, descriptor_write2};
+    auto descriptor_writes = {descriptor_write};
     device->updateDescriptorSets(descriptor_writes, nullptr);
 
     command.spawn(text_renderer);
@@ -372,142 +327,89 @@ void systems::draw_text(
     auto submit_info = vk::SubmitInfo().setCommandBuffers(*cmd_uniform_copy);
     queue->submit(submit_info, nullptr);
     for (auto [text, pos] : text_query.iter()) {
-        if (FT_Set_Char_Size(
-                text.font.font_face, 0, text.font.pixels, extent.width,
-                extent.height
-            )) {
-            spdlog::warn("Failed to set char size, skipping text");
-            continue;
-        }
-        if (FT_Set_Pixel_Sizes(text.font.font_face, 0, text.font.pixels)) {
-            spdlog::warn("Failed to set pixel size, skipping text");
-            continue;
-        }
-        FT_GlyphSlot slot = text.font.font_face->glyph;
-        int x = 0;
-        int y = text.font.pixels;
-        int ymax = 0;
-        int ymin = text.font.pixels;
-        int lines = 0;
-        int offset = 0;
-        auto cmd = CommandBuffer::allocate_primary(device, command_pool);
-        cmd->begin(vk::CommandBufferBeginInfo{});
-        uint8_t* buffer =
-            (uint8_t*)text_renderer.text_texture_staging_buffer.map(device);
-        std::fill(buffer, buffer + canvas_width * canvas_height, 0);
+        uint32_t vertices_count = 0;
+        auto [texture_image, font_image_view, glyph_map] =
+            ft2_library->get_font_texture(
+                text.font, device, command_pool, queue
+            );
+        TextVertex* vertices =
+            (TextVertex*)text_renderer.text_vertex_buffer.map(device);
+        float ax = pos.x;
+        float ay = pos.y;
         for (auto c : text.text) {
-            int glyph_index = FT_Get_Char_Index(text.font.font_face, c);
-            if (FT_Load_Glyph(
-                    text.font.font_face, glyph_index, FT_LOAD_DEFAULT
-                )) {
-                spdlog::warn("Failed to load glyph, skipping character");
-                continue;
-            }
-            if (FT_Render_Glyph(
-                    text.font.font_face->glyph, text.font.antialias
-                                                    ? FT_RENDER_MODE_NORMAL
-                                                    : FT_RENDER_MODE_MONO
-                )) {
-                spdlog::warn("Failed to render glyph, skipping character");
-                continue;
-            }
-            FT_Bitmap bitmap = slot->bitmap;
-            if (bitmap.width > 0 && bitmap.rows > 0) {
-                if (x + slot->advance.x >> 6 >= extent.width) {
-                    x = 0;
-                    y += slot->bitmap_top;
-                    lines++;
-                    if (y + slot->bitmap_top >= extent.height) {
-                        std::string text_str(
-                            text.text.begin(), text.text.end()
-                        );
-                        spdlog::warn(
-                            "Text exceeds the canvas size, skipping! Try a "
-                            "larger canvas.\n"
-                            "Text: {}\n"
-                            "Canvas size: {}x{}",
-                            text_str, canvas_width, canvas_height
-                        );
-                        break;
-                    }
-                }
-                for (int iy = 0; iy < bitmap.rows; iy++) {
-                    for (int ix = 0; ix < bitmap.width; ix++) {
-                        buffer
-                            [offset + ix +
-                             (bitmap.rows - iy - 1) * bitmap.width] =
-                                text.font.antialias
-                                    ? bitmap.buffer[ix + iy * bitmap.pitch]
-                                    : ((bitmap.buffer
-                                            [ix / 8 + iy * bitmap.pitch] >>
-                                        (7 - ix % 8)) &
-                                       1) *
-                                          255;
-                    }
-                }
-                {
-                    vk::BufferImageCopy region;
-                    region.setBufferOffset(offset);
-                    region.setBufferRowLength(0);
-                    region.setBufferImageHeight(0);
-                    region.setImageSubresource(vk::ImageSubresourceLayers(
-                        vk::ImageAspectFlagBits::eColor, 0, 0, 1
-                    ));
-                    region.setImageOffset(
-                        {x + (int)(slot->metrics.horiBearingX >> 6),
-                         y + (int)((slot->metrics.horiBearingY >> 6)) -
-                             (int)bitmap.rows,
-                         0}
-                    );
-                    ymin = std::min(
-                        ymin, y + (int)(slot->metrics.horiBearingY >> 6) -
-                                  (int)bitmap.rows
-                    );
-                    ymax = std::max(
-                        ymax, y + (int)(slot->metrics.horiBearingY >> 6)
-                    );
-                    region.setImageExtent(
-                        {(uint32_t)bitmap.width, (uint32_t)bitmap.rows, 1u}
-                    );
-                    cmd->copyBufferToImage(
-                        text_renderer.text_texture_staging_buffer,
-                        text_renderer.text_texture_image,
-                        vk::ImageLayout::eTransferDstOptimal, {region}
-                    );
-                }
-                offset += bitmap.width * bitmap.rows;
-            }
-            x += slot->advance.x >> 6;
-            y += slot->advance.y >> 6;
-        }
-        text_renderer.text_texture_staging_buffer.unmap(device);
-        cmd->end();
-        submit_info.setCommandBuffers(*cmd);
-        queue->submit(submit_info, nullptr);
-        float right = (float)(x + pos.x);
-        float bottom = (float)(pos.y + ymin - text.font.pixels);
-        float left = (float)(pos.x);
-        float top = (float)(pos.y + ymax - text.font.pixels);
-        float u1 = 0.0f;
-        float v2 = (ymin) / (float)canvas_height;
-        float u2 = x / (float)canvas_width;
-        float v1 = (ymax) / (float)canvas_height;
-        TextVertex vertices[] = {
-            {{left, top, 0.0f}, {u1, v1}, {1.0f, 1.0f, 1.0f, 1.0f}},
-            {{right, top, 0.0f}, {u2, v1}, {1.0f, 1.0f, 1.0f, 1.0f}},
-            {{right, bottom, 0.0f}, {u2, v2}, {1.0f, 1.0f, 1.0f, 1.0f}},
-            {{right, bottom, 0.0f}, {u2, v2}, {1.0f, 1.0f, 1.0f, 1.0f}},
-            {{left, bottom, 0.0f}, {u1, v2}, {1.0f, 1.0f, 1.0f, 1.0f}},
-            {{left, top, 0.0f}, {u1, v1}, {1.0f, 1.0f, 1.0f, 1.0f}}
-        };
+            auto glyph_opt = ft2_library->get_glyph_add(
+                text.font, c, device, command_pool, queue
+            );
+            if (!glyph_opt.has_value()) continue;
+            auto glyph = glyph_opt.value();
+            if (glyph.size.x == 0 || glyph.size.y == 0) continue;
+            float w = glyph.size.x;
+            float h = glyph.size.y;
+            float x = ax + glyph.bearing.x;
+            float y = ay - (h - glyph.bearing.y);
+            float u = glyph.uv_1.x;
+            float v = glyph.uv_1.y;
+            float u2 = glyph.uv_2.x;
+            float v2 = glyph.uv_2.y;
 
-        {
-            float* buffer =
-                (float*)text_renderer.text_vertex_buffer.map(device);
-            memcpy(buffer, vertices, sizeof(vertices));
-            text_renderer.text_vertex_buffer.unmap(device);
-        }
+            vertices[0] = {
+                {x, y, 0.0f},
+                {u, v},
+                {text.color[0], text.color[1], text.color[2], text.color[3]},
+                glyph.image_index
+            };
+            vertices[1] = {
+                {x + w, y, 0.0f},
+                {u2, v},
+                {text.color[0], text.color[1], text.color[2], text.color[3]},
+                glyph.image_index
+            };
+            vertices[2] = {
+                {x + w, y + h, 0.0f},
+                {u2, v2},
+                {text.color[0], text.color[1], text.color[2], text.color[3]},
+                glyph.image_index
+            };
+            vertices[3] = {
+                {x, y + h, 0.0f},
+                {u, v2},
+                {text.color[0], text.color[1], text.color[2], text.color[3]},
+                glyph.image_index
+            };
+            vertices[4] = {
+                {x, y, 0.0f},
+                {u, v},
+                {text.color[0], text.color[1], text.color[2], text.color[3]},
+                glyph.image_index
+            };
+            vertices[5] = {
+                {x + w, y + h, 0.0f},
+                {u2, v2},
+                {text.color[0], text.color[1], text.color[2], text.color[3]},
+                glyph.image_index
+            };
 
+            vertices += 6;
+            vertices_count += 6;
+            ax += glyph.advance.x;
+            ay += glyph.advance.y;
+        }
+        text_renderer.text_vertex_buffer.unmap(device);
+        vk::DescriptorImageInfo image_info;
+        image_info.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+        image_info.setImageView(font_image_view);
+        image_info.setSampler(text_renderer.text_texture_sampler);
+        vk::WriteDescriptorSet descriptor_write;
+        descriptor_write.setDstSet(*text_renderer.text_descriptor_set);
+        descriptor_write.setDstBinding(1);
+        descriptor_write.setDstArrayElement(0);
+        descriptor_write.setDescriptorType(
+            vk::DescriptorType::eCombinedImageSampler
+        );
+        descriptor_write.setDescriptorCount(1);
+        descriptor_write.setPImageInfo(&image_info);
+        auto descriptor_writes = {descriptor_write};
+        device->updateDescriptorSets(descriptor_writes, nullptr);
         auto cmd_buffer = CommandBuffer::allocate_primary(device, command_pool);
         cmd_buffer->begin(vk::CommandBufferBeginInfo{});
         vk::RenderPassBeginInfo render_pass_info;
@@ -525,21 +427,6 @@ void systems::draw_text(
         std::array<vk::ClearValue, 1> clear_values;
         clear_values[0].setColor(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
         render_pass_info.setClearValues(clear_values);
-        auto barrier = vk::ImageMemoryBarrier();
-        barrier.setOldLayout(vk::ImageLayout::eTransferDstOptimal);
-        barrier.setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-        barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-        barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-        barrier.setImage(text_renderer.text_texture_image);
-        barrier.setSubresourceRange(vk::ImageSubresourceRange(
-            vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
-        ));
-        barrier.setSrcAccessMask(vk::AccessFlagBits::eTransferWrite);
-        barrier.setDstAccessMask(vk::AccessFlagBits::eShaderRead);
-        cmd_buffer->pipelineBarrier(
-            vk::PipelineStageFlagBits::eTransfer,
-            vk::PipelineStageFlagBits::eFragmentShader, {}, {}, {}, barrier
-        );
         cmd_buffer->beginRenderPass(
             render_pass_info, vk::SubpassContents::eInline
         );
@@ -566,33 +453,18 @@ void systems::draw_text(
             *text_renderer.text_pipeline_layout,
             vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), &model
         );
-        cmd_buffer->draw(6, 1, 0, 0);
+        cmd_buffer->draw(vertices_count, 1, 0, 0);
         cmd_buffer->endRenderPass();
-        barrier = vk::ImageMemoryBarrier();
-        barrier.setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-        barrier.setNewLayout(vk::ImageLayout::eTransferDstOptimal);
-        barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-        barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-        barrier.setImage(text_renderer.text_texture_image);
-        barrier.setSubresourceRange(vk::ImageSubresourceRange(
-            vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
-        ));
-        barrier.setSrcAccessMask(vk::AccessFlagBits::eShaderRead);
-        barrier.setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
-        cmd_buffer->pipelineBarrier(
-            vk::PipelineStageFlagBits::eFragmentShader,
-            vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, barrier
-        );
         cmd_buffer->end();
         submit_info = vk::SubmitInfo().setCommandBuffers(*cmd_buffer);
         queue->submit(submit_info, nullptr);
         queue->waitIdle();
-        cmd.free(device, command_pool);
         cmd_buffer.free(device, command_pool);
         framebuffer.destroy(device);
-        cmd_uniform_copy.free(device, command_pool);
-        text_uniform_buffer_staging.destroy(device);
     }
+    queue->waitIdle();
+    cmd_uniform_copy.free(device, command_pool);
+    text_uniform_buffer_staging.destroy(device);
 }
 
 void systems::destroy_renderer(
@@ -605,6 +477,7 @@ void systems::destroy_renderer(
     auto [device] = query.single().value();
     auto [text_renderer] = text_renderer_query.single().value();
     logger->debug("destroy text renderer");
+    ft2_library->clear_font_textures(device);
     text_renderer.text_render_pass.destroy(device);
     text_renderer.text_pipeline.destroy(device);
     text_renderer.text_descriptor_set.destroy(
@@ -615,9 +488,6 @@ void systems::destroy_renderer(
     text_renderer.text_pipeline_layout.destroy(device);
     text_renderer.text_uniform_buffer.destroy(device);
     text_renderer.text_vertex_buffer.destroy(device);
-    text_renderer.text_texture_staging_buffer.destroy(device);
-    text_renderer.text_texture_image_view.destroy(device);
-    text_renderer.text_texture_image.destroy(device);
     text_renderer.text_texture_sampler.destroy(device);
     FT_Done_FreeType(ft2_library->library);
 }

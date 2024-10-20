@@ -21,6 +21,11 @@ struct Font {
     bool antialias = true;
     int pixels = 64;
     FT_Face font_face;
+
+    bool operator==(const Font& other) const {
+        return font_face == other.font_face && pixels == other.pixels &&
+               antialias == other.antialias;
+    }
 };
 
 struct TextUniformBuffer {
@@ -45,6 +50,7 @@ struct TextVertex {
     float pos[3];
     float uv[2];
     float color[4];
+    int image_index;
 };
 
 struct TextRenderer {
@@ -60,11 +66,16 @@ struct TextRenderer {
 
     Buffer text_vertex_buffer;
 
-    Buffer text_texture_staging_buffer;
-    Image text_texture_image;
-    ImageView text_texture_image_view;
     Sampler text_texture_sampler;
 };
 }  // namespace components
 }  // namespace font
 }  // namespace pixel_engine
+template <>
+struct std::hash<pixel_engine::font::components::Font> {
+    size_t operator()(const pixel_engine::font::components::Font& font) const {
+        return (std::hash<int>()(font.pixels) ^
+                std::hash<bool>()(font.antialias)) *
+               std::hash<FT_Face>()(font.font_face);
+    }
+};

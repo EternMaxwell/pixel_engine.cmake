@@ -9,6 +9,8 @@
 #endif
 #include <stb_image.h>
 
+#include <random>
+
 #include "fragment_shader.h"
 #include "vertex_shader.h"
 
@@ -1089,8 +1091,35 @@ void create_text(
         ft2_library->load_font("../assets/fonts/FiraSans-Bold.ttf");
     text.font = pixel_engine::font::components::Font{.font_face = font_face};
     text.font.pixels = 32;
-    text.text = L"Helloy, World!你好，世界！";
-    command.spawn(text, pixel_engine::font::components::TextPos{100, 100});
+    text.text =
+        L"Hello, "
+        L"Worldajthgreawiohguhiuwearjhoiughjoaewrughiowahioulgerjioweahjgiuawhi"
+        L"ohiouaewhoiughjwaoigoiehafgioerhiiUWEGHNVIOAHJEDSKGBHJIUAERWHJIUGOHoa"
+        L"ghweiuo ioweafgioewajiojoiatg huihkljh";
+    command.spawn(text, pixel_engine::font::components::TextPos{100, 500});
+    pixel_engine::font::components::Text text2;
+    font_face = ft2_library->load_font(
+        "../assets/fonts/HachicroUndertaleBattleFontRegular-L3zlg.ttf"
+    );
+    text2.font = pixel_engine::font::components::Font{.font_face = font_face};
+    text2.font.pixels = 32;
+    text2.text =
+        L"Hello, "
+        L"Worldoawgheruiahjgijanglkjwaehjgo;"
+        L"ierwhjgiohnweaioulgfhjewjfweg3ioioiwefiowejhoiewfgjoiweaghioweahioawe"
+        L"gHJWEAIOUHAWEFGIOULHJEAWio;hWE$gowaejgio";
+    command.spawn(text2, pixel_engine::font::components::TextPos{100, 200});
+}
+
+void shuffle_text(Query<Get<pixel_engine::font::components::Text>> text_query) {
+    for (auto [text] : text_query.iter()) {
+        std::random_device rd;
+        std::mt19937 g(rd());
+        for (size_t i = 0; i < text.text.size(); i++) {
+            std::uniform_int_distribution<> dis(0, text.text.size() - 1);
+            text.text[i] = wchar_t(dis(g));
+        }
+    }
 }
 
 struct VK_TrialPlugin : Plugin {
@@ -1098,7 +1127,7 @@ struct VK_TrialPlugin : Plugin {
         auto window_plugin = app.get_plugin<WindowPlugin>();
         window_plugin->set_primary_window_hints({{GLFW_CLIENT_API, GLFW_NO_API}}
         );
-        window_plugin->primary_window_vsync = false;
+        // window_plugin->primary_window_vsync = false;
 
         using namespace pixel_engine;
 
@@ -1213,6 +1242,7 @@ struct VK_TrialPlugin : Plugin {
             .use_worker("single")
             .in_stage(app::Shutdown);
         app.add_system(create_text).in_stage(app::Startup);
+        app.add_system(shuffle_text).in_stage(app::Update);
     }
 };
 
