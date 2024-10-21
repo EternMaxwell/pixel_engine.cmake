@@ -116,23 +116,38 @@ Instance Instance::create(
         "VK_LAYER_KHRONOS_validation"
 #endif
     };
-    std::vector<char const*> extensions = {
-#if !defined(NDEBUG)
-        VK_EXT_DEBUG_UTILS_EXTENSION_NAME
-#endif
-    };
     uint32_t glfwExtensionCount = 0;
     auto glfwExtensions =
         glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-    extensions.insert(
-        extensions.end(), glfwExtensions, glfwExtensions + glfwExtensionCount
-    );
+
+    auto instance_extensions = vk::enumerateInstanceExtensionProperties();
+    logger->info("Creating Vulkan Instance");
+
+    std::vector<const char*> extensions;
+    for (auto& extension : instance_extensions) {
+        extensions.push_back(extension.extensionName);
+    }
+    for (uint32_t i = 0; i < glfwExtensionCount; i++) {
+        if (std::find_if(
+                extensions.begin(), extensions.end(),
+                [&](const char* ext) { return strcmp(ext, glfwExtensions[i]); }
+            ) == extensions.end()) {
+            logger->error(
+                "GLFW requested extension {} not supported by Vulkan",
+                glfwExtensions[i]
+            );
+            throw std::runtime_error(
+                "GLFW requested extension not supported by Vulkan. "
+                "Extension: " +
+                std::string(glfwExtensions[i])
+            );
+        }
+    }
+
     auto instance_info = vk::InstanceCreateInfo()
                              .setPApplicationInfo(&app_info)
                              .setPEnabledExtensionNames(extensions)
                              .setPEnabledLayerNames(layers);
-
-    logger->info("Creating Vulkan Instance");
 
     std::string instance_layers_info = "Instance Layers:\n";
     for (auto& layer : layers) {
@@ -241,20 +256,45 @@ Device Device::create(
                                  .setQueueFamilyIndex(queue_family_index)
                                  .setQueueCount(1)
                                  .setPQueuePriorities(&queue_priority);
-    std::vector<char const*> device_extensions = {
+    std::vector<char const*> required_extensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME
     };
-    auto device_features =
-        vk::PhysicalDeviceFeatures().setSamplerAnisotropy(VK_TRUE);
-    auto dynamic_rendering_features =
-        vk::PhysicalDeviceDynamicRenderingFeaturesKHR().setDynamicRendering(
-            VK_TRUE
-        );
+    auto extensions = physical_device->enumerateDeviceExtensionProperties();
+    for (auto& extension : required_extensions) {
+        if (std::find_if(
+                extensions.begin(), extensions.end(),
+                [&](const vk::ExtensionProperties& ext) {
+                    return strcmp(ext.extensionName, extension) == 0;
+                }
+            ) == extensions.end()) {
+            instance.logger->error(
+                "Device required extension {} not supported by physical device",
+                extension
+            );
+            throw std::runtime_error(
+                "Device required extension not supported by physical device. "
+                "Extension: " +
+                std::string(extension)
+            );
+        }
+    }
+    std::vector<char const*> device_extensions;
+    for (auto& extension : extensions) {
+        device_extensions.push_back(extension.extensionName);
+    }
+
+    std::string device_extensions_info = "Device Extensions:\n";
+    for (auto& extension : device_extensions) {
+        device_extensions_info += std::format("\t{}\n", extension);
+    }
+    instance.logger->info(device_extensions_info);
+
+    auto device_feature2 = physical_device->getFeatures2();
     auto device_info = vk::DeviceCreateInfo()
                            .setQueueCreateInfos(queue_create_info)
-                           .setPEnabledFeatures(&device_features)
-                           .setPNext(&dynamic_rendering_features)
+                           .setPNext(&device_feature2)
                            .setPEnabledExtensionNames(device_extensions);
+
     device.device = physical_device->createDevice(device_info);
     VmaAllocatorCreateInfo allocator_info = {};
     allocator_info.physicalDevice = physical_device;
