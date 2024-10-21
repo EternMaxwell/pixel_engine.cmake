@@ -951,7 +951,7 @@ void record_command_buffer(
                     .setClearValue(clear_color)
                     .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
                     .setImageView(swap_chain.current_image_view())
-                    .setLoadOp(vk::AttachmentLoadOp::eClear)
+                    .setLoadOp(vk::AttachmentLoadOp::eLoad)
                     .setStoreOp(vk::AttachmentStoreOp::eStore)
             )
             .setPDepthAttachment(&depth_attachment_info)

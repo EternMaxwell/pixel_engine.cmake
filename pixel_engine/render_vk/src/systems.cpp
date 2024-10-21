@@ -60,13 +60,57 @@ void systems::recreate_swap_chain(
 }
 
 void systems::get_next_image(
-    Command cmd, Query<Get<Device, Swapchain>, With<RenderContext>> query
+    Command cmd,
+    Query<Get<Device, Swapchain, CommandPool, Queue>, With<RenderContext>> query
 ) {
     if (!query.single().has_value()) {
         return;
     }
-    auto [device, swap_chain] = query.single().value();
+    auto [device, swap_chain, command_pool, queue] = query.single().value();
     auto image = swap_chain.next_image(device);
+    auto cmd_buffer = CommandBuffer::allocate_primary(device, command_pool);
+    cmd_buffer->begin(vk::CommandBufferBeginInfo{});
+    vk::ImageMemoryBarrier barrier;
+    barrier.setOldLayout(vk::ImageLayout::ePresentSrcKHR);
+    barrier.setNewLayout(vk::ImageLayout::eTransferDstOptimal);
+    barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+    barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+    barrier.setImage(image);
+    barrier.setSubresourceRange(
+        vk::ImageSubresourceRange()
+            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+            .setBaseMipLevel(0)
+            .setLevelCount(1)
+            .setBaseArrayLayer(0)
+            .setLayerCount(1)
+    );
+    cmd_buffer->pipelineBarrier(
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, {barrier}
+    );
+    cmd_buffer->clearColorImage(
+        image, vk::ImageLayout::eTransferDstOptimal,
+        vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f}),
+        vk::ImageSubresourceRange()
+            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+            .setBaseMipLevel(0)
+            .setLevelCount(1)
+            .setBaseArrayLayer(0)
+            .setLayerCount(1)
+    );
+    barrier.setOldLayout(vk::ImageLayout::eTransferDstOptimal);
+    barrier.setNewLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    barrier.setSrcAccessMask(vk::AccessFlagBits::eTransferWrite);
+    barrier.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+    cmd_buffer->pipelineBarrier(
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, {}, {}, {barrier}
+    );
+    cmd_buffer->end();
+    auto submit_info = vk::SubmitInfo().setCommandBuffers(*cmd_buffer);
+    queue->submit(submit_info, nullptr);
+    queue->waitIdle();
+    cmd_buffer.free(device, command_pool);
 }
 
 void systems::present_frame(

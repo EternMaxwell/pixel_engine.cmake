@@ -33,7 +33,8 @@ void recreate_swap_chain(
         query
 );
 void get_next_image(
-    Command cmd, Query<Get<Device, Swapchain>, With<RenderContext>> query
+    Command cmd,
+    Query<Get<Device, Swapchain, CommandPool, Queue>, With<RenderContext>> query
 );
 void present_frame(
     Command cmd, Query<Get<Swapchain, Queue>, With<RenderContext>> query
