@@ -1083,7 +1083,14 @@ void Swapchain::recreate(
         .setImageColorSpace(surface_format.colorSpace)
         .setImageExtent(extent)
         .setImageArrayLayers(1)
-        .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
+        .setImageUsage(
+            vk::ImageUsageFlagBits::eColorAttachment |
+            vk::ImageUsageFlagBits::eTransferDst |
+            vk::ImageUsageFlagBits::eTransferSrc |
+            vk::ImageUsageFlagBits::eStorage |
+            vk::ImageUsageFlagBits::eSampled |
+            vk::ImageUsageFlagBits::eInputAttachment
+        )
         .setImageSharingMode(vk::SharingMode::eExclusive)
         .setQueueFamilyIndexCount(1)
         .setPQueueFamilyIndices(&device.queue_family_index)
