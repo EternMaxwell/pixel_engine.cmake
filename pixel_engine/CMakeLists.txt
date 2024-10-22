@@ -6,6 +6,7 @@ add_subdirectory(render_ogl)
 add_subdirectory(vulkan_graph)
 add_subdirectory(render_vk)
 add_subdirectory(font)
+add_subdirectory(sprite)
 
 file(GLOB_RECURSE ENGINE_HEADERS "include/*.h" "include/*.hpp")
 file(GLOB_RECURSE ENGINE_SOURCES "src/*.c" "src/*.cpp")
