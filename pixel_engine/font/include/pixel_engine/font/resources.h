@@ -55,8 +55,11 @@ struct FT2Library {
         uint32_t current_line_height = 0;
     };
     FT_Face load_font(const std::string& file_path);
-    std::tuple<Image, ImageView, GlyphMap> get_font_texture(
-        const Font& font, Device& device, CommandPool& command_pool, Queue& queue
+    std::tuple<Image, ImageView, GlyphMap>& get_font_texture(
+        const Font& font,
+        Device& device,
+        CommandPool& command_pool,
+        Queue& queue
     );
     void add_char_to_texture(
         const Font& font,
@@ -84,9 +87,9 @@ struct FT2Library {
     void clear_font_textures(Device& device);
     void destroy();
 
-    const uint32_t font_texture_width = 4096;
-    const uint32_t font_texture_height = 4096;
-    const uint32_t font_texture_layers = 32;
+    const uint32_t font_texture_width = 2048;
+    const uint32_t font_texture_height = 2048;
+    const uint32_t font_texture_layers = 256;
     FT_Library library;
     std::unordered_map<std::string, FT_Face> font_faces;
     std::unordered_map<Font, std::tuple<Image, ImageView, GlyphMap>>

@@ -328,10 +328,6 @@ void systems::draw_text(
     queue->submit(submit_info, nullptr);
     for (auto [text, pos] : text_query.iter()) {
         uint32_t vertices_count = 0;
-        auto [texture_image, font_image_view, glyph_map] =
-            ft2_library->get_font_texture(
-                text.font, device, command_pool, queue
-            );
         TextVertex* vertices =
             (TextVertex*)text_renderer.text_vertex_buffer.map(device);
         float ax = pos.x;
@@ -394,6 +390,10 @@ void systems::draw_text(
             ax += glyph.advance.x;
             ay += glyph.advance.y;
         }
+        auto [texture_image, font_image_view, glyph_map] =
+            ft2_library->get_font_texture(
+                text.font, device, command_pool, queue
+            );
         text_renderer.text_vertex_buffer.unmap(device);
         vk::DescriptorImageInfo image_info;
         image_info.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);

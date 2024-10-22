@@ -40,7 +40,7 @@ FT_Face FT2Library::load_font(const std::string& file_path) {
     return face;
 }
 
-std::tuple<Image, ImageView, GlyphMap> FT2Library::get_font_texture(
+std::tuple<Image, ImageView, GlyphMap>& FT2Library::get_font_texture(
     const Font& font, Device& device, CommandPool& command_pool, Queue& queue
 ) {
     if (font_textures.find(font) != font_textures.end()) {
@@ -54,12 +54,13 @@ std::tuple<Image, ImageView, GlyphMap> FT2Library::get_font_texture(
             .setFormat(vk::Format::eR8Uint)
             .setExtent(vk::Extent3D(font_texture_width, font_texture_height, 1))
             .setMipLevels(1)
-            .setArrayLayers(font_texture_layers)
+            .setArrayLayers(1)
             .setSamples(vk::SampleCountFlagBits::e1)
             .setTiling(vk::ImageTiling::eOptimal)
             .setUsage(
                 vk::ImageUsageFlagBits::eSampled |
-                vk::ImageUsageFlagBits::eTransferDst
+                vk::ImageUsageFlagBits::eTransferDst |
+                vk::ImageUsageFlagBits::eTransferSrc
             )
             .setSharingMode(vk::SharingMode::eExclusive)
             .setInitialLayout(vk::ImageLayout::eUndefined),
@@ -76,14 +77,14 @@ std::tuple<Image, ImageView, GlyphMap> FT2Library::get_font_texture(
     barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
     barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
     barrier.setImage(image);
-    barrier.setSubresourceRange(vk::ImageSubresourceRange(
-        vk::ImageAspectFlagBits::eColor, 0, 1, 0, font_texture_layers
-    ));
+    barrier.setSubresourceRange(
+        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
+    );
     barrier.setSrcAccessMask({});
-    barrier.setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
+    barrier.setDstAccessMask(vk::AccessFlagBits::eShaderRead);
     cmd->pipelineBarrier(
         vk::PipelineStageFlagBits::eTopOfPipe,
-        vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, barrier
+        vk::PipelineStageFlagBits::eFragmentShader, {}, {}, {}, barrier
     );
     cmd->end();
     vk::SubmitInfo submit_info;
@@ -96,15 +97,15 @@ std::tuple<Image, ImageView, GlyphMap> FT2Library::get_font_texture(
     image_view_info.setImage(image);
     image_view_info.setViewType(vk::ImageViewType::e2DArray);
     image_view_info.setFormat(vk::Format::eR8Uint);
-    image_view_info.setSubresourceRange(vk::ImageSubresourceRange(
-        vk::ImageAspectFlagBits::eColor, 0, 1, 0, font_texture_layers
-    ));
+    image_view_info.setSubresourceRange(
+        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
+    );
     ImageView image_view = ImageView::create(device, image_view_info);
 
     GlyphMap glyph_map;
 
     font_textures[font] = {image, image_view, glyph_map};
-    return {image, image_view, glyph_map};
+    return font_textures[font];
 }
 
 void FT2Library::add_char_to_texture(
@@ -114,7 +115,7 @@ void FT2Library::add_char_to_texture(
     CommandPool& command_pool,
     Queue& queue
 ) {
-    auto [image, image_view, glyph_map] = font_textures[font];
+    auto&& [image, image_view, glyph_map] = font_textures[font];
     if (glyph_map.contains(c)) {
         return;
     }
@@ -155,6 +156,105 @@ void FT2Library::add_char_to_texture(
     if (current_y + bitmap.rows >= font_texture_height) {
         current_y = 0;
         current_layer += 1;
+        logger->debug("Resizing font texture to {} layers", current_layer + 1);
+        // resize the font texture, e.g. increase the number of layers
+        vk::ImageCreateInfo image_info;
+        image_info.setImageType(vk::ImageType::e2D);
+        image_info.setFormat(vk::Format::eR8Uint);
+        image_info.setExtent(
+            vk::Extent3D(font_texture_width, font_texture_height, 1)
+        );
+        image_info.setMipLevels(1);
+        image_info.setArrayLayers(current_layer + 1);
+        image_info.setSamples(vk::SampleCountFlagBits::e1);
+        image_info.setTiling(vk::ImageTiling::eOptimal);
+        image_info.setUsage(
+            vk::ImageUsageFlagBits::eSampled |
+            vk::ImageUsageFlagBits::eTransferDst |
+            vk::ImageUsageFlagBits::eTransferSrc
+        );
+        image_info.setSharingMode(vk::SharingMode::eExclusive);
+        image_info.setInitialLayout(vk::ImageLayout::eUndefined);
+        AllocationCreateInfo alloc_info;
+        alloc_info.setUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+        alloc_info.setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
+        Image new_image = Image::create(device, image_info, alloc_info);
+        vk::ImageViewCreateInfo image_view_info;
+        image_view_info.setImage(new_image);
+        image_view_info.setViewType(vk::ImageViewType::e2DArray);
+        image_view_info.setFormat(vk::Format::eR8Uint);
+        image_view_info.setSubresourceRange(vk::ImageSubresourceRange(
+            vk::ImageAspectFlagBits::eColor, 0, 1, 0, current_layer + 1
+        ));
+        auto new_image_view = ImageView::create(device, image_view_info);
+        // transition
+        auto cmd = CommandBuffer::allocate_primary(device, command_pool);
+        cmd->begin(vk::CommandBufferBeginInfo{});
+        vk::ImageMemoryBarrier barrier;
+        barrier.setOldLayout(vk::ImageLayout::eUndefined);
+        barrier.setNewLayout(vk::ImageLayout::eTransferDstOptimal);
+        barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+        barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+        barrier.setImage(new_image);
+        barrier.setSubresourceRange(vk::ImageSubresourceRange(
+            vk::ImageAspectFlagBits::eColor, 0, 1, 0, current_layer + 1
+        ));
+        barrier.setSrcAccessMask({});
+        barrier.setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
+        cmd->pipelineBarrier(
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, barrier
+        );
+        barrier.setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+        barrier.setNewLayout(vk::ImageLayout::eTransferSrcOptimal);
+        barrier.setSrcAccessMask(vk::AccessFlagBits::eShaderRead);
+        barrier.setDstAccessMask(vk::AccessFlagBits::eTransferRead);
+        barrier.setSubresourceRange(vk::ImageSubresourceRange(
+            vk::ImageAspectFlagBits::eColor, 0, 1, 0, current_layer
+        ));
+        barrier.setImage(image);
+        cmd->pipelineBarrier(
+            vk::PipelineStageFlagBits::eFragmentShader,
+            vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, barrier
+        );
+        vk::ImageCopy region;
+        region.setSrcSubresource(vk::ImageSubresourceLayers(
+            vk::ImageAspectFlagBits::eColor, 0, 0, current_layer
+        ));
+        region.setDstSubresource(vk::ImageSubresourceLayers(
+            vk::ImageAspectFlagBits::eColor, 0, 0, current_layer
+        ));
+        region.setExtent(
+            vk::Extent3D(font_texture_width, font_texture_height, 1)
+        );
+        cmd->copyImage(
+            image, vk::ImageLayout::eTransferSrcOptimal, new_image,
+            vk::ImageLayout::eTransferDstOptimal, region
+        );
+        barrier.setOldLayout(vk::ImageLayout::eTransferDstOptimal);
+        barrier.setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+        barrier.setSrcAccessMask(vk::AccessFlagBits::eTransferWrite);
+        barrier.setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+        barrier.setSubresourceRange(vk::ImageSubresourceRange(
+            vk::ImageAspectFlagBits::eColor, 0, 1, 0, current_layer + 1
+        ));
+        barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+        barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+        barrier.setImage(new_image);
+        cmd->pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eFragmentShader, {}, {}, {}, barrier
+        );
+        cmd->end();
+        vk::SubmitInfo submit_info;
+        submit_info.setCommandBuffers(*cmd);
+        queue->submit(submit_info, nullptr);
+        queue->waitIdle();
+        cmd.free(device, command_pool);
+        image.destroy(device);
+        image_view.destroy(device);
+        std::get<0>(font_textures[font]) = new_image;
+        std::get<1>(font_textures[font]) = new_image_view;
     }
 
     if (current_layer >= font_texture_layers) {
