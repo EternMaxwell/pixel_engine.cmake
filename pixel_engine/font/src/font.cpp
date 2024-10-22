@@ -11,19 +11,19 @@ static std::shared_ptr<spdlog::logger> logger =
 
 using namespace pixel_engine::font::resources::tools;
 
-const Glyph& GlyphMap::get_glyph(wchar_t c) const {
-    if (glyphs->find(c) == glyphs->end()) {
+const Glyph& GlyphMap::get_glyph(uint32_t index) const {
+    if (glyphs->find(index) == glyphs->end()) {
         throw std::runtime_error("Glyph not found");
     }
-    return glyphs->at(c);
+    return glyphs->at(index);
 }
 
-void GlyphMap::add_glyph(wchar_t c, const Glyph& glyph) {
-    glyphs->insert({c, glyph});
+void GlyphMap::add_glyph(uint32_t index, const Glyph& glyph) {
+    glyphs->insert({index, glyph});
 }
 
-bool GlyphMap::contains(wchar_t c) const {
-    return glyphs->find(c) != glyphs->end();
+bool GlyphMap::contains(uint32_t index) const {
+    return glyphs->find(index) != glyphs->end();
 }
 
 FT_Face FT2Library::load_font(const std::string& file_path) {
@@ -116,13 +116,16 @@ void FT2Library::add_char_to_texture(
     Queue& queue
 ) {
     auto&& [image, image_view, glyph_map] = font_textures[font];
-    if (glyph_map.contains(c)) {
+
+    FT_Face face = font.font_face;
+    uint32_t index = FT_Get_Char_Index(face, c);
+
+    if (glyph_map.contains(index)) {
         return;
     }
     auto [current_x, current_y, current_layer, current_line_height] =
         char_loading_states[font];
 
-    FT_Face face = font.font_face;
     if (FT_Set_Char_Size(face, 0, font.pixels, 1024, 1024)) {
         logger->error("Failed to set char size, skipping character");
         return;
@@ -131,7 +134,6 @@ void FT2Library::add_char_to_texture(
         logger->error("Failed to set pixel size, skipping character");
         return;
     }
-    int index = FT_Get_Char_Index(face, c);
     if (FT_Load_Glyph(face, index, FT_LOAD_DEFAULT)) {
         logger->error("Failed to load glyph, skipping character");
         return;
@@ -366,7 +368,7 @@ void FT2Library::add_char_to_texture(
         (current_y + bitmap.rows) / static_cast<float>(font_texture_height)
     };
 
-    glyph_map.add_glyph(c, glyph);
+    glyph_map.add_glyph(index, glyph);
 
     current_x += bitmap.width;
     char_loading_states[font] = {
@@ -391,10 +393,11 @@ std::optional<const Glyph> FT2Library::get_glyph(const Font& font, wchar_t c) {
         return std::nullopt;
     }
     auto [image, image_view, glyph_map] = font_textures[font];
-    if (!glyph_map.contains(c)) {
+    uint32_t index = FT_Get_Char_Index(font.font_face, c);
+    if (!glyph_map.contains(index)) {
         return std::nullopt;
     }
-    return glyph_map.get_glyph(c);
+    return glyph_map.get_glyph(index);
 }
 
 std::optional<const Glyph> FT2Library::get_glyph_add(
@@ -408,7 +411,8 @@ std::optional<const Glyph> FT2Library::get_glyph_add(
         return std::nullopt;
     }
     auto [image, image_view, glyph_map] = font_textures[font];
-    if (!glyph_map.contains(c)) {
+    uint32_t index = FT_Get_Char_Index(font.font_face, c);
+    if (!glyph_map.contains(index)) {
         add_char_to_texture(font, c, device, command_pool, queue);
     }
     return get_glyph(font, c);

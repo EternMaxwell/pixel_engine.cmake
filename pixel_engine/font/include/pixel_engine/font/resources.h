@@ -37,13 +37,13 @@ struct Glyph {
     vec2 uv_2;
 };
 struct GlyphMap {
-    const Glyph& get_glyph(wchar_t c) const;
-    void add_glyph(wchar_t c, const Glyph& glyph);
-    bool contains(wchar_t c) const;
+    const Glyph& get_glyph(uint32_t index) const;
+    void add_glyph(uint32_t index, const Glyph& glyph);
+    bool contains(uint32_t index) const;
 
    private:
-    std::shared_ptr<std::unordered_map<wchar_t, Glyph>> glyphs =
-        std::make_shared<std::unordered_map<wchar_t, Glyph>>();
+    std::shared_ptr<std::unordered_map<uint32_t, Glyph>> glyphs =
+        std::make_shared<std::unordered_map<uint32_t, Glyph>>();
 };
 }  // namespace tools
 using namespace tools;
