@@ -289,12 +289,16 @@ Device Device::create(
     }
     instance.logger->info(device_extensions_info);
 
+    auto dynamic_rendering_features =
+        vk::PhysicalDeviceDynamicRenderingFeaturesKHR().setDynamicRendering(
+            VK_TRUE
+        );
     auto device_feature2 = physical_device->getFeatures2();
+    device_feature2.pNext = &dynamic_rendering_features;
     auto device_info = vk::DeviceCreateInfo()
                            .setQueueCreateInfos(queue_create_info)
                            .setPNext(&device_feature2)
                            .setPEnabledExtensionNames(device_extensions);
-
     device.device = physical_device->createDevice(device_info);
     VmaAllocatorCreateInfo allocator_info = {};
     allocator_info.physicalDevice = physical_device;
