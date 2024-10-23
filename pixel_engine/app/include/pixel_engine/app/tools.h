@@ -15,7 +15,14 @@ struct Parent {
 };
 template <typename T>
 struct Handle {
-    entt::entity id;
+    entt::entity id = entt::null;
+    void operator=(entt::entity id) { this->id = id; }
+    operator entt::entity() { return id; }
+    operator bool() { return id != entt::null; }
+    bool operator==(const Handle<T>& other) { return id == other.id; }
+    bool operator!=(const Handle<T>& other) { return id != other.id; }
+    bool operator==(const entt::entity& other) { return id == other; }
+    bool operator!=(const entt::entity& other) { return id != other; }
 };
 template <typename T>
 struct NextState;

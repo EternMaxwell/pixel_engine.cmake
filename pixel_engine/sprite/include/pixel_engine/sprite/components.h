@@ -12,7 +12,36 @@ using namespace prelude;
 using namespace render_vk::components;
 
 struct Sprite {
-    
+    Handle<ImageView> image;
+    glm::vec2 size;
+    glm::vec2 center = {0.5f, 0.5f};
+    glm::vec4 color = {1.0f, 1.0f, 1.0f, 1.0f};
+};
+
+struct SpritePos2D {
+    glm::vec3 pos;
+    float rotation = 0.0f;
+    glm::vec2 scale = {1.0f, 1.0f};
+};
+
+struct ImageLoading {
+    std::string path;
+};
+
+struct SpriteRenderer {
+    DescriptorSetLayout sprite_descriptor_set_layout;
+    DescriptorPool sprite_descriptor_pool;
+    DescriptorSet sprite_descriptor_set;
+
+    RenderPass sprite_render_pass;
+    PipelineLayout sprite_pipeline_layout;
+    Pipeline sprite_pipeline;
+
+    Buffer sprite_uniform_buffer;
+    Buffer sprite_vertex_buffer;
+    Buffer sprite_model_buffer;
+
+    Sampler sprite_sampler;
 };
 
 }  // namespace components

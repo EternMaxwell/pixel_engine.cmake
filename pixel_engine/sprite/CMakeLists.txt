@@ -5,6 +5,8 @@ file(GLOB_RECURSE ENGINE_SOURCES "src/*.c" "src/*.cpp")
 add_library(pixel_engine_sprite STATIC ${ENGINE_SOURCES})
 target_include_directories(pixel_engine_sprite PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+target_include_directories(pixel_engine_sprite PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/stb)
+
 target_link_libraries(pixel_engine_sprite freetype)
 target_link_libraries(pixel_engine_sprite Vulkan::Vulkan)
 target_link_libraries(pixel_engine_sprite glfw)
