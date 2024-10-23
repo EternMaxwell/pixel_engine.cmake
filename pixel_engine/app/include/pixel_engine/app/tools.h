@@ -14,6 +14,10 @@ struct Parent {
     entt::entity id;
 };
 template <typename T>
+struct Handle {
+    entt::entity id;
+};
+template <typename T>
 struct NextState;
 template <typename T>
 struct State {

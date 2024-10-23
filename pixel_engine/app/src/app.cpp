@@ -495,9 +495,6 @@ void Runner::set_run_time_rate(double rate) {
     }
 }
 
-Worker::Worker() : name("default") {}
-Worker::Worker(std::string str) : name(str) {}
-
 bool pixel_engine::app::check_exit(app::EventReader<AppExit> reader) {
     if (!reader.empty()) run_logger->info("Exit event received.");
     return !reader.empty();

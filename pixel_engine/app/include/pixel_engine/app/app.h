@@ -267,30 +267,6 @@ struct StageRunner {
     void run();
 };
 
-struct after {
-    std::vector<void*> ptrs;
-    template <typename... Args>
-    after(Args... args) {
-        ptrs = {((void*)args)...};
-    }
-};
-
-struct before {
-    std::vector<void*> ptrs;
-    template <typename... Args>
-    before(Args... args) {
-        ptrs = {((void*)args)...};
-    }
-};
-
-struct in_set {
-    std::vector<SystemSet> sets;
-    template <typename... Args>
-    in_set(Args... args) {
-        sets = {(SystemSet(args))...};
-    }
-};
-
 struct StageRunnerInfo {
     std::shared_ptr<StageRunner> m_stage_runner;
     std::unordered_set<std::weak_ptr<StageRunnerInfo>> m_before;
@@ -700,12 +676,6 @@ struct Runner {
     }
 };
 
-struct Worker {
-    std::string name;
-    Worker();
-    Worker(std::string str);
-};
-
 struct AppExit {};
 
 bool check_exit(EventReader<AppExit> reader);
@@ -749,8 +719,10 @@ struct App {
         template <typename... Sets>
         AddSystemReturn& in_set(Sets... sets) {
             if (m_system) {
-                app::in_set sets_container = app::in_set(sets...);
-                for (auto& sys_set : sets_container.sets) {
+                std::array<SystemSet, sizeof...(Sets)> sets_container = {
+                    SystemSet(sets)...
+                };
+                for (auto& sys_set : sets_container) {
                     m_system->m_in_sets.push_back(sys_set);
                 }
             }

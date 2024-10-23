@@ -10,6 +10,9 @@ using AppExit = app::AppExit;
 using Bundle = app::Bundle;
 using Entity = entt::entity;
 
+template <typename T>
+using Handle = app::Handle<T>;
+
 // query types
 template <typename... T>
 using Get = app::Get<T...>;
@@ -23,6 +26,8 @@ template <typename T>
 using Resource = app::Resource<T>;
 template <typename In, typename Ws = With<>, typename Ex = Without<>>
 using Query = app::Query<In, Ws, Ex>;
+template <typename In, typename Ws = With<>, typename Ex = Without<>>
+using Extract = app::Extract<In, Ws, Ex>;
 template <typename T>
 using EventReader = app::EventReader<T>;
 template <typename T>
@@ -31,11 +36,6 @@ template <typename T>
 using State = app::State<T>;
 template <typename T>
 using NextState = app::NextState<T>;
-
-// sequential run
-using after = app::after;
-using before = app::before;
-using in_set = app::in_set;
 
 using Plugin = app::Plugin;
 
