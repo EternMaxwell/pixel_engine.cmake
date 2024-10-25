@@ -293,6 +293,21 @@ Device Device::create(
         vk::PhysicalDeviceDynamicRenderingFeaturesKHR().setDynamicRendering(
             VK_TRUE
         );
+    auto descriptor_indexing_features =
+        vk::PhysicalDeviceDescriptorIndexingFeatures()
+            .setRuntimeDescriptorArray(VK_TRUE)
+            .setDescriptorBindingPartiallyBound(VK_TRUE)
+            // Enable non uniform array indexing
+            // (#extension GL_EXT_nonuniform_qualifier : require)
+            .setShaderStorageBufferArrayNonUniformIndexing(true)
+            .setShaderSampledImageArrayNonUniformIndexing(true)
+            .setShaderStorageImageArrayNonUniformIndexing(true)
+            // All of these enables to update after the
+            // commandbuffer used the bindDescriptorsSet
+            .setDescriptorBindingStorageBufferUpdateAfterBind(true)
+            .setDescriptorBindingSampledImageUpdateAfterBind(true)
+            .setDescriptorBindingStorageImageUpdateAfterBind(true);
+    dynamic_rendering_features.setPNext(&descriptor_indexing_features);
     auto device_feature2 = physical_device->getFeatures2();
     device_feature2.pNext = &dynamic_rendering_features;
     auto device_info = vk::DeviceCreateInfo()

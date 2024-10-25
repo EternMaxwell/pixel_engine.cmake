@@ -13,6 +13,7 @@ using namespace render_vk::components;
 
 struct Sprite {
     Handle<ImageView> image;
+    Handle<Sampler> sampler;
     glm::vec2 size;
     glm::vec2 center = {0.5f, 0.5f};
     glm::vec4 color = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -24,8 +25,30 @@ struct SpritePos2D {
     glm::vec2 scale = {1.0f, 1.0f};
 };
 
+struct SpriteVertex {
+    glm::vec3 pos;
+    glm::vec2 tex_coord;
+    glm::vec4 color;
+    int model_index;
+    int image_index;
+    int sampler_index;
+};
+
+struct ImageIndex {
+    int index;
+};
+
 struct ImageLoading {
     std::string path;
+};
+
+struct SamplerIndex {
+    int index;
+};
+
+struct SamplerCreating {
+    vk::SamplerCreateInfo create_info;
+    std::string name;
 };
 
 struct SpriteRenderer {
@@ -40,10 +63,9 @@ struct SpriteRenderer {
     Buffer sprite_uniform_buffer;
     Buffer sprite_vertex_buffer;
     Buffer sprite_model_buffer;
-
-    Sampler sprite_sampler;
 };
 
+struct SpriteDepth {};
 }  // namespace components
 }  // namespace sprite
 }  // namespace pixel_engine
