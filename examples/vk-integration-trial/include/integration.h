@@ -17,6 +17,8 @@
 using namespace pixel_engine::prelude;
 using namespace pixel_engine::window;
 using namespace pixel_engine::render_vk::components;
+using namespace pixel_engine::sprite::components;
+using namespace pixel_engine::sprite::resources;
 
 namespace vk_trial {
 
@@ -566,9 +568,12 @@ void destroy_texture_image(
 }
 
 void create_texture_image_view(
+    Command cmd,
     Query<Get<Device>, With<RenderContext>> query,
-    Query<Get<Renderer>> renderer_query
+    Query<Get<Renderer>> renderer_query,
+    Resource<SpriteServerVK> sprite_server
 ) {
+    sprite_server->load_image(cmd, "./../assets/textures/test.png");
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
     auto [device] = query.single().value();

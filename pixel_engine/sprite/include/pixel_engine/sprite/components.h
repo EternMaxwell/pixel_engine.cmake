@@ -46,6 +46,14 @@ struct SamplerIndex {
     int index;
 };
 
+struct ImageBindingUpdate {
+    Handle<ImageView> image_view;
+};
+
+struct SamplerBindingUpdate {
+    Handle<Sampler> sampler;
+};
+
 struct SamplerCreating {
     vk::SamplerCreateInfo create_info;
     std::string name;

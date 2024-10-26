@@ -18,6 +18,10 @@ struct SpritePluginVK : Plugin {
         app.add_system(app::StartStage::Startup, create_sprite_renderer_vk);
         app.add_system(app::RenderStage::Prepare, loading_actual_image);
         app.add_system(app::RenderStage::Prepare, creating_actual_sampler);
+        app.add_system(app::RenderStage::Prepare, update_image_bindings)
+            .after(loading_actual_image);
+        app.add_system(app::RenderStage::Prepare, update_sampler_bindings)
+            .after(creating_actual_sampler);
         app.add_system(
             app::ExitStage::Shutdown, destroy_sprite_server_vk_images
         );

@@ -37,6 +37,20 @@ void destroy_sprite_renderer_vk(
     Query<Get<Device>, With<RenderContext>> query
 );  // called at exit stage
 
+void update_image_bindings(
+    Query<Get<ImageBindingUpdate>> query,
+    Query<Get<ImageView, ImageIndex>, With<Image>> image_query,
+    Query<Get<SpriteRenderer>> renderer_query,
+    Query<Get<Device>, With<RenderContext>> ctx_query
+);  // called at render prepare stage
+
+void update_sampler_bindings(
+    Query<Get<SamplerBindingUpdate>> query,
+    Query<Get<Sampler, SamplerIndex>> sampler_query,
+    Query<Get<SpriteRenderer>> renderer_query,
+    Query<Get<Device>, With<RenderContext>> ctx_query
+);  // called at render prepare stage
+
 void destroy_sprite_server_vk_images(
     Resource<SpriteServerVK> sprite_server,
     Query<Get<Image, ImageView>, With<ImageIndex>> query,

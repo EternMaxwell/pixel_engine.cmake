@@ -290,6 +290,59 @@ void systems::create_sprite_renderer_vk(
     cmd.spawn(sprite_renderer);
 }
 
+void systems::update_image_bindings(
+    Query<Get<ImageBindingUpdate>> query,
+    Query<Get<ImageView, ImageIndex>, With<Image>> image_query,
+    Query<Get<SpriteRenderer>> renderer_query,
+    Query<Get<Device>, With<RenderContext>> ctx_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    if (!ctx_query.single().has_value()) return;
+    auto [device] = ctx_query.single().value();
+    auto [renderer] = renderer_query.single().value();
+    for (auto [update] : query.iter()) {
+        auto [image_view, image_index_t] = image_query.get(update.image_view);
+        auto image_index = image_index_t.index;
+        vk::DescriptorImageInfo image_info;
+        image_info.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+            .setImageView(*image_view);
+        vk::WriteDescriptorSet write_descriptor_set;
+        write_descriptor_set.setDstSet(*renderer.sprite_descriptor_set)
+            .setDstBinding(2)
+            .setDstArrayElement(image_index)
+            .setDescriptorType(vk::DescriptorType::eSampledImage)
+            .setDescriptorCount(1)
+            .setPImageInfo(&image_info);
+        device->updateDescriptorSets(write_descriptor_set, nullptr);
+    }
+}
+
+void systems::update_sampler_bindings(
+    Query<Get<SamplerBindingUpdate>> query,
+    Query<Get<Sampler, SamplerIndex>> sampler_query,
+    Query<Get<SpriteRenderer>> renderer_query,
+    Query<Get<Device>, With<RenderContext>> ctx_query
+) {
+    if (!renderer_query.single().has_value()) return;
+    if (!ctx_query.single().has_value()) return;
+    auto [device] = ctx_query.single().value();
+    auto [renderer] = renderer_query.single().value();
+    for (auto [update] : query.iter()) {
+        auto [sampler, sampler_index_t] = sampler_query.get(update.sampler);
+        auto sampler_index = sampler_index_t.index;
+        vk::DescriptorImageInfo sampler_info;
+        sampler_info.setSampler(*sampler);
+        vk::WriteDescriptorSet write_descriptor_set;
+        write_descriptor_set.setDstSet(*renderer.sprite_descriptor_set)
+            .setDstBinding(3)
+            .setDstArrayElement(sampler_index)
+            .setDescriptorType(vk::DescriptorType::eSampler)
+            .setDescriptorCount(1)
+            .setPImageInfo(&sampler_info);
+        device->updateDescriptorSets(write_descriptor_set, nullptr);
+    }
+}
+
 void systems::destroy_sprite_renderer_vk(
     Query<Get<SpriteRenderer>> renderer_query,
     Query<Get<Device>, With<RenderContext>> query

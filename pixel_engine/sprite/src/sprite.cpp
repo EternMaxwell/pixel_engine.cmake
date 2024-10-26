@@ -59,6 +59,7 @@ void systems::loading_actual_image(
     if (!ctx_query.single().has_value()) return;
     auto [device, command_pool, queue] = ctx_query.single().value();
     for (auto [entity, image_loading] : query.iter()) {
+        sprite_logger->debug("loading image at path: {}", image_loading.path);
         int width, height, channels;
         stbi_set_flip_vertically_on_load(true);
         uint8_t* pixels = stbi_load(
@@ -174,6 +175,11 @@ void systems::loading_actual_image(
             sprite_server->free_image_indices.pop_front();
         }
         cmd.entity(entity).emplace(image, image_view, image_index);
+        auto id = cmd.spawn(ImageBindingUpdate{.image_view{entity}});
+        cmd.entity(id).despawn();  // despawn the update entity this frame, so
+                                   // that the image is not updated again and
+                                   // user will not need to despawn it manually
+        sprite_logger->debug("image loaded at path: {}", image_loading.path);
     }
 }
 
@@ -183,10 +189,12 @@ void systems::creating_actual_sampler(
     Query<Get<Device>, With<RenderContext>> ctx_query,
     Resource<SpriteServerVK> sprite_server
 ) {
-    if (!query.single().has_value()) return;
     if (!ctx_query.single().has_value()) return;
     auto [device] = ctx_query.single().value();
     for (auto [entity, sampler_creating] : query.iter()) {
+        sprite_logger->debug(
+            "creating sampler with name: {}", sampler_creating.name
+        );
         auto sampler = Sampler::create(device, sampler_creating.create_info);
         SamplerIndex sampler_index;
         if (sprite_server->free_sampler_indices.empty()) {
@@ -197,6 +205,13 @@ void systems::creating_actual_sampler(
             sprite_server->free_sampler_indices.pop_front();
         }
         cmd.entity(entity).emplace(sampler, sampler_index);
+        auto id = cmd.spawn(SamplerBindingUpdate{.sampler{entity}});
+        cmd.entity(id).despawn();  // despawn the update entity this frame, so
+                                   // that the sampler is not updated again and
+                                   // user will not need to despawn it manually
+        sprite_logger->debug(
+            "sampler created with name: {}", sampler_creating.name
+        );
     }
 }
 
