@@ -22,6 +22,8 @@ using namespace pixel_engine::sprite::resources;
 
 namespace vk_trial {
 
+struct Test_T {};
+
 struct Renderer {
     RenderPass render_pass;
     Pipeline graphics_pipeline;
@@ -1146,6 +1148,7 @@ void create_text(
     Command command,
     Resource<pixel_engine::font::resources::FT2Library> ft2_library
 ) {
+    if (!ft2_library.has_value()) return;
     pixel_engine::font::components::Text text;
     auto font_face =
         ft2_library->load_font("../assets/fonts/FiraSans-Bold.ttf");
@@ -1313,6 +1316,7 @@ void run() {
     App app;
     app.set_run_time_rate(1.0);
     app.log_level(App::Loggers::Build, spdlog::level::debug);
+    app.enable_loop();
     app.add_plugin(pixel_engine::window::WindowPlugin{});
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
     app.add_plugin(pixel_engine::font::FontPlugin{});

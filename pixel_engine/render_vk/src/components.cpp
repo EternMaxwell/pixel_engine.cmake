@@ -1105,9 +1105,8 @@ Swapchain Swapchain::create(
         );
     }
     for (int i = 0; i < 2; i++) {
-        swapchain.in_flight_fence[i] = device->createFence(
-            vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled)
-        );
+        swapchain.in_flight_fence[i] =
+            device->createFence(vk::FenceCreateInfo());
     }
     return swapchain;
 }

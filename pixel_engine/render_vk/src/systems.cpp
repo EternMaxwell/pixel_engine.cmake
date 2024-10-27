@@ -179,6 +179,7 @@ void systems::destroy_context(
     auto [cmd_buffer, cmd_fence] = cmd_query.single().value();
     auto [instance, device, surface, swap_chain, command_pool] =
         query.single().value();
+    device->waitIdle();
     swap_chain.destroy(device);
     surface.destroy(instance);
     cmd_buffer.free(device, command_pool);
