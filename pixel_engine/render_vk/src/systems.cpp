@@ -44,10 +44,16 @@ void systems::create_context(
         instance, physical_device, device, surface, swap_chain, queue,
         command_pool, RenderContext{}
     );
+    CommandBuffer cmd_buffer =
+        CommandBuffer::allocate_primary(device, command_pool);
+    Fence fence = Fence::create(
+        device,
+        vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled)
+    );
+    cmd.spawn(cmd_buffer, fence, ContextCommandBuffer{});
 }
 
 void systems::recreate_swap_chain(
-    Command cmd,
     Query<Get<PhysicalDevice, Device, Surface, Swapchain>, With<RenderContext>>
         query
 ) {
@@ -60,15 +66,18 @@ void systems::recreate_swap_chain(
 }
 
 void systems::get_next_image(
-    Command cmd,
-    Query<Get<Device, Swapchain, CommandPool, Queue>, With<RenderContext>> query
+    Query<Get<Device, Swapchain, CommandPool, Queue>, With<RenderContext>>
+        query,
+    Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
 ) {
-    if (!query.single().has_value()) {
-        return;
-    }
+    if (!query.single().has_value()) return;
+    if (!cmd_query.single().has_value()) return;
+    auto [cmd_buffer, cmd_fence] = cmd_query.single().value();
     auto [device, swap_chain, command_pool, queue] = query.single().value();
     auto image = swap_chain.next_image(device);
-    auto cmd_buffer = CommandBuffer::allocate_primary(device, command_pool);
+    device->waitForFences(*cmd_fence, VK_TRUE, UINT64_MAX);
+    device->resetFences(*cmd_fence);
+    cmd_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
     cmd_buffer->begin(vk::CommandBufferBeginInfo{});
     vk::ImageMemoryBarrier barrier;
     barrier.setOldLayout(vk::ImageLayout::ePresentSrcKHR);
@@ -108,21 +117,21 @@ void systems::get_next_image(
     );
     cmd_buffer->end();
     auto submit_info = vk::SubmitInfo().setCommandBuffers(*cmd_buffer);
-    queue->submit(submit_info, nullptr);
-    queue->waitIdle();
-    cmd_buffer.free(device, command_pool);
+    queue->submit(submit_info, cmd_fence);
 }
 
 void systems::present_frame(
-    Command cmd,
-    Query<Get<Swapchain, Queue, Device, CommandPool>, With<RenderContext>> query
+    Query<Get<Swapchain, Queue, Device, CommandPool>, With<RenderContext>>
+        query,
+    Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
 ) {
-    if (!query.single().has_value()) {
-        return;
-    }
+    if (!query.single().has_value()) return;
+    if (!cmd_query.single().has_value()) return;
+    auto [cmd_buffer, cmd_fence] = cmd_query.single().value();
     auto [swap_chain, queue, device, command_pool] = query.single().value();
-    CommandBuffer cmd_buffer =
-        CommandBuffer::allocate_primary(device, command_pool);
+    device->waitForFences(*cmd_fence, VK_TRUE, UINT64_MAX);
+    device->resetFences(*cmd_fence);
+    cmd_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
     cmd_buffer->begin(vk::CommandBufferBeginInfo{});
     vk::ImageMemoryBarrier barrier;
     barrier.setOldLayout(vk::ImageLayout::eColorAttachmentOptimal);
@@ -144,18 +153,15 @@ void systems::present_frame(
     );
     cmd_buffer->end();
     auto submit_info = vk::SubmitInfo().setCommandBuffers(*cmd_buffer);
-    auto res = device->waitForFences(
-        swap_chain.fence(), VK_TRUE, UINT64_MAX
-    );
+    auto res = device->waitForFences(swap_chain.fence(), VK_TRUE, UINT64_MAX);
     device->resetFences(swap_chain.fence());
-    queue->submit(submit_info, nullptr);
+    queue->submit(submit_info, cmd_fence);
     try {
-        auto ret = queue->presentKHR(
-            vk::PresentInfoKHR()
-                .setWaitSemaphores({})
-                .setSwapchains(*swap_chain)
-                .setImageIndices(swap_chain.image_index)
-        );
+        auto ret =
+            queue->presentKHR(vk::PresentInfoKHR()
+                                  .setWaitSemaphores({})
+                                  .setSwapchains(*swap_chain)
+                                  .setImageIndices(swap_chain.image_index));
     } catch (vk::OutOfDateKHRError& e) {
         logger->warn("Swap chain out of date: {}", e.what());
     } catch (std::exception& e) {}
@@ -165,15 +171,18 @@ void systems::destroy_context(
     Command cmd,
     Query<
         Get<Instance, Device, Surface, Swapchain, CommandPool>,
-        With<RenderContext>> query
+        With<RenderContext>> query,
+    Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
 ) {
-    if (!query.single().has_value()) {
-        return;
-    }
+    if (!query.single().has_value()) return;
+    if (!cmd_query.single().has_value()) return;
+    auto [cmd_buffer, cmd_fence] = cmd_query.single().value();
     auto [instance, device, surface, swap_chain, command_pool] =
         query.single().value();
     swap_chain.destroy(device);
     surface.destroy(instance);
+    cmd_buffer.free(device, command_pool);
+    cmd_fence.destroy(device);
     command_pool.destroy(device);
     device.destroy();
     instance.destroy();

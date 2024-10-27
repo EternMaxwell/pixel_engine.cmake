@@ -1007,6 +1007,7 @@ Surface Surface::create(Instance& instance, GLFWwindow* window) {
             instance, window, nullptr,
             reinterpret_cast<VkSurfaceKHR*>(&surface_component.surface)
         ) != VK_SUCCESS) {
+        spdlog::error("Failed to create window surface");
         throw std::runtime_error("Failed to create window surface");
     }
     return surface_component;

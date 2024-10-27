@@ -9,8 +9,12 @@ namespace pixel_engine {
 namespace render_vk {
 using namespace prelude;
 struct RenderVKPlugin : Plugin {
-    bool vsync = true;
+    bool vsync = false;
     void build(App& app) override {
+        auto window_plugin = app.get_plugin<window::WindowPlugin>();
+        window_plugin->set_primary_window_hints({{GLFW_CLIENT_API, GLFW_NO_API}});
+        window_plugin->primary_window_vsync = vsync;
+
         app.add_system(systems::create_context)
             .in_stage(app::PreStartup)
             .in_set(window::WindowStartUpSets::after_window_creation)

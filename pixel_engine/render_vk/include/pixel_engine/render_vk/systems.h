@@ -20,6 +20,8 @@ using namespace pixel_engine::prelude;
 using namespace components;
 using namespace window::components;
 
+struct ContextCommandBuffer {};
+
 void create_context(
     Command cmd,
     Query<
@@ -28,23 +30,25 @@ void create_context(
     Resource<RenderVKPlugin> plugin
 );
 void recreate_swap_chain(
-    Command cmd,
     Query<Get<PhysicalDevice, Device, Surface, Swapchain>, With<RenderContext>>
         query
 );
 void get_next_image(
-    Command cmd,
-    Query<Get<Device, Swapchain, CommandPool, Queue>, With<RenderContext>> query
+    Query<Get<Device, Swapchain, CommandPool, Queue>, With<RenderContext>>
+        query,
+    Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
 );
 void present_frame(
-    Command cmd,
-    Query<Get<Swapchain, Queue, Device, CommandPool>, With<RenderContext>> query
+    Query<Get<Swapchain, Queue, Device, CommandPool>, With<RenderContext>>
+        query,
+    Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
 );
 void destroy_context(
     Command cmd,
     Query<
         Get<Instance, Device, Surface, Swapchain, CommandPool>,
-        With<RenderContext>> query
+        With<RenderContext>> query,
+    Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
 );
 }  // namespace systems
 }  // namespace render_vk
