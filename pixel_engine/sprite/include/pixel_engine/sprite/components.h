@@ -42,6 +42,11 @@ struct ImageLoading {
     std::string path;
 };
 
+struct ImageSize {
+    int width;
+    int height;
+};
+
 struct SamplerIndex {
     int index;
 };
@@ -70,10 +75,16 @@ struct SpriteRenderer {
 
     Buffer sprite_uniform_buffer;
     Buffer sprite_vertex_buffer;
+    Buffer sprite_index_buffer;
     Buffer sprite_model_buffer;
 };
 
 struct SpriteDepth {};
+
+struct SpriteDepthExtent {
+    uint32_t width;
+    uint32_t height;
+};
 }  // namespace components
 }  // namespace sprite
 }  // namespace pixel_engine

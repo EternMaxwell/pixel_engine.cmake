@@ -114,16 +114,45 @@ void systems::get_next_image(
 }
 
 void systems::present_frame(
-    Command cmd, Query<Get<Swapchain, Queue>, With<RenderContext>> query
+    Command cmd,
+    Query<Get<Swapchain, Queue, Device, CommandPool>, With<RenderContext>> query
 ) {
     if (!query.single().has_value()) {
         return;
     }
-    auto [swap_chain, queue] = query.single().value();
+    auto [swap_chain, queue, device, command_pool] = query.single().value();
+    CommandBuffer cmd_buffer =
+        CommandBuffer::allocate_primary(device, command_pool);
+    cmd_buffer->begin(vk::CommandBufferBeginInfo{});
+    vk::ImageMemoryBarrier barrier;
+    barrier.setOldLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    barrier.setNewLayout(vk::ImageLayout::ePresentSrcKHR);
+    barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+    barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+    barrier.setImage(swap_chain.current_image());
+    barrier.setSubresourceRange(
+        vk::ImageSubresourceRange()
+            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+            .setBaseMipLevel(0)
+            .setLevelCount(1)
+            .setBaseArrayLayer(0)
+            .setLayerCount(1)
+    );
+    cmd_buffer->pipelineBarrier(
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits::eBottomOfPipe, {}, {}, {}, {barrier}
+    );
+    cmd_buffer->end();
+    auto submit_info = vk::SubmitInfo().setCommandBuffers(*cmd_buffer);
+    auto res = device->waitForFences(
+        swap_chain.fence(), VK_TRUE, UINT64_MAX
+    );
+    device->resetFences(swap_chain.fence());
+    queue->submit(submit_info, nullptr);
     try {
         auto ret = queue->presentKHR(
             vk::PresentInfoKHR()
-                .setWaitSemaphores(swap_chain.render_finished())
+                .setWaitSemaphores({})
                 .setSwapchains(*swap_chain)
                 .setImageIndices(swap_chain.image_index)
         );

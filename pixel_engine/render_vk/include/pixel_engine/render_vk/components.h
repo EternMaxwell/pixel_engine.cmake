@@ -458,8 +458,6 @@ struct Swapchain {
     Image next_image(Device& device);
     Image current_image() const;
     ImageView current_image_view() const;
-    vk::Semaphore& image_available();
-    vk::Semaphore& render_finished();
     vk::Fence& fence();
     bool operator!() const;
     vk::SwapchainKHR* operator->();
@@ -480,8 +478,6 @@ struct Swapchain {
     vk::Extent2D extent;
     uint32_t image_index = 0;
     uint32_t current_frame = 0;
-    vk::Semaphore image_available_semaphore[2];
-    vk::Semaphore render_finished_semaphore[2];
     vk::Fence in_flight_fence[2];
 };
 

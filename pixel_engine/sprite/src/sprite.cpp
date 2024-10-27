@@ -49,6 +49,15 @@ Handle<Sampler> SpriteServerVK::create_sampler(
     }
 }
 
+Handle<Sampler> SpriteServerVK::get_sampler(const std::string& name) {
+    auto sampler = samplers.find(name);
+    if (sampler != samplers.end()) {
+        return sampler->second;
+    } else {
+        return Handle<Sampler>{};
+    }
+}
+
 void systems::loading_actual_image(
     Command cmd,
     Query<Get<Entity, ImageLoading>> query,
@@ -174,7 +183,8 @@ void systems::loading_actual_image(
             image_index.index = sprite_server->free_image_indices.front();
             sprite_server->free_image_indices.pop_front();
         }
-        cmd.entity(entity).emplace(image, image_view, image_index);
+        ImageSize image_size{width, height};
+        cmd.entity(entity).emplace(image, image_view, image_index, image_size);
         auto id = cmd.spawn(ImageBindingUpdate{.image_view{entity}});
         cmd.entity(id).despawn();  // despawn the update entity this frame, so
                                    // that the image is not updated again and
@@ -205,6 +215,7 @@ void systems::creating_actual_sampler(
             sprite_server->free_sampler_indices.pop_front();
         }
         cmd.entity(entity).emplace(sampler, sampler_index);
+        cmd.entity(entity).erase<SamplerCreating>();
         auto id = cmd.spawn(SamplerBindingUpdate{.sampler{entity}});
         cmd.entity(id).despawn();  // despawn the update entity this frame, so
                                    // that the sampler is not updated again and

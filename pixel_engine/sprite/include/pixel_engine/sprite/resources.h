@@ -23,6 +23,7 @@ struct SpriteServerVK {
     Handle<Sampler> create_sampler(
         Command& cmd, vk::SamplerCreateInfo create_info, const std::string& name
     );
+    Handle<Sampler> get_sampler(const std::string& name);
 };
 }  // namespace resources
 }  // namespace sprite

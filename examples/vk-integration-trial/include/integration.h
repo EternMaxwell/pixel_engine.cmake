@@ -573,7 +573,68 @@ void create_texture_image_view(
     Query<Get<Renderer>> renderer_query,
     Resource<SpriteServerVK> sprite_server
 ) {
-    sprite_server->load_image(cmd, "./../assets/textures/test.png");
+    if (sprite_server.has_value()) {
+        cmd.spawn(
+            Sprite{
+                .image = sprite_server->load_image(
+                    cmd, "./../assets/textures/test.png"
+                ),
+                .sampler = sprite_server->create_sampler(
+                    cmd,
+                    vk::SamplerCreateInfo()
+                        .setMagFilter(vk::Filter::eLinear)
+                        .setMinFilter(vk::Filter::eLinear)
+                        .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+                        .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+                        .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+                        .setAnisotropyEnable(VK_TRUE)
+                        .setMaxAnisotropy(16)
+                        .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                        .setUnnormalizedCoordinates(VK_FALSE)
+                        .setCompareEnable(VK_FALSE)
+                        .setCompareOp(vk::CompareOp::eAlways)
+                        .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                        .setMipLodBias(0.0f)
+                        .setMinLod(0.0f)
+                        .setMaxLod(0.0f),
+                    "test_sampler"
+                ),
+                .size = {100.0f, 100.0f},
+                .color = {1.0f, 1.0f, 1.0f, 0.6f}
+            },
+            SpritePos2D{.pos = {0.0f, 0.0f, 10.0f}}
+        );
+        cmd.spawn(
+            Sprite{
+                .image = sprite_server->load_image(
+                    cmd, "./../assets/textures/test.png"
+                ),
+                .sampler = sprite_server->create_sampler(
+                    cmd,
+                    vk::SamplerCreateInfo()
+                        .setMagFilter(vk::Filter::eLinear)
+                        .setMinFilter(vk::Filter::eLinear)
+                        .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+                        .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+                        .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+                        .setAnisotropyEnable(VK_TRUE)
+                        .setMaxAnisotropy(16)
+                        .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                        .setUnnormalizedCoordinates(VK_FALSE)
+                        .setCompareEnable(VK_FALSE)
+                        .setCompareOp(vk::CompareOp::eAlways)
+                        .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                        .setMipLodBias(0.0f)
+                        .setMinLod(0.0f)
+                        .setMaxLod(0.0f),
+                    "test_sampler"
+                ),
+                .size = {100.0f, 100.0f},
+                .color = {1.0f, 0.0f, 0.0f, 0.6f}
+            },
+            SpritePos2D{.pos = {50.0f, 50.0f, 5.9f}}
+        );
+    }
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
     auto [device] = query.single().value();
@@ -980,8 +1041,8 @@ void record_command_buffer(
     cmd->drawIndexed(indices.size(), 1, 0, 0, 0);
     cmd->endRendering();
     vk::ImageMemoryBarrier barrier;
-    barrier.setOldLayout(vk::ImageLayout::eUndefined);
-    barrier.setNewLayout(vk::ImageLayout::ePresentSrcKHR);
+    barrier.setOldLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    barrier.setNewLayout(vk::ImageLayout::eColorAttachmentOptimal);
     barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
     barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
     barrier.setImage(swap_chain.current_image());
@@ -1035,14 +1096,8 @@ void end_draw(
     auto [device, swap_chain, queue] = query.single().value();
     auto [renderer] = renderer_query.single().value();
     vk::SubmitInfo submit_info;
-    vk::PipelineStageFlags wait_stages[] = {
-        vk::PipelineStageFlagBits::eColorAttachmentOutput
-    };
-    submit_info.setWaitSemaphores(swap_chain.image_available());
-    submit_info.setWaitDstStageMask(wait_stages);
     submit_info.setCommandBuffers(*cmd);
-    submit_info.setSignalSemaphores(swap_chain.render_finished());
-    queue->submit(submit_info, swap_chain.fence());
+    queue->submit(submit_info, nullptr);
     // free cmd
     device->waitIdle();
     cmd.free(device, command_pool);
@@ -1226,7 +1281,10 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(draw_frame)
             .use_worker("single")
             .in_stage(app::Render)
-            .before(pixel_engine::font::systems::draw_text);
+            .before(
+                pixel_engine::font::systems::draw_text,
+                pixel_engine::sprite::systems::draw_sprite_2d_vk
+            );
         app.add_system(wait_for_device)
             .use_worker("single")
             .in_stage(app::Shutdown);
@@ -1254,6 +1312,7 @@ struct VK_TrialPlugin : Plugin {
 void run() {
     App app;
     app.set_run_time_rate(1.0);
+    app.log_level(App::Loggers::Build, spdlog::level::debug);
     app.add_plugin(pixel_engine::window::WindowPlugin{});
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
     app.add_plugin(pixel_engine::font::FontPlugin{});

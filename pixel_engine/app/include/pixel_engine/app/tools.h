@@ -19,6 +19,7 @@ struct Handle {
     void operator=(entt::entity id) { this->id = id; }
     operator entt::entity() { return id; }
     operator bool() { return id != entt::null; }
+    bool operator!() { return id == entt::null; }
     bool operator==(const Handle<T>& other) { return id == other.id; }
     bool operator!=(const Handle<T>& other) { return id != other.id; }
     bool operator==(const entt::entity& other) { return id == other; }

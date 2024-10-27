@@ -37,7 +37,8 @@ void get_next_image(
     Query<Get<Device, Swapchain, CommandPool, Queue>, With<RenderContext>> query
 );
 void present_frame(
-    Command cmd, Query<Get<Swapchain, Queue>, With<RenderContext>> query
+    Command cmd,
+    Query<Get<Swapchain, Queue, Device, CommandPool>, With<RenderContext>> query
 );
 void destroy_context(
     Command cmd,

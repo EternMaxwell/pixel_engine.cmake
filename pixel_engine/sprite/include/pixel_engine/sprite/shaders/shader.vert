@@ -17,9 +17,7 @@ layout(std140, binding = 0) uniform CameraBuffer {
     mat4 projection;
 };
 
-layout(std430, binding = 1) buffer SpriteModelBuffer {
-    mat4 model[];
-};
+layout(std430, binding = 1) buffer SpriteModelBuffer { mat4 model[]; };
 
 void main() {
     mat4 modelMatrix = model[modelIndex];

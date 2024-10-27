@@ -1104,10 +1104,6 @@ Swapchain Swapchain::create(
         );
     }
     for (int i = 0; i < 2; i++) {
-        swapchain.image_available_semaphore[i] =
-            device->createSemaphore(vk::SemaphoreCreateInfo());
-        swapchain.render_finished_semaphore[i] =
-            device->createSemaphore(vk::SemaphoreCreateInfo());
         swapchain.in_flight_fence[i] = device->createFence(
             vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled)
         );
@@ -1185,8 +1181,6 @@ void Swapchain::recreate(
 }
 void Swapchain::destroy(Device& device) {
     for (int i = 0; i < 2; i++) {
-        device->destroySemaphore(image_available_semaphore[i]);
-        device->destroySemaphore(render_finished_semaphore[i]);
         device->destroyFence(in_flight_fence[i]);
     }
     for (auto& image_view : image_views) {
@@ -1199,16 +1193,12 @@ Swapchain::operator VkSwapchainKHR() const { return swapchain; }
 Swapchain::operator vk::SwapchainKHR&() { return swapchain; }
 Image Swapchain::next_image(Device& device) {
     current_frame = (current_frame + 1) % 2;
-    auto res = device->waitForFences(
-        1, &in_flight_fence[current_frame], VK_TRUE, UINT64_MAX
-    );
-    res = device->resetFences(1, &in_flight_fence[current_frame]);
-    image_index = device
-                      ->acquireNextImageKHR(
-                          swapchain, UINT64_MAX,
-                          image_available_semaphore[current_frame], vk::Fence()
-                      )
-                      .value;
+    image_index =
+        device
+            ->acquireNextImageKHR(
+                swapchain, UINT64_MAX, nullptr, in_flight_fence[current_frame]
+            )
+            .value;
     return Image{.image = images[image_index]};
 }
 Image Swapchain::current_image() const {
@@ -1216,12 +1206,6 @@ Image Swapchain::current_image() const {
 }
 ImageView Swapchain::current_image_view() const {
     return image_views[image_index];
-}
-vk::Semaphore& Swapchain::image_available() {
-    return image_available_semaphore[current_frame];
-}
-vk::Semaphore& Swapchain::render_finished() {
-    return render_finished_semaphore[current_frame];
 }
 vk::Fence& Swapchain::fence() { return in_flight_fence[current_frame]; }
 bool Swapchain::operator!() const { return !swapchain; }

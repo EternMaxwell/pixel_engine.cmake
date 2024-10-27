@@ -90,8 +90,8 @@ void systems::create_renderer(
     color_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
     color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
     color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
-    color_attachment.setInitialLayout(vk::ImageLayout::ePresentSrcKHR);
-    color_attachment.setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+    color_attachment.setInitialLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    color_attachment.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
     vk::AttachmentReference color_attachment_ref;
     color_attachment_ref.setAttachment(0);
     color_attachment_ref.setLayout(vk::ImageLayout::eColorAttachmentOptimal);

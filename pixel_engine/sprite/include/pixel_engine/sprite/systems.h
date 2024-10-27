@@ -51,6 +51,34 @@ void update_sampler_bindings(
     Query<Get<Device>, With<RenderContext>> ctx_query
 );  // called at render prepare stage
 
+void create_sprite_depth_vk(
+    Command cmd,
+    Query<Get<Device, CommandPool, Queue, Swapchain>, With<RenderContext>>
+        ctx_query,
+    Query<Get<Image, ImageView>, With<SpriteDepth, SpriteDepthExtent>> query
+);  // called at post startup stage in case of user assigned depth image
+
+void update_sprite_depth_vk(
+    Query<Get<ImageView, Image, SpriteDepthExtent>, With<SpriteDepth>> query,
+    Query<Get<Device, Swapchain>, With<RenderContext>> ctx_query
+);  // called at render prerender stage
+
+void destroy_sprite_depth_vk(
+    Query<Get<Device>, With<RenderContext>> query,
+    Query<Get<ImageView, Image>, With<SpriteDepth, SpriteDepthExtent>>
+        depth_query
+);  // called at exit stage
+
+void draw_sprite_2d_vk(
+    Query<Get<SpriteRenderer>> renderer_query,
+    Query<Get<Sprite, SpritePos2D>> sprite_query,
+    Query<Get<Device, CommandPool, Queue, Swapchain>, With<RenderContext>>
+        ctx_query,
+    Query<Get<ImageIndex>, With<Image, ImageView>> image_query,
+    Query<Get<SamplerIndex>, With<Sampler>> sampler_query,
+    Query<Get<ImageView>, With<SpriteDepth, Image, SpriteDepthExtent>> depth_query
+);  // called at render stage
+
 void destroy_sprite_server_vk_images(
     Resource<SpriteServerVK> sprite_server,
     Query<Get<Image, ImageView>, With<ImageIndex>> query,
