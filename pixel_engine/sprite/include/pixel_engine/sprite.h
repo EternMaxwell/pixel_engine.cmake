@@ -24,8 +24,7 @@ struct SpritePluginVK : Plugin {
         app.add_system(app::RenderStage::Prepare, update_image_bindings)
             .after(loading_actual_image);
         app.add_system(app::RenderStage::Prepare, update_sampler_bindings)
-            .after(creating_actual_sampler)
-            .before(update_image_bindings);
+            .after(creating_actual_sampler);
         app.add_system(app::RenderStage::PreRender, update_sprite_depth_vk);
         app.add_system(app::RenderStage::Render, draw_sprite_2d_vk)
             .before(pixel_engine::font::systems::draw_text);
