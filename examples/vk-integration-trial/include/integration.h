@@ -601,21 +601,21 @@ void create_texture_image_view(
                         .setMaxLod(0.0f),
                     "test_sampler"
                 ),
-                .size = {100.0f, 100.0f},
+                .size = {1200.0f, 1200.0f},
                 .color = {1.0f, 1.0f, 1.0f, 0.6f}
             },
-            SpritePos2D{.pos = {0.0f, 0.0f, 10.0f}}
+            SpritePos2D{.pos = {-400.0f, 0.0f, 10.0f}}
         );
         cmd.spawn(
             Sprite{
                 .image = sprite_server->load_image(
-                    cmd, "./../assets/textures/test.png"
+                    cmd, "./../assets/textures/test1.jfif"
                 ),
                 .sampler = sprite_server->create_sampler(
                     cmd,
                     vk::SamplerCreateInfo()
-                        .setMagFilter(vk::Filter::eLinear)
-                        .setMinFilter(vk::Filter::eLinear)
+                        .setMagFilter(vk::Filter::eNearest)
+                        .setMinFilter(vk::Filter::eNearest)
                         .setAddressModeU(vk::SamplerAddressMode::eRepeat)
                         .setAddressModeV(vk::SamplerAddressMode::eRepeat)
                         .setAddressModeW(vk::SamplerAddressMode::eRepeat)
@@ -629,12 +629,12 @@ void create_texture_image_view(
                         .setMipLodBias(0.0f)
                         .setMinLod(0.0f)
                         .setMaxLod(0.0f),
-                    "test_sampler"
+                    "test_sampler2"
                 ),
-                .size = {100.0f, 100.0f},
-                .color = {1.0f, 0.0f, 0.0f, 0.6f}
+                .size = {500.0f, 500.0f},
+                .color = {1.0f, 1.0f, 1.0f, 0.6f}
             },
-            SpritePos2D{.pos = {50.0f, 50.0f, 5.9f}}
+            SpritePos2D{.pos = {400.0f, 0.0f, 5.9f}}
         );
     }
     if (!renderer_query.single().has_value()) return;
