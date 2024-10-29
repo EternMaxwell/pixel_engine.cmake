@@ -185,6 +185,10 @@ class QueryBase<Get<entt::entity, Qus...>, With<Ins...>, Without<Exs...>> {
     }
 };
 
+template <typename... Gets, typename... Withouts, typename W>
+struct QueryBase<Get<Gets...>, Without<Withouts...>, W>
+    : QueryBase<Get<Gets...>, With<>, Without<Withouts...>> {};
+
 template <typename G, typename W, typename WO>
 struct Extract {};
 
@@ -238,6 +242,10 @@ struct Extract<
     auto get(entt::entity id) { return query.get(id); }
     bool contains(entt::entity id) { return query.contains(id); }
 };
+
+template <typename... Gets, typename... Withouts, typename W>
+struct Extract<Get<Gets...>, Without<Withouts...>, W>
+    : Extract<Get<Gets...>, With<>, Without<Withouts...>> {};
 
 template <typename G, typename W, typename WO>
 struct Query {
