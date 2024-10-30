@@ -77,6 +77,8 @@ void systems::get_next_image(
     auto image = swap_chain.next_image(device);
     device->waitForFences(*cmd_fence, VK_TRUE, UINT64_MAX);
     device->resetFences(*cmd_fence);
+    auto res = device->waitForFences(swap_chain.fence(), VK_TRUE, UINT64_MAX);
+    device->resetFences(swap_chain.fence());
     cmd_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
     cmd_buffer->begin(vk::CommandBufferBeginInfo{});
     vk::ImageMemoryBarrier barrier;
@@ -153,8 +155,6 @@ void systems::present_frame(
     );
     cmd_buffer->end();
     auto submit_info = vk::SubmitInfo().setCommandBuffers(*cmd_buffer);
-    auto res = device->waitForFences(swap_chain.fence(), VK_TRUE, UINT64_MAX);
-    device->resetFences(swap_chain.fence());
     queue->submit(submit_info, cmd_fence);
     try {
         auto ret =
