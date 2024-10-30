@@ -19,58 +19,32 @@ using namespace events;
 using namespace pixel_engine::prelude;
 
 void init_glfw();
+void insert_window_map(Command command);
 void insert_primary_window(
     Command command, Resource<window::WindowPlugin> window_plugin
 );
-void create_window_startup(
+void create_window_start(
     Command command,
-    Query<
-        Get<entt::entity,
-            WindowHandle,
-            const WindowSize,
-            const WindowTitle,
-            const WindowHints>,
-        With<>,
-        Without<WindowCreated>> query
+    Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query
 );
-void create_window_prerender(
+void create_window_update(
     Command command,
-    Query<
-        Get<entt::entity,
-            WindowHandle,
-            const WindowSize,
-            const WindowTitle,
-            const WindowHints>,
-        With<>,
-        Without<WindowCreated>> query
+    Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query
 );
-void update_window_size(
-    Query<Get<WindowHandle, WindowSize>, With<WindowCreated>, Without<>> query
-);
-void update_window_pos(
-    Query<Get<WindowHandle, WindowPos>, With<WindowCreated>, Without<>> query
-);
+void update_window_size(Query<Get<Window>> query);
+void update_window_pos(Query<Get<Window>> query);
 void primary_window_close(
     Command command,
-    Query<
-        Get<entt::entity, WindowHandle>,
-        With<WindowCreated, PrimaryWindow>,
-        Without<>> query,
+    Query<Get<Entity, Window>, With<PrimaryWindow>> query,
     EventWriter<AnyWindowClose> any_close_event
 );
 void window_close(
     Command command,
-    Query<
-        Get<entt::entity, WindowHandle>,
-        With<WindowCreated>,
-        Without<PrimaryWindow>> query,
+    Query<Get<Entity, Window>, Without<PrimaryWindow>> query,
     EventWriter<AnyWindowClose> any_close_event
 );
-void swap_buffers(
-    Query<Get<const WindowHandle>, With<WindowCreated>, Without<>> query
-);
 void no_window_exists(
-    Query<Get<const WindowHandle>, With<>, Without<>> query,
+    Query<Get<Window>> query,
     EventWriter<NoWindowExists> no_window_event
 );
 void poll_events();
