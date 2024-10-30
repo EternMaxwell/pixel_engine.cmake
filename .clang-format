@@ -8,4 +8,5 @@
  AllowShortBlocksOnASingleLine: Empty
  AlignAfterOpenBracket: BlockIndent
  BinPackParameters: false
+ AlignConsecutiveAssignments: Consecutive
  
