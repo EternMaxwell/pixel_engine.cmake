@@ -210,5 +210,23 @@ struct std::equal_to<std::weak_ptr<T>> {
         return aptr.get_p() == bptr.get_p();
     }
 };
+
+template <typename T>
+struct std::hash<pixel_engine::internal_components::Handle<T>> {
+    size_t operator()(const pixel_engine::internal_components::Handle<T>& handle
+    ) const {
+        return std::hash<entt::entity>()(handle.id);
+    }
+};
+
+template <typename T>
+struct std::equal_to<pixel_engine::internal_components::Handle<T>> {
+    bool operator()(
+        const pixel_engine::internal_components::Handle<T>& a,
+        const pixel_engine::internal_components::Handle<T>& b
+    ) const {
+        return a.id == b.id;
+    }
+};
 }  // namespace app_tools
 }  // namespace pixel_engine

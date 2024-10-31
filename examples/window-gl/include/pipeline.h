@@ -73,10 +73,11 @@ void move_sprite(
 void camera_ortho_to_primary_window(
     Query<Get<transform::OrthoProjection>, With<camera::Camera2d>, Without<>>
         camera_query,
-    Query<Get<const WindowSize>, With<PrimaryWindow>, Without<>> window_query
+    Query<Get<const Window>, With<PrimaryWindow>, Without<>> window_query
 ) {
     for (auto [projection] : camera_query.iter()) {
-        for (auto [window_size] : window_query.iter()) {
+        for (auto [window] : window_query.iter()) {
+            auto window_size = window.get_size();
             float ratio = (float)window_size.width / (float)window_size.height;
             projection.left = -ratio;
             projection.right = ratio;

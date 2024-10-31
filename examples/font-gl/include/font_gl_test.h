@@ -41,10 +41,11 @@ void create_text(
 
 void camera_ortho_to_primary_window(
     Query<Get<OrthoProjection>, With<Camera2d>> query,
-    Query<Get<WindowSize>, With<PrimaryWindow>> projection_query
+    Query<Get<const Window>, With<PrimaryWindow>> projection_query
 ) {
     for (auto [proj] : query.iter()) {
-        for (auto [size] : projection_query.iter()) {
+        for (auto [window] : projection_query.iter()) {
+            auto size = window.get_size();
             float ratio = (float)size.width / size.height;
             proj.left = -ratio;
             proj.right = ratio;

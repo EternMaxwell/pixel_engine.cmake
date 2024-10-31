@@ -119,8 +119,8 @@ void create_vertex_buffer(
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
     auto [device, queue, command_pool] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
-    auto &vertices = vk_trial::vertices;
+    auto [renderer]                    = renderer_query.single().value();
+    auto &vertices                     = vk_trial::vertices;
     spdlog::info("create vertex buffer");
     vk::BufferCreateInfo buffer_create_info(
         {}, vertices.size() * sizeof(Vertex),
@@ -169,7 +169,7 @@ void free_vertex_buffer(
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
     auto [renderer] = renderer_query.single().value();
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     spdlog::info("free vertex buffer");
     renderer.vertex_buffer.destroy(device);
 }
@@ -182,8 +182,8 @@ void create_index_buffer(
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
     auto [device, queue, command_pool] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
-    auto &indices = vk_trial::indices;
+    auto [renderer]                    = renderer_query.single().value();
+    auto &indices                      = vk_trial::indices;
     spdlog::info("create index buffer");
     vk::BufferCreateInfo buffer_create_info(
         {}, indices.size() * sizeof(uint16_t),
@@ -233,7 +233,7 @@ void free_index_buffer(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("free index buffer");
     renderer.index_buffer.destroy(device);
@@ -246,7 +246,7 @@ void create_descriptor_set_layout(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("create descriptor set layout");
     vk::DescriptorSetLayoutBinding ubo_layout_binding =
@@ -268,7 +268,7 @@ void destroy_descriptor_set_layout(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("destroy descriptor set layout");
     renderer.descriptor_set_layout.destroy(device);
@@ -281,7 +281,7 @@ void create_uniform_buffers(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("create uniform buffers");
     size_t buffer_size = sizeof(UniformBufferObject);
@@ -297,7 +297,7 @@ void create_uniform_buffers(
         alloc_info.setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT);
         Buffer buffer = Buffer::create(device, buffer_create_info, alloc_info);
 
-        renderer.uniform_buffers[i] = buffer;
+        renderer.uniform_buffers[i]     = buffer;
         renderer.uniform_buffer_data[i] = buffer.map(device);
     }
 }
@@ -309,7 +309,7 @@ void destroy_uniform_buffers(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("destroy uniform buffers");
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -325,10 +325,10 @@ void update_uniform_buffer(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [swap_chain] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    auto [swap_chain]         = query.single().value();
+    auto [renderer]           = renderer_query.single().value();
     auto &uniform_buffer_data = renderer.uniform_buffer_data;
-    float time = glfwGetTime();
+    float time                = glfwGetTime();
     UniformBufferObject ubo;
     ubo.model = glm::rotate(
         glm::mat4(1.0f), (float)time * glm::radians(90.0f),
@@ -354,8 +354,8 @@ void create_depth_image(
     if (!query.single().has_value()) return;
     if (!renderer_query.single().has_value()) return;
     auto [device, swap_chain] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
-    vk::Format depth_format = vk::Format::eD32Sfloat;
+    auto [renderer]           = renderer_query.single().value();
+    vk::Format depth_format   = vk::Format::eD32Sfloat;
     spdlog::info("create depth image");
     vk::ImageCreateInfo image_create_info;
     image_create_info.setImageType(vk::ImageType::e2D);
@@ -384,7 +384,7 @@ void destroy_depth_image(
 ) {
     if (!query.single().has_value()) return;
     if (!renderer_query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("destroy depth image");
     renderer.depth_image.destroy(device);
@@ -396,7 +396,7 @@ void create_depth_image_view(
 ) {
     if (!query.single().has_value()) return;
     if (!renderer_query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("create depth image view");
     vk::ImageViewCreateInfo view_create_info;
@@ -407,7 +407,7 @@ void create_depth_image_view(
         vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1)
     );
     ImageView depth_image_view = ImageView::create(device, view_create_info);
-    renderer.depth_image_view = depth_image_view;
+    renderer.depth_image_view  = depth_image_view;
 }
 
 void destroy_depth_image_view(
@@ -416,7 +416,7 @@ void destroy_depth_image_view(
 ) {
     if (!query.single().has_value()) return;
     if (!renderer_query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("destroy depth image view");
     renderer.depth_image_view.destroy(device);
@@ -429,7 +429,7 @@ void create_texture_image(
     try {
         if (!renderer_query.single().has_value()) return;
         if (!query.single().has_value()) return;
-        auto [renderer] = renderer_query.single().value();
+        auto [renderer]                    = renderer_query.single().value();
         auto [device, queue, command_pool] = query.single().value();
         spdlog::info("create texture image");
         int tex_width, tex_height, tex_channels;
@@ -563,7 +563,7 @@ void destroy_texture_image(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("destroy texture image");
     renderer.texture_image.destroy(device);
@@ -601,7 +601,7 @@ void create_texture_image_view(
                         .setMaxLod(0.0f),
                     "test_sampler"
                 ),
-                .size = {1200.0f, 1200.0f},
+                .size  = {1200.0f, 1200.0f},
                 .color = {1.0f, 1.0f, 1.0f, 0.6f}
             },
             SpritePos2D{.pos = {-400.0f, 0.0f, 10.0f}}
@@ -631,7 +631,7 @@ void create_texture_image_view(
                         .setMaxLod(0.0f),
                     "test_sampler2"
                 ),
-                .size = {500.0f, 500.0f},
+                .size  = {500.0f, 500.0f},
                 .color = {1.0f, 1.0f, 1.0f, 0.6f}
             },
             SpritePos2D{.pos = {400.0f, 0.0f, 5.9f}}
@@ -639,7 +639,7 @@ void create_texture_image_view(
     }
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("create texture image view");
     vk::ImageViewCreateInfo view_info;
@@ -650,7 +650,7 @@ void create_texture_image_view(
         vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
     );
     ImageView texture_image_view = ImageView::create(device, view_info);
-    renderer.texture_image_view = texture_image_view;
+    renderer.texture_image_view  = texture_image_view;
 }
 
 void destroy_texture_image_view(
@@ -659,7 +659,7 @@ void destroy_texture_image_view(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("destroy texture image view");
     renderer.texture_image_view.destroy(device);
@@ -672,7 +672,7 @@ void create_texture_image_sampler(
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
     auto [physical_device, device] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    auto [renderer]                = renderer_query.single().value();
     spdlog::info("create texture image sampler");
     vk::SamplerCreateInfo sampler_info;
     sampler_info.setMagFilter(vk::Filter::eLinear);
@@ -691,7 +691,7 @@ void create_texture_image_sampler(
     sampler_info.setMipLodBias(0.0f);
     sampler_info.setMinLod(0.0f);
     sampler_info.setMaxLod(0.0f);
-    Sampler texture_sampler = Sampler::create(device, sampler_info);
+    Sampler texture_sampler  = Sampler::create(device, sampler_info);
     renderer.texture_sampler = texture_sampler;
 }
 
@@ -701,7 +701,7 @@ void destroy_texture_image_sampler(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("destroy texture image sampler");
     renderer.texture_sampler.destroy(device);
@@ -714,7 +714,7 @@ void create_descriptor_pool(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("create descriptor pool");
     auto pool_sizes = {
@@ -729,7 +729,7 @@ void create_descriptor_pool(
     pool_info.setPoolSizes(pool_sizes);
     pool_info.setMaxSets(MAX_FRAMES_IN_FLIGHT);
     DescriptorPool descriptor_pool = DescriptorPool::create(device, pool_info);
-    renderer.descriptor_pool = descriptor_pool;
+    renderer.descriptor_pool       = descriptor_pool;
 }
 
 void destroy_descriptor_pool(
@@ -738,7 +738,7 @@ void destroy_descriptor_pool(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     spdlog::info("destroy descriptor pool");
     renderer.descriptor_pool.destroy(device);
@@ -750,11 +750,11 @@ void create_descriptor_sets(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    auto [device]               = query.single().value();
+    auto [renderer]             = renderer_query.single().value();
     auto &descriptor_set_layout = renderer.descriptor_set_layout;
-    auto &descriptor_pool = renderer.descriptor_pool;
-    auto &uniform_buffers = renderer.uniform_buffers;
+    auto &descriptor_pool       = renderer.descriptor_pool;
+    auto &uniform_buffers       = renderer.uniform_buffers;
     spdlog::info("create descriptor sets");
     std::vector<DescriptorSet> descriptor_sets;
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -802,7 +802,7 @@ void create_render_pass(
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
     auto [device, swap_chain] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    auto [renderer]           = renderer_query.single().value();
 
     spdlog::info("create render pass");
     vk::AttachmentDescription color_attachment(
@@ -862,8 +862,8 @@ void create_graphics_pipeline(
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
     auto [device, swap_chain] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
-    auto &render_pass = renderer.render_pass;
+    auto [renderer]           = renderer_query.single().value();
+    auto &render_pass         = renderer.render_pass;
     spdlog::info("create graphics pipeline");
     // Create the shader modules and the shader stages
     auto vertex_code = std::vector<uint32_t>(
@@ -892,7 +892,7 @@ void create_graphics_pipeline(
     // create vertex input
     vk::PipelineVertexInputStateCreateInfo vertex_input_create_info({}, {}, {});
     auto attribute_descriptions = Vertex::getAttributeDescriptions();
-    auto binding_description = Vertex::getBindingDescription();
+    auto binding_description    = Vertex::getBindingDescription();
     vertex_input_create_info.setVertexAttributeDescriptions(
         attribute_descriptions
     );
@@ -921,7 +921,7 @@ void create_graphics_pipeline(
     rasterizer_create_info.setDepthBiasEnable(VK_FALSE);
     // create multisampling
     vk::PipelineMultisampleStateCreateInfo multisample_create_info;
-    multisample_create_info.sampleShadingEnable = VK_FALSE;
+    multisample_create_info.sampleShadingEnable  = VK_FALSE;
     multisample_create_info.rasterizationSamples = vk::SampleCountFlagBits::e1;
     // create color blending
     vk::PipelineColorBlendAttachmentState color_blend_attachment;
@@ -970,7 +970,7 @@ void create_graphics_pipeline(
     create_info.setLayout(pipeline_layout);
     create_info.setPNext(&pipeline_render_info);
     create_info.setSubpass(0);
-    auto pipeline = Pipeline::create(device, create_info);
+    auto pipeline              = Pipeline::create(device, create_info);
     renderer.graphics_pipeline = pipeline;
 
     vertex_shader_module.destroy(device);
@@ -988,10 +988,10 @@ void record_command_buffer(
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
     auto [device, swap_chain] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
-    auto [cmd] = cmd_query.single().value();
-    auto &render_pass = renderer.render_pass;
-    auto &pipeline = renderer.graphics_pipeline;
+    auto [renderer]           = renderer_query.single().value();
+    auto [cmd]                = cmd_query.single().value();
+    auto &render_pass         = renderer.render_pass;
+    auto &pipeline            = renderer.graphics_pipeline;
     if (renderer.current_extent != swap_chain.extent) {
         destroy_depth_image_view(device_query, renderer_query);
         destroy_depth_image(device_query, renderer_query);
@@ -1070,10 +1070,10 @@ void begin_draw(
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
     if (!command_pool_query.single().has_value()) return;
-    auto [command_pool] = command_pool_query.single().value();
+    auto [command_pool]       = command_pool_query.single().value();
     auto [device, swap_chain] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
-    auto &in_flight_fence = swap_chain.fence();
+    auto [renderer]           = renderer_query.single().value();
+    auto &in_flight_fence     = swap_chain.fence();
     try {
         auto cmd = CommandBuffer::allocate_primary(device, command_pool);
         command.spawn(cmd, IntegrationTestCmd{});
@@ -1093,10 +1093,10 @@ void end_draw(
     if (!query.single().has_value()) return;
     if (!cmd_query.single().has_value()) return;
     if (!command_pool_query.single().has_value()) return;
-    auto [command_pool] = command_pool_query.single().value();
-    auto [id, cmd] = cmd_query.single().value();
+    auto [command_pool]              = command_pool_query.single().value();
+    auto [id, cmd]                   = cmd_query.single().value();
     auto [device, swap_chain, queue] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    auto [renderer]                  = renderer_query.single().value();
     vk::SubmitInfo submit_info;
     submit_info.setCommandBuffers(*cmd);
     queue->submit(submit_info, nullptr);
@@ -1115,9 +1115,9 @@ void destroy_pipeline(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
-    auto &pipeline = renderer.graphics_pipeline;
+    auto [device]         = query.single().value();
+    auto [renderer]       = renderer_query.single().value();
+    auto &pipeline        = renderer.graphics_pipeline;
     auto &pipeline_layout = renderer.pipeline_layout;
     spdlog::info("destroy pipeline");
     pipeline.destroy(device);
@@ -1130,8 +1130,8 @@ void destroy_render_pass(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    auto [device]     = query.single().value();
+    auto [renderer]   = renderer_query.single().value();
     auto &render_pass = renderer.render_pass;
     spdlog::info("destroy render pass");
     render_pass.destroy(device);
@@ -1185,11 +1185,38 @@ void shuffle_text(Query<Get<pixel_engine::font::components::Text>> text_query) {
     }
 }
 
+using namespace pixel_engine::input::components;
+
+void output_event(
+    EventReader<pixel_engine::input::events::MouseScroll> scroll_events,
+    Query<Get<ButtonInput<KeyCode>, ButtonInput<MouseButton>, const Window>>
+        query
+) {
+    for (auto event : scroll_events.read()) {
+        spdlog::info("scroll : {}", event.yoffset);
+    }
+    for (auto [key_input, mouse_input, window] : query.iter()) {
+        for (auto key : key_input.pressed_keys()) {
+            auto *key_name = key_input.key_name(key);
+            if (key_name == nullptr) {
+                spdlog::info("key {} pressed", static_cast<int>(key));
+            } else {
+                spdlog::info("key {} pressed", key_name);
+            }
+        }
+        for (auto button : mouse_input.pressed_buttons()) {
+            spdlog::info("mouse button {} pressed", static_cast<int>(button));
+        }
+        if (window.get_cursor_move().has_value()) {
+            auto [x, y] = window.get_cursor_move().value();
+            spdlog::info("cursor move : {}, {}", x, y);
+        }
+    }
+}
+
 struct VK_TrialPlugin : Plugin {
     void build(App &app) override {
         auto window_plugin = app.get_plugin<WindowPlugin>();
-        window_plugin->set_primary_window_hints({{GLFW_CLIENT_API, GLFW_NO_API}}
-        );
         // window_plugin->primary_window_vsync = false;
 
         using namespace pixel_engine;
@@ -1309,6 +1336,7 @@ struct VK_TrialPlugin : Plugin {
             .in_stage(app::Shutdown);
         app.add_system(create_text).in_stage(app::Startup);
         app.add_system(shuffle_text).in_stage(app::Update);
+        app.add_system(output_event).in_stage(app::Update);
     }
 };
 
@@ -1318,6 +1346,7 @@ void run() {
     app.log_level(App::Loggers::Build, spdlog::level::debug);
     app.enable_loop();
     app.add_plugin(pixel_engine::window::WindowPlugin{});
+    app.add_plugin(pixel_engine::input::InputPlugin{});
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
     app.add_plugin(pixel_engine::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});

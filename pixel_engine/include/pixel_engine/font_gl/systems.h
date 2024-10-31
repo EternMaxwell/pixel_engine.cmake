@@ -31,8 +31,8 @@ void draw(
         Get<const Transform, const OrthoProjection>, With<Camera2d>, Without<>>
         camera_query,
     Query<
-        Get<const window::WindowSize>,
-        With<window::PrimaryWindow, window::WindowCreated>, Without<>>
+        Get<const window::Window>,
+        With<window::PrimaryWindow>>
         window_query,
     render_gl::PipelineQuery::query_type<TextPipeline> pipeline_query);
 }  // namespace systems

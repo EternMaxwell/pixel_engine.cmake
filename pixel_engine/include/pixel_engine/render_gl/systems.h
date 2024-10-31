@@ -14,13 +14,16 @@ using namespace components;
 using namespace window::components;
 
 void clear_color(
-    Query<Get<WindowHandle>, With<WindowCreated>, Without<>> query);
+    Query<Get<Window>> query);
 
 void update_viewport(
-    Query<Get<WindowHandle, WindowSize>, With<WindowCreated>, Without<>> query);
+    Query<Get<Window>> query);
 
 void context_creation(
-    Query<Get<WindowHandle>, With<WindowCreated>, Without<>> query);
+    Query<Get<Window>> query);
+
+void swap_buffers(
+    Query<Get<Window>> query);
 
 void complete_pipeline(
     Command command,

@@ -1,9 +1,10 @@
 #pragma once
 
+#include "pixel_engine/app.h"
 #include "window/components.h"
 #include "window/events.h"
-#include "pixel_engine/app.h"
 #include "window/systems.h"
+
 
 namespace pixel_engine {
 namespace window {
@@ -36,16 +37,9 @@ enum class WindowPostRenderSets {
 
 class WindowPlugin : public app::Plugin {
    public:
-    int primary_window_width = 480 * 3;
-    int primary_window_height = 270 * 3;
-    const char* primary_window_title = "Pixel Engine";
-    bool primary_window_vsync = true;
-    WindowHints window_hints;
+    WindowDescription primary_window_description;
 
-    void set_primary_window_size(int width, int height);
-    void set_primary_window_title(const std::string& title);
-    void set_primary_window_hints(const std::vector<std::pair<int, int>>& hints
-    );
+    WindowDescription& primary_desc();
     void build(App& app) override;
 };
 }  // namespace window

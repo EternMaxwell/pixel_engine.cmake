@@ -17,7 +17,6 @@
 #include "system.h"
 #include "tools.h"
 
-
 namespace pixel_engine {
 namespace app {
 
@@ -65,7 +64,11 @@ struct SubApp {
     template <typename T>
     struct value_type {
         static T get(SubApp* src, SubApp* dst) {
-            static_assert(1, "value type not valid.");
+            if constexpr (app_tools::is_template_of<Query, T>::value) {
+                return T(src->m_world.m_registry);
+            } else {
+                static_assert(false, "The type is not supported in SubApp.");
+            }
         }
     };
 
@@ -108,9 +111,7 @@ struct SubApp {
         static Resource<Res> get(SubApp* src, SubApp* dst) {
             if (src->m_world.m_resources.find(&typeid(Res)) !=
                 src->m_world.m_resources.end()) {
-                return Resource<Res>(
-                    src->m_world.m_resources[&typeid(Res)]
-                );
+                return Resource<Res>(src->m_world.m_resources[&typeid(Res)]);
             } else {
                 return Resource<Res>();
             }
@@ -125,9 +126,7 @@ struct SubApp {
                 dst->m_world.m_events[&typeid(Evt)] =
                     std::make_shared<std::deque<Event>>();
             }
-            return EventWriter<Evt>(
-                dst->m_world.m_events[&typeid(Evt)]
-            );
+            return EventWriter<Evt>(dst->m_world.m_events[&typeid(Evt)]);
         }
     };
 
@@ -139,9 +138,7 @@ struct SubApp {
                 src->m_world.m_events[&typeid(Evt)] =
                     std::make_shared<std::deque<Event>>();
             }
-            return EventReader<Evt>(
-                src->m_world.m_events[&typeid(Evt)]
-            );
+            return EventReader<Evt>(src->m_world.m_events[&typeid(Evt)]);
         }
     };
 
@@ -168,7 +165,7 @@ struct SubApp {
         return std::make_shared<
             System<Resource<State<T>>, Resource<NextState<T>>>>(
             [](Resource<State<T>> state, Resource<NextState<T>> next_state) {
-                state->m_state = next_state->m_state;
+                state->m_state      = next_state->m_state;
                 state->just_created = false;
             }
         );
