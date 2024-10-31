@@ -95,11 +95,14 @@ void systems::update_window_pos(Query<Get<Window>> query) {
 }
 
 void systems::close_window(
-    EventReader<AnyWindowClose> any_close_event, Query<Get<Window>> query
+    Command command,
+    EventReader<AnyWindowClose> any_close_event,
+    Query<Get<Window>> query
 ) {
     for (auto [entity] : any_close_event.read()) {
         auto [window] = query.get(entity);
         window.destroy();
+        command.entity(entity).despawn();
     }
 }
 
@@ -139,7 +142,10 @@ void systems::no_window_exists(
 
 void systems::poll_events() { glfwPollEvents(); }
 
-void systems::scroll_events(EventWriter<MouseScroll> scroll_event) {
+void systems::scroll_events(
+    EventReader<MouseScroll> scroll_read, EventWriter<MouseScroll> scroll_event
+) {
+    scroll_read.clear();
     std::lock_guard<std::mutex> lock(scroll_mutex);
     for (auto& scroll : scroll_cache) {
         scroll_event.write(scroll);

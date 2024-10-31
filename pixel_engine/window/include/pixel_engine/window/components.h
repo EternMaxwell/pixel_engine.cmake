@@ -46,6 +46,7 @@ struct Window {
     };
 
     GLFWwindow* m_handle;
+    std::string m_title;
     bool m_vsync;
     extent m_size;
     ivec2 m_pos;

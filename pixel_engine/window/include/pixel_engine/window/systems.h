@@ -34,7 +34,9 @@ void update_window_cursor_pos(Query<Get<Window>> query);
 void update_window_size(Query<Get<Window>> query);
 void update_window_pos(Query<Get<Window>> query);
 void close_window(
-    EventReader<AnyWindowClose> any_close_event, Query<Get<Window>> query
+    Command command,
+    EventReader<AnyWindowClose> any_close_event,
+    Query<Get<Window>> query
 );
 void primary_window_close(
     Command command,
@@ -47,12 +49,11 @@ void window_close(
     EventWriter<AnyWindowClose> any_close_event
 );
 void no_window_exists(
-    Query<Get<Window>> query,
-    EventWriter<NoWindowExists> no_window_event
+    Query<Get<Window>> query, EventWriter<NoWindowExists> no_window_event
 );
 void poll_events();
 void scroll_events(
-    EventWriter<MouseScroll> scroll_event
+    EventReader<MouseScroll> scroll_read, EventWriter<MouseScroll> scroll_event
 );
 void exit_on_no_window(
     EventReader<NoWindowExists> no_window_event, EventWriter<AppExit> exit_event

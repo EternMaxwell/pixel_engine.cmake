@@ -5,6 +5,7 @@
 #include "pixel_engine/entity.h"
 #include "pixel_engine/font.h"
 #include "pixel_engine/font_gl/font.h"
+#include "pixel_engine/input.h"
 #include "pixel_engine/pixel_render_gl/pixel_render_gl.h"
 #include "pixel_engine/render_gl/render_gl.h"
 #include "pixel_engine/render_vk.h"
@@ -18,8 +19,8 @@ namespace pixel_engine {
 namespace prelude {
 // plugins
 using AssetServerGLPlugin = asset_server_gl::AssetServerGLPlugin;
-using WindowPlugin = window::WindowPlugin;
-using RenderGLPlugin = render_gl::RenderGLPlugin;
-using RenderVKPlugin = render_vk::RenderVKPlugin;
+using WindowPlugin        = window::WindowPlugin;
+using RenderGLPlugin      = render_gl::RenderGLPlugin;
+using RenderVKPlugin      = render_vk::RenderVKPlugin;
 }  // namespace prelude
 }  // namespace pixel_engine

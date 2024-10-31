@@ -88,7 +88,9 @@ std::optional<Window> components::create_window(const WindowDescription& desc) {
     }
     int x, y;
     glfwGetWindowPos(window, &x, &y);
-    return Window{window, desc.vsync, {desc.width, desc.height}, {x, y}};
+    return Window{
+        window, desc.title, desc.vsync, {desc.width, desc.height}, {x, y}
+    };
 }
 void components::update_cursor(Window& window) {
     double x, y;

@@ -1185,6 +1185,32 @@ void shuffle_text(Query<Get<pixel_engine::font::components::Text>> text_query) {
     }
 }
 
+using namespace pixel_engine::input::components;
+
+void output_event(
+    EventReader<pixel_engine::input::events::MouseScroll> scroll_events,
+    Query<Get<ButtonInput<KeyCode>, ButtonInput<MouseButton>, const Window>>
+        query
+) {
+    for (auto event : scroll_events.read()) {
+        spdlog::info("scroll : {}", event.yoffset);
+    }
+    for (auto [key_input, mouse_input, window] : query.iter()) {
+        for (auto key : key_input.pressed_keys()) {
+            auto *key_name = key_input.key_name(key);
+            if (key_name == nullptr) {
+                spdlog::info("key {} pressed", static_cast<int>(key));
+            } else {
+                spdlog::info("key {} pressed", key_name);
+            }
+        }
+        spdlog::info(
+            "mouse cursor at ({}, {})", window.get_cursor().x,
+            window.get_cursor().y
+        );
+    }
+}
+
 struct VK_TrialPlugin : Plugin {
     void build(App &app) override {
         auto window_plugin = app.get_plugin<WindowPlugin>();
@@ -1307,6 +1333,7 @@ struct VK_TrialPlugin : Plugin {
             .in_stage(app::Shutdown);
         app.add_system(create_text).in_stage(app::Startup);
         app.add_system(shuffle_text).in_stage(app::Update);
+        app.add_system(output_event).in_stage(app::Update);
     }
 };
 
@@ -1316,6 +1343,7 @@ void run() {
     app.log_level(App::Loggers::Build, spdlog::level::debug);
     app.enable_loop();
     app.add_plugin(pixel_engine::window::WindowPlugin{});
+    app.add_plugin(pixel_engine::input::InputPlugin{});
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
     app.add_plugin(pixel_engine::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});
