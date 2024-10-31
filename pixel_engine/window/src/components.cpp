@@ -28,21 +28,22 @@ WindowDescription& WindowDescription::set_hints(
     return *this;
 }
 
-const std::optional<Window::dvec2>& Window::get_cursor_pos() const {
-    return m_cursor_pos;
-}
+const Window::dvec2& Window::get_cursor() const { return m_cursor_pos; }
 const Window::ivec2& Window::get_pos() const { return m_pos; }
 const Window::extent& Window::get_size() const { return m_size; }
-const GLFWwindow* Window::get_handle() const { return m_handle; }
+GLFWwindow* Window::get_handle() const { return m_handle; }
 void Window::show() { glfwShowWindow(m_handle); }
 void Window::hide() { glfwHideWindow(m_handle); }
 bool Window::vsync() const { return m_vsync; }
-bool Window::should_close() const { return glfwWindowShouldClose(m_handle); }
+bool Window::should_close() const {
+    if (!m_handle) return true;
+    return glfwWindowShouldClose(m_handle);
+}
 void Window::destroy() {
     glfwDestroyWindow(m_handle);
     m_handle = nullptr;
 }
-void Window::set_cursor_pos(double x, double y) {
+void Window::set_cursor(double x, double y) {
     glfwSetCursorPos(m_handle, x, y);
     m_cursor_pos = dvec2{x, y};
 }
@@ -88,6 +89,11 @@ std::optional<Window> components::create_window(const WindowDescription& desc) {
     int x, y;
     glfwGetWindowPos(window, &x, &y);
     return Window{window, desc.vsync, {desc.width, desc.height}, {x, y}};
+}
+void components::update_cursor(Window& window) {
+    double x, y;
+    glfwGetCursorPos(window.m_handle, &x, &y);
+    window.m_cursor_pos = {x, y};
 }
 void components::update_size(Window& window) {
     if (window.is_fullscreen()) return;

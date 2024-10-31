@@ -22,24 +22,23 @@ static std::shared_ptr<spdlog::logger> logger =
 void systems::create_context(
     Command cmd,
     Query<
-        Get<window::components::WindowHandle>,
+        Get<window::components::Window>,
         With<window::components::PrimaryWindow>> query,
     Resource<RenderVKPlugin> plugin
 ) {
     if (!query.single().has_value()) {
         return;
     }
-    auto [window_handle] = query.single().value();
+    auto [window] = query.single().value();
     Instance instance =
         Instance::create("Pixel Engine", VK_MAKE_VERSION(0, 1, 0), logger);
     PhysicalDevice physical_device = PhysicalDevice::create(instance);
-    Device device = Device::create(instance, physical_device);
-    Surface surface = Surface::create(instance, window_handle.window_handle);
-    Swapchain swap_chain = Swapchain::create(
-        physical_device, device, surface, window_handle.vsync
-    );
+    Device device                  = Device::create(instance, physical_device);
+    Surface surface = Surface::create(instance, window.get_handle());
+    Swapchain swap_chain =
+        Swapchain::create(physical_device, device, surface, window.m_vsync);
     CommandPool command_pool = CommandPool::create(device);
-    Queue queue = Queue::create(device);
+    Queue queue              = Queue::create(device);
     cmd.spawn(
         instance, physical_device, device, surface, swap_chain, queue,
         command_pool, RenderContext{}
@@ -72,7 +71,7 @@ void systems::get_next_image(
 ) {
     if (!query.single().has_value()) return;
     if (!cmd_query.single().has_value()) return;
-    auto [cmd_buffer, cmd_fence] = cmd_query.single().value();
+    auto [cmd_buffer, cmd_fence]                   = cmd_query.single().value();
     auto [device, swap_chain, command_pool, queue] = query.single().value();
     auto image = swap_chain.next_image(device);
     device->waitForFences(*cmd_fence, VK_TRUE, UINT64_MAX);
@@ -127,7 +126,7 @@ void systems::present_frame(
 ) {
     if (!query.single().has_value()) return;
     if (!cmd_query.single().has_value()) return;
-    auto [cmd_buffer, cmd_fence] = cmd_query.single().value();
+    auto [cmd_buffer, cmd_fence]                   = cmd_query.single().value();
     auto [swap_chain, queue, device, command_pool] = query.single().value();
     device->waitForFences(*cmd_fence, VK_TRUE, UINT64_MAX);
     device->resetFences(*cmd_fence);

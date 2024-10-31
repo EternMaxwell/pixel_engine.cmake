@@ -19,7 +19,6 @@ using namespace events;
 using namespace pixel_engine::prelude;
 
 void init_glfw();
-void insert_window_map(Command command);
 void insert_primary_window(
     Command command, Resource<window::WindowPlugin> window_plugin
 );
@@ -31,8 +30,12 @@ void create_window_update(
     Command command,
     Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query
 );
+void update_window_cursor_pos(Query<Get<Window>> query);
 void update_window_size(Query<Get<Window>> query);
 void update_window_pos(Query<Get<Window>> query);
+void close_window(
+    EventReader<AnyWindowClose> any_close_event, Query<Get<Window>> query
+);
 void primary_window_close(
     Command command,
     Query<Get<Entity, Window>, With<PrimaryWindow>> query,
@@ -48,6 +51,9 @@ void no_window_exists(
     EventWriter<NoWindowExists> no_window_event
 );
 void poll_events();
+void scroll_events(
+    EventWriter<MouseScroll> scroll_event
+);
 void exit_on_no_window(
     EventReader<NoWindowExists> no_window_event, EventWriter<AppExit> exit_event
 );

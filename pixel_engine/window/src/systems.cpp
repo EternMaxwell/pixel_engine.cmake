@@ -1,6 +1,6 @@
+#include "pixel_engine/window.h"
 #include "pixel_engine/window/resources.h"
 #include "pixel_engine/window/systems.h"
-#include "systems.h"
 
 using namespace pixel_engine::window::systems;
 using namespace pixel_engine::window;
@@ -12,14 +12,20 @@ void systems::init_glfw() {
     }
 }
 
-void systems::insert_window_map(Command command) {
-    command.insert_resource(resources::WindowMap{});
-}
-
 void systems::insert_primary_window(
     Command command, Resource<window::WindowPlugin> window_plugin
 ) {
-    command.spawn(window_plugin->primary_desc());
+    command.spawn(window_plugin->primary_desc(), PrimaryWindow{});
+}
+
+static std::mutex scroll_mutex;
+static std::vector<events::MouseScroll> scroll_cache;
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    std::lock_guard<std::mutex> lock(scroll_mutex);
+    Handle<Window>* ptr =
+        static_cast<Handle<Window>*>(glfwGetWindowUserPointer(window));
+    scroll_cache.emplace_back(xoffset, yoffset, *ptr);
 }
 
 void systems::create_window_start(
@@ -31,7 +37,12 @@ void systems::create_window_start(
         auto window = components::create_window(desc);
         command.entity(entity).erase<WindowDescription>();
         if (window.has_value()) {
-            command.entity(entity).insert(window.value());
+            command.entity(entity).emplace(window.value());
+            Handle<Window>* ptr = new Handle<Window>{entity};
+            glfwSetWindowUserPointer(
+                window.value().get_handle(), static_cast<void*>(ptr)
+            );
+            glfwSetScrollCallback(window.value().get_handle(), scroll_callback);
         } else {
             spdlog::error(
                 "Failed to create window {} with size {}x{}", desc.title,
@@ -50,13 +61,24 @@ void systems::create_window_update(
         auto window = components::create_window(desc);
         command.entity(entity).erase<WindowDescription>();
         if (window.has_value()) {
-            command.entity(entity).insert(window.value());
+            command.entity(entity).emplace(window.value());
+            Handle<Window>* ptr = new Handle<Window>{entity};
+            glfwSetWindowUserPointer(
+                window.value().get_handle(), static_cast<void*>(ptr)
+            );
+            glfwSetScrollCallback(window.value().get_handle(), scroll_callback);
         } else {
             spdlog::error(
                 "Failed to create window {} with size {}x{}", desc.title,
                 desc.width, desc.height
             );
         }
+    }
+}
+
+void systems::update_window_cursor_pos(Query<Get<Window>> query) {
+    for (auto [window] : query.iter()) {
+        update_cursor(window);
     }
 }
 
@@ -72,6 +94,15 @@ void systems::update_window_pos(Query<Get<Window>> query) {
     }
 }
 
+void systems::close_window(
+    EventReader<AnyWindowClose> any_close_event, Query<Get<Window>> query
+) {
+    for (auto [entity] : any_close_event.read()) {
+        auto [window] = query.get(entity);
+        window.destroy();
+    }
+}
+
 void systems::primary_window_close(
     Command command,
     Query<Get<Entity, Window>, With<PrimaryWindow>> query,
@@ -79,7 +110,6 @@ void systems::primary_window_close(
 ) {
     for (auto [entity, window] : query.iter()) {
         if (window.should_close()) {
-            window.destroy();
             any_close_event.write(AnyWindowClose{entity});
         }
     }
@@ -92,7 +122,6 @@ void systems::window_close(
 ) {
     for (auto [entity, window] : query.iter()) {
         if (window.should_close()) {
-            window.destroy();
             any_close_event.write(AnyWindowClose{entity});
         }
     }
@@ -110,10 +139,18 @@ void systems::no_window_exists(
 
 void systems::poll_events() { glfwPollEvents(); }
 
+void systems::scroll_events(EventWriter<MouseScroll> scroll_event) {
+    std::lock_guard<std::mutex> lock(scroll_mutex);
+    for (auto& scroll : scroll_cache) {
+        scroll_event.write(scroll);
+    }
+    scroll_cache.clear();
+}
+
 void systems::exit_on_no_window(
     EventReader<NoWindowExists> no_window_event, EventWriter<AppExit> exit_event
 ) {
-    for (auto _ : no_window_event.iter()) {
+    for (auto _ : no_window_event.read()) {
         exit_event.write(AppExit{});
     }
 }

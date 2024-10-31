@@ -16,7 +16,6 @@ struct PrimaryWindow {};
 struct Window;
 
 struct WindowDescription {
-   protected:
     std::string title = "Pixel Engine";
     int width = 480 * 3, height = 270 * 3;
     bool vsync = true;
@@ -28,8 +27,6 @@ struct WindowDescription {
     WindowDescription& set_vsync(bool vsync);
     WindowDescription& add_hint(int hint, int value);
     WindowDescription& set_hints(std::vector<std::pair<int, int>> hints);
-
-    friend std::optional<Window> create_window(const WindowDescription& desc);
 };
 
 struct Window {
@@ -48,36 +45,32 @@ struct Window {
         double y;
     };
 
-   protected:
     GLFWwindow* m_handle;
     bool m_vsync;
     extent m_size;
     ivec2 m_pos;
-    std::optional<dvec2> m_cursor_pos;
+    dvec2 m_cursor_pos;
 
    public:
-    const std::optional<dvec2>& get_cursor_pos() const;
+    const dvec2& get_cursor() const;
     const ivec2& get_pos() const;
     const extent& get_size() const;
-    const GLFWwindow* get_handle() const;
+    GLFWwindow* get_handle() const;
     void show();
     void hide();
     bool vsync() const;
     bool should_close() const;
     void destroy();
-    void set_cursor_pos(double x, double y);
+    void set_cursor(double x, double y);
     bool focused() const;
     bool is_fullscreen() const;
     void set_fullscreen();
     void fullscreen_off();
     void toggle_fullscreen();
-
-    friend std::optional<Window> create_window(const WindowDescription& desc);
-    friend void update_size(Window& window);
-    friend void update_pos(Window& window);
 };
 
 std::optional<Window> create_window(const WindowDescription& desc);
+void update_cursor(Window& window);
 void update_size(Window& window);
 void update_pos(Window& window);
 }  // namespace components

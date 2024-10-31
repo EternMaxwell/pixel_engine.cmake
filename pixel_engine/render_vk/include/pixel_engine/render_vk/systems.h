@@ -25,7 +25,7 @@ struct ContextCommandBuffer {};
 void create_context(
     Command cmd,
     Query<
-        Get<window::components::WindowHandle>,
+        Get<window::components::Window>,
         With<window::components::PrimaryWindow>> query,
     Resource<RenderVKPlugin> plugin
 );

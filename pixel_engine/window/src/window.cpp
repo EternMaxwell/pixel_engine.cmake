@@ -12,71 +12,49 @@ WindowDescription& WindowPlugin::primary_desc() {
 }
 
 void pixel_engine::window::WindowPlugin::build(App& app) {
-    app.configure_sets(
+    app->configure_sets(
            WindowStartUpSets::glfw_initialization,
            WindowStartUpSets::window_creation,
            WindowStartUpSets::after_window_creation
     )
-        .add_system(insert_primary_window)
-        .in_stage(app::PreStartup)
-        .use_worker("single")
-        ->add_system(init_glfw)
-        .in_stage(app::PreStartup)
-        .in_set(WindowStartUpSets::glfw_initialization)
-        .use_worker("single")
-        ->add_system(create_window_startup)
-        .in_stage(app::PreStartup)
-        .after(insert_primary_window)
-        .in_set(WindowStartUpSets::window_creation)
-        .use_worker("single")
-        ->configure_sets(
-            WindowPreUpdateSets::poll_events,
-            WindowPreUpdateSets::update_window_data
-        )
-        ->add_system(poll_events)
-        .in_stage(app::First)
-        .in_set(WindowPreUpdateSets::poll_events)
-        .use_worker("single")
-        ->add_system(update_window_size)
-        .in_stage(app::First)
-        .in_set(WindowPreUpdateSets::update_window_data)
-        .use_worker("single")
-        ->add_system(update_window_pos)
-        .in_stage(app::First)
-        .in_set(WindowPreUpdateSets::update_window_data)
-        .use_worker("single")
         ->configure_sets(
             WindowPreRenderSets::before_create,
             WindowPreRenderSets::window_creation,
             WindowPreRenderSets::after_create
         )
-        ->add_system(create_window_prerender)
-        .in_stage(app::Prepare)
-        .in_set(WindowPreRenderSets::window_creation)
+        ->add_system(app::PreStartup, init_glfw)
+        .in_set(WindowStartUpSets::glfw_initialization)
         .use_worker("single")
-        ->configure_sets(
-            WindowPostRenderSets::before_swap_buffers,
-            WindowPostRenderSets::swap_buffers,
-            WindowPostRenderSets::window_close,
-            WindowPostRenderSets::after_close_window
-        )
-        ->add_system(swap_buffers)
-        .in_stage(app::PostRender)
-        .in_set(WindowPostRenderSets::swap_buffers)
+        ->add_system(app::PreStartup, insert_primary_window)
+        .before(create_window_start)
+        ->add_system(app::PreStartup, create_window_start)
+        .in_set(WindowStartUpSets::window_creation)
         .use_worker("single")
-        ->add_system(primary_window_close)
-        .in_stage(app::PostRender)
-        .in_set(WindowPostRenderSets::window_close)
+        ->add_system(app::First, poll_events)
         .use_worker("single")
-        ->add_system(window_close)
-        .in_stage(app::PostRender)
-        .in_set(WindowPostRenderSets::window_close)
+        ->add_system(app::First, scroll_events)
+        .after(poll_events)
+        ->add_system(app::First, update_window_cursor_pos)
+        .after(poll_events)
+        .before(close_window)
         .use_worker("single")
-        ->add_system(no_window_exists)
-        .in_stage(app::PostRender)
-        .in_set(WindowPostRenderSets::after_close_window)
-        ->add_system(exit_on_no_window)
-        .in_stage(app::PostRender)
-        .after(no_window_exists)
-        .in_set(WindowPostRenderSets::after_close_window);
+        ->add_system(app::First, update_window_size)
+        .after(poll_events)
+        .before(close_window)
+        .use_worker("single")
+        ->add_system(app::First, update_window_pos)
+        .after(poll_events)
+        .before(close_window)
+        .use_worker("single")
+        ->add_system(app::First, close_window)
+        ->add_system(app::Last, primary_window_close)
+        .before(no_window_exists)
+        .use_worker("single")
+        ->add_system(app::Last, window_close)
+        .before(no_window_exists)
+        .use_worker("single")
+        ->add_system(app::Last, no_window_exists)
+        .before(exit_on_no_window)
+        .use_worker("single")
+        ->add_system(app::Last, exit_on_no_window);
 }

@@ -15,6 +15,12 @@ struct AnyWindowClose {
 };
 struct NoWindowExists {};
 struct PrimaryWindowClose {};
+
+struct MouseScroll {
+    double xoffset;
+    double yoffset;
+    Handle<Window> window;
+};
 }  // namespace events
 }  // namespace window
 }  // namespace pixel_engine
