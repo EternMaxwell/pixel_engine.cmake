@@ -29,6 +29,9 @@ WindowDescription& WindowDescription::set_hints(
 }
 
 const Window::dvec2& Window::get_cursor() const { return m_cursor_pos; }
+const std::optional<Window::dvec2>& Window::get_cursor_move() const {
+    return m_cursor_move;
+}
 const Window::ivec2& Window::get_pos() const { return m_pos; }
 const Window::extent& Window::get_size() const { return m_size; }
 GLFWwindow* Window::get_handle() const { return m_handle; }
@@ -95,6 +98,13 @@ std::optional<Window> components::create_window(const WindowDescription& desc) {
 void components::update_cursor(Window& window) {
     double x, y;
     glfwGetCursorPos(window.m_handle, &x, &y);
+    if (x != window.m_cursor_pos.x || y != window.m_cursor_pos.y) {
+        window.m_cursor_move = {
+            x - window.m_cursor_pos.x, y - window.m_cursor_pos.y
+        };
+    } else {
+        window.m_cursor_move = std::nullopt;
+    }
     window.m_cursor_pos = {x, y};
 }
 void components::update_size(Window& window) {

@@ -1204,10 +1204,13 @@ void output_event(
                 spdlog::info("key {} pressed", key_name);
             }
         }
-        spdlog::info(
-            "mouse cursor at ({}, {})", window.get_cursor().x,
-            window.get_cursor().y
-        );
+        for (auto button : mouse_input.pressed_buttons()) {
+            spdlog::info("mouse button {} pressed", static_cast<int>(button));
+        }
+        if (window.get_cursor_move().has_value()) {
+            auto [x, y] = window.get_cursor_move().value();
+            spdlog::info("cursor move : {}, {}", x, y);
+        }
     }
 }
 

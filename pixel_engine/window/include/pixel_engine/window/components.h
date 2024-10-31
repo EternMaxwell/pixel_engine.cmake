@@ -51,9 +51,11 @@ struct Window {
     extent m_size;
     ivec2 m_pos;
     dvec2 m_cursor_pos;
+    std::optional<dvec2> m_cursor_move;
 
    public:
     const dvec2& get_cursor() const;
+    const std::optional<dvec2>& get_cursor_move() const;
     const ivec2& get_pos() const;
     const extent& get_size() const;
     GLFWwindow* get_handle() const;

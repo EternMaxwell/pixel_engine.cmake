@@ -219,15 +219,15 @@ bool ButtonInput<MouseButton>::pressed(MouseButton button) const {
     return m_pressed.find(button) != m_pressed.end();
 }
 const std::unordered_set<MouseButton, MouseButtonHash>&
-ButtonInput<MouseButton>::just_pressed_keys() const {
+ButtonInput<MouseButton>::just_pressed_buttons() const {
     return m_just_pressed;
 }
 const std::unordered_set<MouseButton, MouseButtonHash>&
-ButtonInput<MouseButton>::just_released_keys() const {
+ButtonInput<MouseButton>::just_released_buttons() const {
     return m_just_released;
 }
 const std::unordered_set<MouseButton, MouseButtonHash>&
-ButtonInput<MouseButton>::pressed_keys() const {
+ButtonInput<MouseButton>::pressed_buttons() const {
     return m_pressed;
 }
 bool ButtonInput<MouseButton>::any_just_pressed(

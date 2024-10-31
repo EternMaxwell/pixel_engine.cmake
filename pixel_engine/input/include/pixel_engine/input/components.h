@@ -209,11 +209,11 @@ struct ButtonInput<MouseButton> {
     bool just_released(MouseButton button) const;
     bool pressed(MouseButton button) const;
 
-    const std::unordered_set<MouseButton, MouseButtonHash>& just_pressed_keys(
+    const std::unordered_set<MouseButton, MouseButtonHash>& just_pressed_buttons(
     ) const;
-    const std::unordered_set<MouseButton, MouseButtonHash>& just_released_keys(
-    ) const;
-    const std::unordered_set<MouseButton, MouseButtonHash>& pressed_keys(
+    const std::unordered_set<MouseButton, MouseButtonHash>&
+    just_released_buttons() const;
+    const std::unordered_set<MouseButton, MouseButtonHash>& pressed_buttons(
     ) const;
 
     bool any_just_pressed(const std::vector<MouseButton>& buttons) const;
