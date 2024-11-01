@@ -1196,16 +1196,31 @@ void output_event(
         spdlog::info("scroll : {}", event.yoffset);
     }
     for (auto [key_input, mouse_input, window] : query.iter()) {
-        for (auto key : key_input.pressed_keys()) {
+        for (auto key : key_input.just_pressed_keys()) {
             auto *key_name = key_input.key_name(key);
             if (key_name == nullptr) {
-                spdlog::info("key {} pressed", static_cast<int>(key));
+                spdlog::info("key {} just pressed", static_cast<int>(key));
             } else {
-                spdlog::info("key {} pressed", key_name);
+                spdlog::info("key {} just pressed", key_name);
             }
         }
-        for (auto button : mouse_input.pressed_buttons()) {
-            spdlog::info("mouse button {} pressed", static_cast<int>(button));
+        for (auto key : key_input.just_released_keys()) {
+            auto *key_name = key_input.key_name(key);
+            if (key_name == nullptr) {
+                spdlog::info("key {} just released", static_cast<int>(key));
+            } else {
+                spdlog::info("key {} just released", key_name);
+            }
+        }
+        for (auto button : mouse_input.just_pressed_buttons()) {
+            spdlog::info(
+                "mouse button {} just pressed", static_cast<int>(button)
+            );
+        }
+        for (auto button : mouse_input.just_released_buttons()) {
+            spdlog::info(
+                "mouse button {} just released", static_cast<int>(button)
+            );
         }
         if (window.get_cursor_move().has_value()) {
             auto [x, y] = window.get_cursor_move().value();
