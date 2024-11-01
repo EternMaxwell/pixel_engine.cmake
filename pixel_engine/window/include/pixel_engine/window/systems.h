@@ -30,7 +30,11 @@ void create_window_update(
     Command command,
     Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query
 );
-void update_window_cursor_pos(Query<Get<Window>> query);
+void update_window_cursor_pos(
+    Query<Get<Entity, Window>> query,
+    EventReader<CursorMove> cursor_read,
+    EventWriter<CursorMove> cursor_event
+);
 void update_window_size(Query<Get<Window>> query);
 void update_window_pos(Query<Get<Window>> query);
 void close_window(

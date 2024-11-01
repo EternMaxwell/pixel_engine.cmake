@@ -21,6 +21,11 @@ struct MouseScroll {
     double yoffset;
     Handle<Window> window;
 };
+struct CursorMove {
+    double x;
+    double y;
+    Handle<Window> window;
+};
 }  // namespace events
 }  // namespace window
 }  // namespace pixel_engine

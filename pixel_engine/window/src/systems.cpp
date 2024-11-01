@@ -76,9 +76,18 @@ void systems::create_window_update(
     }
 }
 
-void systems::update_window_cursor_pos(Query<Get<Window>> query) {
-    for (auto [window] : query.iter()) {
+void systems::update_window_cursor_pos(
+    Query<Get<Entity, Window>> query,
+    EventReader<events::CursorMove> cursor_read,
+    EventWriter<events::CursorMove> cursor_event
+) {
+    cursor_read.clear();
+    for (auto [entity, window] : query.iter()) {
         update_cursor(window);
+        if (window.get_cursor_move().has_value()) {
+            auto [x, y] = window.get_cursor_move().value();
+            cursor_event.write(events::CursorMove{x, y, entity});
+        }
     }
 }
 

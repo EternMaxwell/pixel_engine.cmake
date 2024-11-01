@@ -1190,7 +1190,8 @@ using namespace pixel_engine::input::components;
 void output_event(
     EventReader<pixel_engine::input::events::MouseScroll> scroll_events,
     Query<Get<ButtonInput<KeyCode>, ButtonInput<MouseButton>, const Window>>
-        query
+        query,
+    EventReader<pixel_engine::input::events::CursorMove> cursor_move_events
 ) {
     for (auto event : scroll_events.read()) {
         spdlog::info("scroll : {}", event.yoffset);
@@ -1222,10 +1223,13 @@ void output_event(
                 "mouse button {} just released", static_cast<int>(button)
             );
         }
-        if (window.get_cursor_move().has_value()) {
-            auto [x, y] = window.get_cursor_move().value();
-            spdlog::info("cursor move : {}, {}", x, y);
-        }
+        // if (window.get_cursor_move().has_value()) {
+        //     auto [x, y] = window.get_cursor_move().value();
+        //     spdlog::info("cursor move -from window : {}, {}", x, y);
+        // }
+    }
+    for (auto event : cursor_move_events.read()) {
+        spdlog::info("cursor move -from events : {}, {}", event.x, event.y);
     }
 }
 
