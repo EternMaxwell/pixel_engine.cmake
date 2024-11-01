@@ -201,10 +201,13 @@ void components::update_key_button_input(
     }
     for (auto key : keyCodeAll) {
         if (glfwGetKey(window, static_cast<int>(key)) == GLFW_PRESS) {
-            key_input.m_just_pressed.insert(key);
-            key_input.m_pressed.insert(key);
+            if (key_input.m_pressed.find(key) == key_input.m_pressed.end())
+                key_input.m_just_pressed.insert(key);
         }
     }
+    key_input.m_pressed.insert(
+        key_input.m_just_pressed.begin(), key_input.m_just_pressed.end()
+    );
 }
 
 ButtonInput<MouseButton>::ButtonInput(Handle<Window> window)
@@ -289,8 +292,12 @@ void components::update_mouse_button_input(
     for (auto button : mouseButtonAll) {
         if (glfwGetMouseButton(window, static_cast<int>(button)) ==
             GLFW_PRESS) {
-            mouse_input.m_just_pressed.insert(button);
-            mouse_input.m_pressed.insert(button);
+            if (mouse_input.m_pressed.find(button) ==
+                mouse_input.m_pressed.end())
+                mouse_input.m_just_pressed.insert(button);
         }
     }
+    mouse_input.m_pressed.insert(
+        mouse_input.m_just_pressed.begin(), mouse_input.m_just_pressed.end()
+    );
 }
