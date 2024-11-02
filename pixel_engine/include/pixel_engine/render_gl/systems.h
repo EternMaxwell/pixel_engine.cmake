@@ -28,7 +28,7 @@ void swap_buffers(
 void complete_pipeline(
     Command command,
     Query<
-        Get<entt::entity, ProgramShaderAttachments, VertexAttribs>,
+        Get<Entity, ProgramShaderAttachments, VertexAttribs>,
         With<PipelineCreation>, Without<>>
         query);
 }  // namespace systems

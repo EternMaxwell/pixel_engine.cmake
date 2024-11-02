@@ -387,7 +387,7 @@ void pixel_engine::render_gl::systems::swap_buffers(Query<Get<Window>> query) {
 void pixel_engine::render_gl::systems::complete_pipeline(
     Command command,
     Query<
-        Get<entt::entity, ProgramShaderAttachments, VertexAttribs>,
+        Get<Entity, ProgramShaderAttachments, VertexAttribs>,
         With<PipelineCreation>,
         Without<>> query
 ) {
