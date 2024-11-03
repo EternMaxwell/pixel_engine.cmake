@@ -1,6 +1,7 @@
 ﻿cmake_minimum_required (VERSION 3.21)
 
 add_subdirectory(app)
+add_subdirectory(app_v2)
 add_subdirectory(window)
 add_subdirectory(render_ogl)
 add_subdirectory(vulkan_graph)
