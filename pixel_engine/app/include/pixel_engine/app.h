@@ -8,7 +8,7 @@ using App = app::App;
 using AppExit = app::AppExit;
 
 using Bundle = app::Bundle;
-using Entity = entt::entity;
+using Entity = app::Entity;
 
 template <typename T>
 using Handle = app::Handle<T>;

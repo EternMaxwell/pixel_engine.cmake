@@ -80,9 +80,9 @@ class QueryBase<Get<Qus...>, With<Ins...>, Without<Exs...>> {
      */
     auto iter() { return iterator(m_view.each()); }
 
-    std::tuple<Qus&...> get(entt::entity id) { return m_view.get<Qus...>(id); }
+    std::tuple<Qus&...> get(Entity id) { return m_view.get<Qus...>(id); }
 
-    bool contains(entt::entity id) { return m_view.contains(id); }
+    bool contains(Entity id) { return m_view.contains(id); }
 
     /*! @brief Get the single entity and requaired components.
      * @return An optional of a single tuple of entity and requaired
@@ -101,7 +101,7 @@ class QueryBase<Get<Qus...>, With<Ins...>, Without<Exs...>> {
 };
 
 template <typename... Qus, typename... Ins, typename... Exs>
-class QueryBase<Get<entt::entity, Qus...>, With<Ins...>, Without<Exs...>> {
+class QueryBase<Get<Entity, Qus...>, With<Ins...>, Without<Exs...>> {
    private:
     entt::registry& registry;
     decltype(registry.view<Qus..., Ins...>(entt::exclude_t<Exs...>{})) m_view;
@@ -149,8 +149,9 @@ class QueryBase<Get<entt::entity, Qus...>, With<Ins...>, Without<Exs...>> {
         auto operator*() {
             // remove the first element of the tuple and return the
             // rest
-            return std::tuple<entt::entity, Qus&...>(
-                std::get<entt::entity>(*m_iter), std::get<Qus&>(*m_iter)...
+            return std::tuple<Entity, Qus&...>(
+                Entity{std::get<entt::entity>(*m_iter)},
+                std::get<Qus&>(*m_iter)...
             );
         }
         auto begin() { return iterator(m_full, m_full.begin()); }
@@ -163,9 +164,9 @@ class QueryBase<Get<entt::entity, Qus...>, With<Ins...>, Without<Exs...>> {
      */
     auto iter() { return iterator(m_view.each()); }
 
-    std::tuple<Qus&...> get(entt::entity id) { return m_view.get<Qus...>(id); }
+    std::tuple<Qus&...> get(Entity id) { return m_view.get<Qus...>(id); }
 
-    bool contains(entt::entity id) { return m_view.contains(id); }
+    bool contains(Entity id) { return m_view.contains(id); }
 
     /*! @brief Get the single entity and requaired components.
      * @return An optional of a single tuple of entity and requaired
@@ -180,10 +181,14 @@ class QueryBase<Get<entt::entity, Qus...>, With<Ins...>, Without<Exs...>> {
         }
     }
 
-    void for_each(std::function<void(entt::entity, Qus&...)> func) {
+    void for_each(std::function<void(Entity, Qus&...)> func) {
         m_view.each(func);
     }
 };
+
+template <typename... Gets, typename... Withouts, typename W>
+struct QueryBase<Get<Gets...>, Without<Withouts...>, W>
+    : QueryBase<Get<Gets...>, With<>, Without<Withouts...>> {};
 
 template <typename G, typename W, typename WO>
 struct Extract {};
@@ -208,17 +213,14 @@ struct Extract<Get<Gets...>, With<Withs...>, Without<Withouts...>> {
     ) {
         query.for_each(func);
     }
-    auto get(entt::entity id) { return query.get(id); }
-    bool contains(entt::entity id) { return query.contains(id); }
+    auto get(Entity id) { return query.get(id); }
+    bool contains(Entity id) { return query.contains(id); }
 };
 
 template <typename... Gets, typename... Withs, typename... Withouts>
-struct Extract<
-    Get<entt::entity, Gets...>,
-    With<Withs...>,
-    Without<Withouts...>> {
+struct Extract<Get<Entity, Gets...>, With<Withs...>, Without<Withouts...>> {
     using type = QueryBase<
-        Get<entt::entity, std::add_const_t<Gets>...>,
+        Get<Entity, std::add_const_t<Gets>...>,
         With<std::add_const_t<Withs>...>,
         Without<std::add_const_t<Withouts>...>>;
 
@@ -235,9 +237,13 @@ struct Extract<
     ) {
         query.for_each(func);
     }
-    auto get(entt::entity id) { return query.get(id); }
-    bool contains(entt::entity id) { return query.contains(id); }
+    auto get(Entity id) { return query.get(id); }
+    bool contains(Entity id) { return query.contains(id); }
 };
+
+template <typename... Gets, typename... Withouts, typename W>
+struct Extract<Get<Gets...>, Without<Withouts...>, W>
+    : Extract<Get<Gets...>, With<>, Without<Withouts...>> {};
 
 template <typename G, typename W, typename WO>
 struct Query {
@@ -256,8 +262,8 @@ struct Query {
     ) {
         query.for_each(func);
     }
-    auto get(entt::entity id) { return query.get(id); }
-    bool contains(entt::entity id) { return query.contains(id); }
+    auto get(Entity id) { return query.get(id); }
+    bool contains(Entity id) { return query.contains(id); }
 };
 }  // namespace app
 }  // namespace pixel_engine

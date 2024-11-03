@@ -61,9 +61,8 @@ void pixel_engine::font_gl::systems::draw(
         With<Camera2d>,
         Without<>> camera_query,
     Query<
-        Get<const window::WindowSize>,
-        With<window::PrimaryWindow, window::WindowCreated>,
-        Without<>> window_query,
+        Get<const window::Window>,
+        With<window::PrimaryWindow>> window_query,
     render_gl::PipelineQuery::query_type<TextPipeline> pipeline_query
 ) {
     if (!pipeline_query.single().has_value()) return;
@@ -113,7 +112,7 @@ void pixel_engine::font_gl::systems::draw(
     depth_range.use();
     per_sample_operations.use();
     frame_buffer.bind();
-    for (auto [window_size] : window_query.iter()) {
+    for (auto [window] : window_query.iter()) {
         for (auto [text, transform] : text_query.iter()) {
             int err =
                 FT_Set_Char_Size(text.font_face, 0, text.pixels, 1920, 1080);
@@ -207,7 +206,7 @@ void pixel_engine::font_gl::systems::draw(
             float height =
                 text.size ? text.size * lines
                           : (ortho_projection.top - ortho_projection.bottom) *
-                                text.pixels * lines / window_size.height;
+                                text.pixels * lines / window.get_size().height;
             float s1 = 0;
             float t1 = 1;
             float s2 = max_x / (float)image_width;

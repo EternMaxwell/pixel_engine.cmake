@@ -5,25 +5,44 @@
 
 namespace pixel_engine {
 namespace app {
+struct Entity {
+    entt::entity id = entt::null;
+    Entity operator=(entt::entity id) {
+        this->id = id;
+        return *this;
+    }
+    operator entt::entity() { return id; }
+    operator bool() { return id != entt::null; }
+    bool operator!() { return id == entt::null; }
+    bool operator==(const Entity& other) { return id == other.id; }
+    bool operator!=(const Entity& other) { return id != other.id; }
+    bool operator==(const entt::entity& other) { return id == other; }
+    bool operator!=(const entt::entity& other) { return id != other; }
+};
 struct App;
 struct SubApp;
 }  // namespace app
 namespace internal_components {
+using Entity = app::Entity;
 struct Bundle {};
 struct Parent {
-    entt::entity id;
+    Entity id;
 };
 template <typename T>
 struct Handle {
-    entt::entity id = entt::null;
+    Entity id;
     void operator=(entt::entity id) { this->id = id; }
+    void operator=(Entity id) { this->id = id; }
     operator entt::entity() { return id; }
-    operator bool() { return id != entt::null; }
-    bool operator!() { return id == entt::null; }
+    operator Entity() { return id; }
+    operator bool() { return id.operator bool(); }
+    bool operator!() { return !id; }
     bool operator==(const Handle<T>& other) { return id == other.id; }
     bool operator!=(const Handle<T>& other) { return id != other.id; }
     bool operator==(const entt::entity& other) { return id == other; }
     bool operator!=(const entt::entity& other) { return id != other; }
+    bool operator==(const Entity& other) { return id == other.id; }
+    bool operator!=(const Entity& other) { return id != other.id; }
 };
 template <typename T>
 struct NextState;
@@ -208,6 +227,24 @@ struct std::equal_to<std::weak_ptr<T>> {
         pixel_engine::app_tools::t_weak_ptr<T> aptr(a);
         pixel_engine::app_tools::t_weak_ptr<T> bptr(b);
         return aptr.get_p() == bptr.get_p();
+    }
+};
+
+template <typename T>
+struct std::hash<pixel_engine::internal_components::Handle<T>> {
+    size_t operator()(const pixel_engine::internal_components::Handle<T>& handle
+    ) const {
+        return std::hash<entt::entity>()(handle.id);
+    }
+};
+
+template <typename T>
+struct std::equal_to<pixel_engine::internal_components::Handle<T>> {
+    bool operator()(
+        const pixel_engine::internal_components::Handle<T>& a,
+        const pixel_engine::internal_components::Handle<T>& b
+    ) const {
+        return a.id == b.id;
     }
 };
 }  // namespace app_tools

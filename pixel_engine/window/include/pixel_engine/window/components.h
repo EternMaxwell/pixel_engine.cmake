@@ -10,86 +10,72 @@ namespace pixel_engine {
 namespace window {
 namespace components {
 using namespace prelude;
-/*! @brief WindowHandle component
- *  @brief Contains the GLFWwindow handle and vsync state
- */
-struct WindowHandle {
-    GLFWwindow* window_handle = NULL;
-    bool vsync = true;
-};
 
-/*! @brief WindowCreated component
- *  @brief Indicates that the window has been created
- */
-struct WindowCreated {};
-
-/*! @brief PrimaryWindow component
- *  @brief Indicates that the window is the primary window
- */
 struct PrimaryWindow {};
 
-/*! @brief WindowSize component
- *  @brief Contains the window width and height
- */
-struct WindowSize {
-    int width, height;
-};
+struct Window;
 
-/*! @brief WindowPos component
- *   @brief Contains the window x and y position
- */
-struct WindowPos {
-    int x, y;
-};
-
-/*! @brief WindowTitle component
- *  @brief Contains the window title
- */
-struct WindowTitle {
-    std::string title;
-};
-
-/*! @brief WindowHints component
- *  @brief Contains a vector of hints to be passed to GLFW
- */
-struct WindowHints {
+struct WindowDescription {
+    std::string title = "Pixel Engine";
+    int width = 480 * 3, height = 270 * 3;
+    bool vsync = true;
     std::vector<std::pair<int, int>> hints;
+
+   public:
+    WindowDescription& set_title(std::string title);
+    WindowDescription& set_size(int width, int height);
+    WindowDescription& set_vsync(bool vsync);
+    WindowDescription& add_hint(int hint, int value);
+    WindowDescription& set_hints(std::vector<std::pair<int, int>> hints);
 };
 
-struct WindowBundle : Bundle {
-    /*! @brief WindowHandle component
-     *  @brief Contains the GLFWwindow handle and vsync state
-     */
-    WindowHandle window_handle;
-    /*! @brief WindowSize component
-     *  @brief Contains the window width and height
-     */
-    WindowSize window_size = {480 * 3, 270 * 3};
-    /*! @brief WindowPos component
-     *   @brief Contains the window x and y position
-     */
-    WindowPos window_pos = {0, 0};
-    /*! @brief WindowTitle component
-     *  @brief Contains the window title
-     */
-    WindowTitle window_title = {"Pixel Engine"};
-    /*! @brief WindowHints component
-     *  @brief Contains a vector of hints to be passed to GLFW
-     */
-    WindowHints window_hints = {
-        .hints =
-            {{GLFW_CONTEXT_VERSION_MAJOR, 4},
-             {GLFW_CONTEXT_VERSION_MINOR, 5},
-             {GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE},
-             {GLFW_VISIBLE, GLFW_FALSE}}
+struct Window {
+    struct extent {
+        int width;
+        int height;
     };
 
-    auto unpack() {
-        return std::tie(
-            window_handle, window_size, window_pos, window_title, window_hints
-        );
-    }
+    struct ivec2 {
+        int x;
+        int y;
+    };
+
+    struct dvec2 {
+        double x;
+        double y;
+    };
+
+    GLFWwindow* m_handle;
+    std::string m_title;
+    bool m_vsync;
+    extent m_size;
+    ivec2 m_pos;
+    dvec2 m_cursor_pos;
+    std::optional<dvec2> m_cursor_move;
+
+   public:
+    const dvec2& get_cursor() const;
+    const std::optional<dvec2>& get_cursor_move() const;
+    const ivec2& get_pos() const;
+    const extent& get_size() const;
+    GLFWwindow* get_handle() const;
+    void show();
+    void hide();
+    bool vsync() const;
+    bool should_close() const;
+    void destroy();
+    void set_cursor(double x, double y);
+    bool focused() const;
+    bool is_fullscreen() const;
+    void set_fullscreen();
+    void fullscreen_off();
+    void toggle_fullscreen();
 };
+
+std::optional<Window> create_window(const WindowDescription& desc);
+void update_cursor(Window& window);
+void update_size(Window& window);
+void update_pos(Window& window);
 }  // namespace components
 }  // namespace window
 }  // namespace pixel_engine

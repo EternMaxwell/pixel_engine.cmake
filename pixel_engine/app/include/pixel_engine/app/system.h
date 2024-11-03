@@ -18,8 +18,8 @@ template <typename Ret>
 struct BasicSystem {
    protected:
     bool has_command = false;
-    bool has_query = false;
-    double avg_time = 1.0;  // in milliseconds
+    bool has_query   = false;
+    double avg_time  = 1.0;  // in milliseconds
     std::vector<std::tuple<
         std::vector<const type_info*>,
         std::vector<const type_info*>,
@@ -77,6 +77,31 @@ struct BasicSystem {
             (non_const_infos_adder<Includes>::add(query_include_types), ...);
             (const_infos_adder<Includes>::add(query_include_const), ...);
             (info_add<Withs>::add(query_include_const), ...);
+            (info_add<Excludes>::add(query_exclude_types), ...);
+            query_types.push_back(std::make_tuple(
+                query_include_types, query_include_const, query_exclude_types
+            ));
+        }
+    };
+
+    template <typename... Includes, typename... Excludes, typename T>
+    struct infos_adder<Query<Get<Includes...>, Without<Excludes...>, T>> {
+        static void add(
+            std::vector<std::tuple<
+                std::vector<const type_info*>,
+                std::vector<const type_info*>,
+                std::vector<const type_info*>>>& query_types,
+            std::vector<const type_info*>& resource_types,
+            std::vector<const type_info*>& resource_const,
+            std::vector<const type_info*>& event_read_types,
+            std::vector<const type_info*>& event_write_types,
+            std::vector<const type_info*>& state_types,
+            std::vector<const type_info*>& next_state_types
+        ) {
+            std::vector<const type_info*> query_include_types,
+                query_exclude_types, query_include_const;
+            (non_const_infos_adder<Includes>::add(query_include_types), ...);
+            (const_infos_adder<Includes>::add(query_include_const), ...);
             (info_add<Excludes>::add(query_exclude_types), ...);
             query_types.push_back(std::make_tuple(
                 query_include_types, query_include_const, query_exclude_types
@@ -317,6 +342,14 @@ struct BasicSystem {
             if (std::find(
                     event_read_types.begin(), event_read_types.end(), type
                 ) != event_read_types.end()) {
+                event_contrary = true;
+            }
+        }
+        for (auto type : event_read_types) {
+            if (std::find(
+                    other->event_read_types.begin(),
+                    other->event_read_types.end(), type
+                ) != other->event_read_types.end()) {
                 event_contrary = true;
             }
         }
