@@ -7,6 +7,7 @@
 #include "pixel_engine/font_gl/font.h"
 #include "pixel_engine/input.h"
 #include "pixel_engine/pixel_render_gl/pixel_render_gl.h"
+#include "pixel_engine/render/pixel.h"
 #include "pixel_engine/render_gl/render_gl.h"
 #include "pixel_engine/render_vk.h"
 #include "pixel_engine/sprite.h"

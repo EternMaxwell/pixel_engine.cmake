@@ -1369,6 +1369,7 @@ void run() {
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
     app.add_plugin(pixel_engine::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});
+    app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
     app.add_plugin(pixel_engine::sprite::SpritePluginVK{});
     app.run();
 }

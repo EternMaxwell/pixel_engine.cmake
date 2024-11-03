@@ -1,6 +1,8 @@
 #include <unordered_map>
 
 #include "pixel_engine/font.h"
+#include "shaders/fragment_shader.h"
+#include "shaders/vertex_shader.h"
 
 using namespace pixel_engine;
 using namespace pixel_engine::font;
