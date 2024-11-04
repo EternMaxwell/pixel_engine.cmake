@@ -10,8 +10,8 @@ struct Res {
     const ResT* m_res;
 
    public:
-    Resource(void* resource) : m_res(resource) {}
-    Resource() : m_res(nullptr) {}
+    Res(void* resource) : m_res(resource) {}
+    Res() : m_res(nullptr) {}
 
     /**
      * @brief Check if the resource has a value.
@@ -28,8 +28,8 @@ struct ResMut {
     ResT* m_res;
 
    public:
-    ResourceMut(void* resource) : m_res(resource) {}
-    ResourceMut() : m_res(nullptr) {}
+    ResMut(void* resource) : m_res(resource) {}
+    ResMut() : m_res(nullptr) {}
 
     /**
      * @brief Check if the resource has a value.

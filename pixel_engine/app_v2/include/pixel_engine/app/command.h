@@ -7,7 +7,6 @@
 #include "tools.h"
 #include "world.h"
 
-
 namespace pixel_engine {
 namespace app {
 using namespace internal_components;
@@ -16,8 +15,6 @@ struct EntityCommand {
    private:
     entt::registry* const m_registry;
     const entt::entity m_entity;
-    spp::sparse_hash_map<entt::entity, spp::sparse_hash_set<entt::entity>>*
-        m_entity_tree;
     std::shared_ptr<std::vector<entt::entity>> m_despawns;
     std::shared_ptr<std::vector<entt::entity>> m_recursive_despawns;
 
@@ -30,7 +27,6 @@ struct EntityCommand {
     )
         : m_registry(&world->m_registry),
           m_entity(entity),
-          m_entity_tree(&world->m_entity_tree),
           m_despawns(despawns),
           m_recursive_despawns(recursive_despawns) {}
 
@@ -53,7 +49,8 @@ struct EntityCommand {
         app_tools::registry_emplace(
             m_registry, child, Parent{.id = m_entity}, args...
         );
-        (*m_entity_tree)[m_entity].insert(child);
+        auto& children = m_registry->get_or_emplace<Children>(m_entity);
+        children.children.insert(child);
         return child;
     }
 
@@ -109,7 +106,7 @@ struct Command {
     template <typename... Args>
     entt::entity spawn(Args&&... args) {
         auto m_registry = &m_world->m_registry;
-        auto entity = m_registry->create();
+        auto entity     = m_registry->create();
         app_tools::registry_emplace(
             m_registry, entity, std::forward<Args>(args)...
         );
@@ -123,12 +120,7 @@ struct Command {
      * @return `EntityCommand` The entity command.
      */
     EntityCommand entity(entt::entity entity) {
-        return EntityCommand(
-            m_world,
-            entity,
-            m_despawns,
-            m_recursive_despawns
-        );
+        return EntityCommand(m_world, entity, m_despawns, m_recursive_despawns);
     }
 
     /*! @brief Insert a resource.
@@ -193,6 +185,10 @@ struct Command {
     void end() {
         auto m_registry = &m_world->m_registry;
         for (auto entity : *m_recursive_despawns) {
+            auto& children = m_registry->get_or_emplace<Children>(entity);
+            for (auto child : children.children) {
+                m_registry->destroy(child);
+            }
             m_registry->destroy(entity);
         }
         m_recursive_despawns->clear();

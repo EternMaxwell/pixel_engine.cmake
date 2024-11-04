@@ -5,7 +5,8 @@
 namespace pixel_engine::app {
 template <typename T>
 struct EventReader {
-    EventReader(EventQueueBase* queue) : m_queue(queue) {}
+    EventReader(EventQueueBase* queue)
+        : m_queue(dynamic_cast<EventQueue<T>*>(queue)) {}
 
     struct iter {
         iter(EventQueue<T>* queue) : m_queue(queue) {}
