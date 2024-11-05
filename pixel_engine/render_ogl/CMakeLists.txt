@@ -15,3 +15,5 @@ target_link_libraries(pixel_engine_render_ogl pixel_engine::window)
 target_link_libraries(pixel_engine_render_ogl fmt)
 
 add_library(pixel_engine::render::ogl ALIAS pixel_engine_render_ogl)
+
+add_subdirectory(test)

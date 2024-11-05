@@ -12,6 +12,7 @@ WindowDescription& WindowPlugin::primary_desc() {
 }
 
 void pixel_engine::window::WindowPlugin::build(App& app) {
+    app.enable_loop();
     app->configure_sets(
            WindowStartUpSets::glfw_initialization,
            WindowStartUpSets::window_creation,
