@@ -10,7 +10,6 @@
 #include "app/tools.h"
 #include "app/world.h"
 
-
 namespace pixel_engine::prelude {
 using namespace pixel_engine;
 
@@ -21,14 +20,12 @@ using Entity   = app::Entity;
 using Bundle   = internal_components::Bundle;
 using Parent   = internal_components::Parent;
 using Children = internal_components::Children;
-template <typename T>
-using Handle = internal_components::Handle<T>;
 
 // SYSTEM PARA PART
 template <typename T>
 using Res = app::Res<T>;
 template <typename T>
-using ResMut = app::ResMut<T>;
+using ResMut  = app::ResMut<T>;
 using Command = app::Command;
 template <typename T>
 using EventReader = app::EventReader<T>;

@@ -1,9 +1,9 @@
 #pragma once
 
+#include <sparsepp/spp.h>
+
 #include <entt/entity/registry.hpp>
 #include <tuple>
-
-#include <sparsepp/spp.h>
 
 namespace pixel_engine {
 namespace app {
@@ -11,34 +11,26 @@ struct App;
 struct SubApp;
 struct Entity {
     entt::entity id = entt::null;
-    Entity operator=(entt::entity id) {
-        this->id = id;
-        return *this;
-    }
-    operator entt::entity() { return id; }
-    operator bool() { return id != entt::null; }
-    bool operator!() { return id == entt::null; }
-    bool operator==(const Entity& other) { return id == other.id; }
-    bool operator!=(const Entity& other) { return id != other.id; }
-    bool operator==(const entt::entity& other) { return id == other; }
-    bool operator!=(const entt::entity& other) { return id != other; }
+    Entity& operator=(entt::entity id);
+    operator entt::entity();
+    operator bool();
+    bool operator!();
+    bool operator==(const Entity& other);
+    bool operator!=(const Entity& other);
+    bool operator==(const entt::entity& other);
+    bool operator!=(const entt::entity& other);
 };
 }  // namespace app
 }  // namespace pixel_engine
 template <>
 struct std::hash<pixel_engine::app::Entity> {
-    size_t operator()(const pixel_engine::app::Entity& entity) const {
-        return std::hash<entt::entity>()(entity.id);
-    }
+    size_t operator()(const pixel_engine::app::Entity& entity) const;
 };
 template <>
 struct std::equal_to<pixel_engine::app::Entity> {
     bool operator()(
-        const pixel_engine::app::Entity& a,
-        const pixel_engine::app::Entity& b
-    ) const {
-        return a.id == b.id;
-    }
+        const pixel_engine::app::Entity& a, const pixel_engine::app::Entity& b
+    ) const;
 };
 namespace pixel_engine {
 namespace internal_components {
@@ -49,22 +41,6 @@ struct Parent {
 };
 struct Children {
     spp::sparse_hash_set<Entity> children;
-};
-template <typename T>
-struct Handle {
-    Entity id;
-    void operator=(entt::entity id) { this->id = id; }
-    void operator=(Entity id) { this->id = id; }
-    operator entt::entity() { return id; }
-    operator Entity() { return id; }
-    operator bool() { return id.operator bool(); }
-    bool operator!() { return !id; }
-    bool operator==(const Handle<T>& other) { return id == other.id; }
-    bool operator!=(const Handle<T>& other) { return id != other.id; }
-    bool operator==(const entt::entity& other) { return id == other; }
-    bool operator!=(const entt::entity& other) { return id != other; }
-    bool operator==(const Entity& other) { return id == other.id; }
-    bool operator!=(const Entity& other) { return id != other.id; }
 };
 template <typename T>
 struct NextState;

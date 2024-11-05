@@ -12,12 +12,7 @@ struct StageRunner {
         SubApp* dst,
         WorkerPool* pools,
         SetMap* sets
-    )
-        : m_src(src),
-          m_dst(dst),
-          m_pools(pools),
-          m_sets(sets),
-          m_stage(stage) {}
+    );
     StageRunner(StageRunner&& other)            = default;
     StageRunner& operator=(StageRunner&& other) = default;
 
@@ -63,23 +58,9 @@ struct StageRunner {
         );
     }
 
-    void build() {
-        for (auto& [sub_stage, sub_stage_runner] : m_sub_stages) {
-            sub_stage_runner->build();
-        }
-    }
-
-    void bake() {
-        for (auto& [sub_stage, sub_stage_runner] : m_sub_stages) {
-            sub_stage_runner->bake();
-        }
-    }
-
-    void run() {
-        for (auto sub_stage : m_sub_stage_order) {
-            m_sub_stages[sub_stage]->run();
-        }
-    }
+    void build();
+    void bake();
+    void run();
 
     SubApp* m_src;
     SubApp* m_dst;

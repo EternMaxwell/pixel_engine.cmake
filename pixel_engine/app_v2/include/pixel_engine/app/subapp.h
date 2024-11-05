@@ -6,6 +6,7 @@
 #include "event.h"
 #include "query.h"
 #include "resource.h"
+#include "system.h"
 #include "world.h"
 
 namespace pixel_engine::app {
@@ -120,17 +121,10 @@ struct SubApp {
     };
 
    public:
-    void tick_events() {
-        for (auto& [type, queue] : m_world.m_event_queues) {
-            queue->tick();
-        }
-    }
-    void end_commands() {
-        for (auto& command : m_command_cache) {
-            command.end();
-        }
-        m_command_cache.clear();
-    }
+    void tick_events();
+    void end_commands();
+    void update_states();
+
     template <typename... Args>
     void insert_resource(Args&&... resource) {
         Command command(&m_world);
@@ -160,12 +154,6 @@ struct SubApp {
         Command command(&m_world);
         command.init_resource(State<T>());
         command.init_resource(NextState<T>());
-    }
-
-    void update_states() {
-        for (auto& update : m_state_updates) {
-            update->run(this, this);
-        }
     }
 
    private:

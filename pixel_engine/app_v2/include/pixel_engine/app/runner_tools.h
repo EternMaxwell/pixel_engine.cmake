@@ -15,12 +15,8 @@ struct SystemStage {
     template <typename T>
     SystemStage(T stage)
         : m_stage(&typeid(T)), m_sub_stage(static_cast<size_t>(stage)) {}
-    bool operator==(const SystemStage& other) {
-        return m_stage == other.m_stage && m_sub_stage == other.m_sub_stage;
-    }
-    bool operator!=(const SystemStage& other) {
-        return m_stage != other.m_stage && m_sub_stage != other.m_sub_stage;
-    }
+    bool operator==(const SystemStage& other) const;
+    bool operator!=(const SystemStage& other) const;
 
     const type_info* m_stage;
     size_t m_sub_stage;
@@ -28,12 +24,8 @@ struct SystemStage {
 struct SystemSet {
     template <typename T>
     SystemSet(T set) : m_type(&typeid(T)), m_value(static_cast<size_t>(set)) {}
-    bool operator==(const SystemSet& other) {
-        return m_type == other.m_type && m_value == other.m_value;
-    }
-    bool operator!=(const SystemSet& other) {
-        return m_type != other.m_type && m_value != other.m_value;
-    }
+    bool operator==(const SystemSet& other) const;
+    bool operator!=(const SystemSet& other) const;
 
     const type_info* m_type;
     size_t m_value;
@@ -47,33 +39,11 @@ struct SystemNode {
         : m_stage(stage), m_system(std::make_unique<System<Args...>>(func)) {
         m_sys_addr = (void*)func;
     }
-    bool run(SubApp* src, SubApp* dst) {
-        for (auto& cond : m_conditions) {
-            if (!cond->run(src, dst)) return false;
-        }
-        m_system->run(src, dst);
-        return true;
-    }
-    void before(void* other_sys) { m_ptr_nexts.insert(other_sys); }
-    void after(void* other_sys) { m_ptr_prevs.insert(other_sys); }
-    void clear_tmp() {
-        m_weak_nexts.clear();
-        m_weak_prevs.clear();
-        m_reach_time.reset();
-    }
-    double reach_time() {
-        if (m_reach_time) return m_reach_time.value();
-        m_reach_time = 0;
-        for (auto& bef : m_strong_prevs) {
-            if (auto bef_sys = bef.lock()) {
-                m_reach_time = std::max(
-                    m_reach_time.value(),
-                    bef_sys->reach_time() + bef_sys->m_system->get_avg_time()
-                );
-            }
-        }
-        return m_reach_time.value();
-    }
+    bool run(SubApp* src, SubApp* dst);
+    void before(void* other_sys);
+    void after(void* other_sys);
+    void clear_tmp();
+    double reach_time();
 
     SystemStage m_stage;
     std::vector<SystemSet> m_in_sets;
@@ -128,16 +98,9 @@ struct MsgQueueBase {
     }
 };
 struct WorkerPool {
+    BS::thread_pool* get_pool(const std::string& name);
+    void add_pool(const std::string& name, uint32_t num_threads);
+
     spp::sparse_hash_map<std::string, std::unique_ptr<BS::thread_pool>> m_pools;
-    BS::thread_pool* get_pool(const std::string& name) {
-        auto it = m_pools.find(name);
-        if (it == m_pools.end()) {
-            return nullptr;
-        }
-        return m_pools[name].get();
-    }
-    void add_pool(const std::string& name, uint32_t num_threads) {
-        m_pools.emplace(name, std::make_unique<BS::thread_pool>(num_threads));
-    }
 };
 }  // namespace pixel_engine::app

@@ -12,7 +12,9 @@ void func2() {
 int main() {
     auto app = App::create();
     app.add_system(Startup, func1);
-    app.add_system(Startup, func2).after(func1);
+    app.add_system(Startup, func2).before(func1);
+    app.add_system(Update, func2).after(func1);
+    app.add_system(Update, func1);
     app.run();
     return 0;
 }
