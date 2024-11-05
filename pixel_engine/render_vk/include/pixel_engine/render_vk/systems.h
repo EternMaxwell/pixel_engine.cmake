@@ -20,17 +20,36 @@ using namespace pixel_engine::prelude;
 using namespace components;
 using namespace window::components;
 
+struct ContextCommandBuffer {};
+
 void create_context(
     Command cmd,
     Query<
-        Get<window::components::WindowHandle>,
+        Get<window::components::Window>,
         With<window::components::PrimaryWindow>> query,
-    Resource<RenderVKPlugin> plugin
+    Res<RenderVKPlugin> plugin
 );
-void recreate_swap_chain(Command cmd, Resource<RenderContext> context);
-void get_next_image(Resource<RenderContext> context);
-void present_frame(Resource<RenderContext> context);
-void destroy_context(Command cmd, Resource<RenderContext> context);
+void recreate_swap_chain(
+    Query<Get<PhysicalDevice, Device, Surface, Swapchain>, With<RenderContext>>
+        query
+);
+void get_next_image(
+    Query<Get<Device, Swapchain, CommandPool, Queue>, With<RenderContext>>
+        query,
+    Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
+);
+void present_frame(
+    Query<Get<Swapchain, Queue, Device, CommandPool>, With<RenderContext>>
+        query,
+    Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
+);
+void destroy_context(
+    Command cmd,
+    Query<
+        Get<Instance, Device, Surface, Swapchain, CommandPool>,
+        With<RenderContext>> query,
+    Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
+);
 }  // namespace systems
 }  // namespace render_vk
 }  // namespace pixel_engine

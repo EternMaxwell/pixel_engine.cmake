@@ -6,18 +6,19 @@ using namespace pixel_engine::sprite_render_gl::systems;
 using namespace pixel_engine::prelude;
 
 void pixel_engine::sprite_render_gl::SpriteRenderGLPlugin::build(App& app) {
-    app.add_system(Startup(), create_pipeline)
+    app.add_system(Startup, create_pipeline)
         .use_worker("single")
         ->configure_sets(
             SpriteRenderGLSets::before_draw, SpriteRenderGLSets::draw,
             SpriteRenderGLSets::after_draw
         )
-        .add_system(Render(), draw_sprite, in_set(SpriteRenderGLSets::draw))
+        .add_system(Render, draw_sprite)
+        .in_set(SpriteRenderGLSets::draw)
         .use_worker("single");
 }
 
 void pixel_engine::sprite_render_gl::systems::create_pipeline(
-    Command command, Resource<AssetServerGL> asset_server
+    Command command, ResMut<AssetServerGL> asset_server
 ) {
     ShaderPtr vertex_shader;
     vertex_shader = asset_server->load_shader(

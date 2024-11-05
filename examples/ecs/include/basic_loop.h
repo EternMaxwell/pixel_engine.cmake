@@ -20,12 +20,12 @@ void exit_app(EventWriter<AppExit> exit_event) {
 class LoopTestPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(Update(), print_hello)->add_system(Update(), exit_app);
+        app.add_system(Update, print_hello)->add_system(Update, exit_app);
     }
 };
 
 void test() {
-    App app;
+    App app = App::create();
     app.enable_loop().add_plugin(LoopTestPlugin{}).run();
 }
 }  // namespace test_loop

@@ -11,20 +11,12 @@ using namespace prelude;
 
 struct Health {
     float life;
-    bool valid;
-    Health(Health&& other) : life(other.life), valid(true) {
-        other.life = 0.0f;
-        other.valid = false;
-        std::cout << "Health move constructor" << std::endl;
-    }
-    Health(float life = 0.0f) : life(life), valid(true) {}
+    Health(Health&& other) = default;
+    Health(float life = 100.0f) : life(life) {}
     Health& operator=(const Health& other) = delete;
-    Health(const Health& other) = delete;
-    Health& operator=(Health&& other) = default;
-    ~Health() {
-        if (!valid) return;
-        std::cout << "Health destructor" << std::endl;
-    }
+    Health(const Health& other)            = delete;
+    Health& operator=(Health&& other)      = default;
+    ~Health() { std::cout << "Health destructor" << std::endl; }
 };
 
 struct Position {
@@ -38,12 +30,9 @@ struct Position {
     }
     Position(float x = 0.0f, float y = 0.0f) : x(x), y(y), valid(true) {}
     Position& operator=(const Position& other) = delete;
-    Position(const Position& other) = delete;
-    Position& operator=(Position&& other) = default;
-    ~Position() {
-        if (!valid) return;
-        std::cout << "Position destructor" << std::endl;
-    }
+    Position(const Position& other)            = delete;
+    Position& operator=(Position&& other)      = default;
+    ~Position() { std::cout << "Position destructor" << std::endl; }
 };
 
 struct InnerBundle : Bundle {
@@ -78,8 +67,7 @@ void spawn(Command command) {
         if (random > 50) {
             command.spawn(HealthPositionBundle());
         } else {
-            Health health(100.0f);
-            command.spawn(health);
+            command.spawn(Health{});
         }
     }
     std::cout << std::endl;
@@ -143,7 +131,7 @@ void change_component_data(
     std::cout << "change_component_data" << std::endl;
     for (auto [id, health] : query.iter()) {
         auto [heal2] = query.get(id);
-        heal2.life = 200.0f;
+        heal2.life   = 200.0f;
     }
     std::cout << std::endl;
 }
@@ -161,19 +149,25 @@ void despawn(
 class SpawnDespawnPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(Startup(), spawn)
-            ->add_system(Startup(), print_count_1, after(spawn))
-            ->add_system(Startup(), print_1, after(print_count_1))
-            ->add_system(Startup(), change_component_data, after(print_1))
-            ->add_system(Startup(), print_count_2, after(change_component_data))
-            ->add_system(Startup(), print_2, after(print_count_2))
-            ->add_system(Startup(), despawn, after(print_2))
-            ->add_system(Update(), print_count_3);
+        app.add_system(Startup, spawn)
+            ->add_system(Startup, print_count_1)
+            .after(spawn)
+            ->add_system(Startup, print_1)
+            .after(print_count_1)
+            ->add_system(Startup, change_component_data)
+            .after(print_1)
+            ->add_system(Startup, print_count_2)
+            .after(change_component_data)
+            ->add_system(Startup, print_2)
+            .after(print_count_2)
+            ->add_system(Startup, despawn)
+            .after(print_2)
+            ->add_system(Update, print_count_3);
     }
 };
 
 void test() {
-    App app;
+    App app = App::create();
     app.add_plugin(SpawnDespawnPlugin{}).run();
 }
 }  // namespace test_spawn_despawn

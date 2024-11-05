@@ -2,7 +2,7 @@
 #include "pixel_engine/task_queue/task_queue.h"
 
 void pixel_engine::task_queue::systems::insert_task_queue(
-    Command command, Resource<TaskQueuePlugin> task_queue
+    Command command, ResMut<TaskQueuePlugin> task_queue
 ) {
     command.insert_resource(resources::TaskQueue());
 }
@@ -53,8 +53,6 @@ void pixel_engine::task_queue::TaskQueuePlugin::build(App& app) {
     app.configure_sets(
            TaskQueueSets::insert_task_queue, TaskQueueSets::after_insertion
     )
-        .add_system(
-            PreStartup(), systems::insert_task_queue,
-            in_set(TaskQueueSets::insert_task_queue)
-        );
+        .add_system(PreStartup, systems::insert_task_queue)
+        .in_set(TaskQueueSets::insert_task_queue);
 }

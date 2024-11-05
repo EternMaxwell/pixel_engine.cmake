@@ -18,9 +18,15 @@ struct test_t {
     test_t() { std::cout << "Constructor called" << std::endl; }
     test_t(int* a) : a(a) { std::cout << "Constructor called" << std::endl; }
     test_t(const test_t&) = delete;
-    test_t(test_t&& other) : a(other.a) { other.a = nullptr; }
-    test_t& operator=(test_t&&) = default;
-    ~test_t() { std::cout << "Destructor called with a = " << a << std::endl; }
+    test_t(test_t&&) {
+        std::cout << "Move constructor called" << std::endl;
+    }
+    test_t& operator=(const test_t&) = delete;
+    test_t& operator=(test_t&&) {
+        std::cout << "Move assignment called" << std::endl;
+        return *this;
+    }
+    ~test_t() { std::cout << "Destructor called" << std::endl; }
 };
 
 int main() {
@@ -38,13 +44,6 @@ int main() {
     test_state::test();
     std::cout << "===========TEST PARALLEL RUN==========" << std::endl;
     test_parallel_run::test();
-
-    entt::registry registry;
-    int a = 10;
-
-    auto entity = registry.create();
-    registry.emplace<test_t>(entity, std::move(test_t(&a)));
-    std::cout << "pushed" << std::endl;
 
     return 0;
 }

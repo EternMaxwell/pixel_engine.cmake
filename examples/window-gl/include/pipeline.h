@@ -41,7 +41,7 @@ void create_pixels(Command command) {
     }});
 }
 
-void create_sprite(Command command, Resource<AssetServerGL> asset_server) {
+void create_sprite(Command command, ResMut<AssetServerGL> asset_server) {
     using namespace sprite_render_gl::components;
 
     command.spawn(SpriteBundle{
@@ -73,10 +73,11 @@ void move_sprite(
 void camera_ortho_to_primary_window(
     Query<Get<transform::OrthoProjection>, With<camera::Camera2d>, Without<>>
         camera_query,
-    Query<Get<const WindowSize>, With<PrimaryWindow>, Without<>> window_query
+    Query<Get<const Window>, With<PrimaryWindow>, Without<>> window_query
 ) {
     for (auto [projection] : camera_query.iter()) {
-        for (auto [window_size] : window_query.iter()) {
+        for (auto [window] : window_query.iter()) {
+            auto window_size = window.get_size();
             float ratio = (float)window_size.width / (float)window_size.height;
             projection.left = -ratio;
             projection.right = ratio;
@@ -88,12 +89,12 @@ void camera_ortho_to_primary_window(
 class TestPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(Startup(), insert_camera)
-            ->add_system(Startup(), create_sprite)
+        app.add_system(Startup, insert_camera)
+            ->add_system(Startup, create_sprite)
             .use_worker("single")
-            ->add_system(Startup(), create_pixels)
-            ->add_system(Update(), camera_ortho_to_primary_window)
-            ->add_system(Update(), move_sprite);
+            ->add_system(Startup, create_pixels)
+            ->add_system(Update, camera_ortho_to_primary_window)
+            ->add_system(Update, move_sprite);
     }
 };
 }  // namespace pipeline_test

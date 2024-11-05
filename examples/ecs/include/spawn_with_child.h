@@ -90,17 +90,21 @@ void despawn_recurese(
 class SpawnWithChildPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(Startup(), spawn)
-            ->add_system(Startup(), print_count1, after(spawn))
-            ->add_system(Startup(), create_child, after(print_count1))
-            ->add_system(Startup(), print_count2, after(create_child))
-            ->add_system(Startup(), despawn_recurese, after(print_count2))
-            ->add_system(Update(), print_count3);
+        app.add_system(Startup, spawn)
+            ->add_system(Startup, print_count1)
+            .after(spawn)
+            ->add_system(Startup, create_child)
+            .after(print_count1)
+            ->add_system(Startup, print_count2)
+            .after(create_child)
+            ->add_system(Startup, despawn_recurese)
+            .after(print_count2)
+            ->add_system(Update, print_count3);
     }
 };
 
 void test() {
-    App app;
+    App app = App::create();
     app.add_plugin(SpawnWithChildPlugin{}).run();
 }
 }  // namespace test_with_child

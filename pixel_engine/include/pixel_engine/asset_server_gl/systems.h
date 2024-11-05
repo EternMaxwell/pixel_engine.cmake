@@ -9,7 +9,7 @@ namespace systems {
 using namespace prelude;
 
 void insert_asset_server(
-    Command command, Resource<AssetServerGLPlugin> asset_server_gl) {
+    Command command, ResMut<AssetServerGLPlugin> asset_server_gl) {
     command.insert_resource(
         resources::AssetServerGL(asset_server_gl->get_base_path()));
 }

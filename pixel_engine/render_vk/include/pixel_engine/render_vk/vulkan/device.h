@@ -216,6 +216,9 @@ struct Instance {
         }
         instance.destroy();
     }
+
+    operator vk::Instance() { return instance; }
+    operator vk::Instance&() { return instance; }
 };
 
 struct Device {
@@ -297,6 +300,9 @@ struct Device {
         logical_device.destroyCommandPool(command_pool);
         logical_device.destroy();
     }
+
+    operator vk::Device() { return logical_device; }
+    operator vk::Device&() { return logical_device; }
 };
 
 struct CommandBuffer {
@@ -321,6 +327,9 @@ struct CommandBuffer {
             device.command_pool, command_buffer
         );
     }
+
+    operator vk::CommandBuffer() { return command_buffer; }
+    operator vk::CommandBuffer&() { return command_buffer; }
 };
 
 struct Buffer {
@@ -362,6 +371,9 @@ struct Buffer {
     vk::Buffer operator*() const { return buffer; }
 
     void destroy() { vmaDestroyBuffer(device.allocator, buffer, allocation); }
+
+    operator vk::Buffer() { return buffer; }
+    operator vk::Buffer&() { return buffer; }
 };
 
 struct Image {
@@ -432,6 +444,12 @@ struct Image {
         vmaDestroyImage(device.allocator, image, allocation);
         device.logical_device.destroyImageView(image_view);
     }
+
+    operator vk::Image() { return image; }
+    operator vk::Image&() { return image; }
+
+    operator vk::ImageView() { return image_view; }
+    operator vk::ImageView&() { return image_view; }
 };
 
 struct Sampler {
@@ -447,6 +465,9 @@ struct Sampler {
     vk::Sampler operator*() const { return sampler; }
 
     void destroy() { device.logical_device.destroySampler(sampler); }
+
+    operator vk::Sampler() { return sampler; }
+    operator vk::Sampler&() { return sampler; }
 };
 
 struct SwapChain {
@@ -663,6 +684,12 @@ struct SwapChain {
         device.logical_device.destroySwapchainKHR(swapchain);
         device.instance.instance.destroySurfaceKHR(surface);
     }
+
+    operator vk::SwapchainKHR() { return swapchain; }
+    operator vk::SwapchainKHR&() { return swapchain; }
+
+    operator vk::SurfaceKHR() { return surface; }
+    operator vk::SurfaceKHR&() { return surface; }
 };
 
 struct RenderPass {

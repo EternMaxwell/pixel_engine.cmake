@@ -8,7 +8,7 @@ int loops = 10;
 
 enum class States { Start = 0, Middle, End };
 
-void is_state_start(Resource<State<States>> state) {
+void is_state_start(Res<State<States>> state) {
     if (state.has_value()) {
         if (state->is_state(States::Start)) {
             std::cout << "is_state_start: true" << std::endl;
@@ -18,7 +18,7 @@ void is_state_start(Resource<State<States>> state) {
     }
 }
 
-void is_state_middle(Resource<State<States>> state) {
+void is_state_middle(Res<State<States>> state) {
     if (state.has_value()) {
         if (state->is_state(States::Middle)) {
             std::cout << "is_state_middle: true" << std::endl;
@@ -28,7 +28,7 @@ void is_state_middle(Resource<State<States>> state) {
     }
 }
 
-void is_state_end(Resource<State<States>> state) {
+void is_state_end(Res<State<States>> state) {
     if (state.has_value()) {
         if (state->is_state(States::End)) {
             std::cout << "is_state_end: true" << std::endl;
@@ -38,19 +38,20 @@ void is_state_end(Resource<State<States>> state) {
     }
 }
 
-void set_state_start(Resource<NextState<States>> state) {
+void set_state_start(ResMut<NextState<States>> state) {
     if (state.has_value()) {
         state->set_state(States::Start);
     }
 }
 
-void set_state_middle(Resource<NextState<States>> state) {
+void set_state_middle(ResMut<NextState<States>> state) {
     if (state.has_value()) {
+        std::cout << "set_state_middle" << std::endl;
         state->set_state(States::Middle);
     }
 }
 
-void set_state_end(Resource<NextState<States>> state) {
+void set_state_end(ResMut<NextState<States>> state) {
     if (state.has_value()) {
         state->set_state(States::End);
     }
@@ -65,17 +66,21 @@ class StateTestPlugin : public Plugin {
    public:
     void build(App& app) override {
         app.init_state<States>()
-            ->add_system(Startup(), is_state_start)
-            ->add_system(OnEnter(States::Start), set_state_middle)
-            ->add_system(OnEnter(States::Middle), set_state_end)
-            ->add_system(Update(), is_state_middle)
-            ->add_system(Update(), is_state_end, after(is_state_middle))
-            ->add_system(Update(), exit, after(is_state_end));
+            ->add_system(Startup, is_state_start)
+            ->add_system(Transit, set_state_middle)
+            .on_enter(States::Start)
+            ->add_system(Transit, set_state_end)
+            .on_enter(States::Middle)
+            ->add_system(Update, is_state_middle)
+            ->add_system(Update, is_state_end)
+            .after(is_state_middle)
+            ->add_system(Update, exit)
+            .after(is_state_end);
     }
 };
 
 void test() {
-    App app;
+    App app = App::create();
     app.add_plugin(StateTestPlugin{}).enable_loop().run();
 }
 }  // namespace test_state

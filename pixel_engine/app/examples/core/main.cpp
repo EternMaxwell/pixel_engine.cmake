@@ -3,6 +3,7 @@
 #include <iostream>
 
 using namespace pixel_engine::prelude;
+using namespace pixel_engine;
 
 enum Sets { a, b };
 
@@ -15,8 +16,13 @@ int main() {
     App app;
     app->log_level(spdlog::level::debug)
         ->configure_sets(a, b)
-        ->add_system(Startup(), function).in_set(b).use_worker("single")
-        ->add_system(Startup(), function2).in_set(a)
+        ->add_system(function)
+        .in_set(b)
+        .use_worker("single")
+        .in_stage(app::Startup)
+        ->add_system(function2)
+        .in_set(a)
+        .in_stage(app::Startup)
         ->run();
     return 0;
 }

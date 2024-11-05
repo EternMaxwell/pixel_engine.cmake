@@ -18,8 +18,8 @@ template <typename Ret>
 struct BasicSystem {
    protected:
     bool has_command = false;
-    bool has_query = false;
-    double avg_time = 1.0;  // in milliseconds
+    bool has_query   = false;
+    double avg_time  = 1.0;  // in milliseconds
     std::vector<std::tuple<
         std::vector<const type_info*>,
         std::vector<const type_info*>,
@@ -64,7 +64,7 @@ struct BasicSystem {
             std::vector<std::tuple<
                 std::vector<const type_info*>,
                 std::vector<const type_info*>,
-                std::vector<const type_info*>>> query_types,
+                std::vector<const type_info*>>>& query_types,
             std::vector<const type_info*>& resource_types,
             std::vector<const type_info*>& resource_const,
             std::vector<const type_info*>& event_read_types,
@@ -76,7 +76,32 @@ struct BasicSystem {
                 query_exclude_types, query_include_const;
             (non_const_infos_adder<Includes>::add(query_include_types), ...);
             (const_infos_adder<Includes>::add(query_include_const), ...);
-            (info_add<Withs>::add(query_include_types), ...);
+            (info_add<Withs>::add(query_include_const), ...);
+            (info_add<Excludes>::add(query_exclude_types), ...);
+            query_types.push_back(std::make_tuple(
+                query_include_types, query_include_const, query_exclude_types
+            ));
+        }
+    };
+
+    template <typename... Includes, typename... Excludes, typename T>
+    struct infos_adder<Query<Get<Includes...>, Without<Excludes...>, T>> {
+        static void add(
+            std::vector<std::tuple<
+                std::vector<const type_info*>,
+                std::vector<const type_info*>,
+                std::vector<const type_info*>>>& query_types,
+            std::vector<const type_info*>& resource_types,
+            std::vector<const type_info*>& resource_const,
+            std::vector<const type_info*>& event_read_types,
+            std::vector<const type_info*>& event_write_types,
+            std::vector<const type_info*>& state_types,
+            std::vector<const type_info*>& next_state_types
+        ) {
+            std::vector<const type_info*> query_include_types,
+                query_exclude_types, query_include_const;
+            (non_const_infos_adder<Includes>::add(query_include_types), ...);
+            (const_infos_adder<Includes>::add(query_include_const), ...);
             (info_add<Excludes>::add(query_exclude_types), ...);
             query_types.push_back(std::make_tuple(
                 query_include_types, query_include_const, query_exclude_types
@@ -90,7 +115,7 @@ struct BasicSystem {
             std::vector<std::tuple<
                 std::vector<const type_info*>,
                 std::vector<const type_info*>,
-                std::vector<const type_info*>>> query_types,
+                std::vector<const type_info*>>>& query_types,
             std::vector<const type_info*>& resource_types,
             std::vector<const type_info*>& resource_const,
             std::vector<const type_info*>& event_read_types,
@@ -111,7 +136,7 @@ struct BasicSystem {
             std::vector<std::tuple<
                 std::vector<const type_info*>,
                 std::vector<const type_info*>,
-                std::vector<const type_info*>>> query_types,
+                std::vector<const type_info*>>>& query_types,
             std::vector<const type_info*>& resource_types,
             std::vector<const type_info*>& resource_const,
             std::vector<const type_info*>& event_read_types,
@@ -129,7 +154,7 @@ struct BasicSystem {
             std::vector<std::tuple<
                 std::vector<const type_info*>,
                 std::vector<const type_info*>,
-                std::vector<const type_info*>>> query_types,
+                std::vector<const type_info*>>>& query_types,
             std::vector<const type_info*>& resource_types,
             std::vector<const type_info*>& resource_const,
             std::vector<const type_info*>& event_read_types,
@@ -147,7 +172,7 @@ struct BasicSystem {
             std::vector<std::tuple<
                 std::vector<const type_info*>,
                 std::vector<const type_info*>,
-                std::vector<const type_info*>>> query_types,
+                std::vector<const type_info*>>>& query_types,
             std::vector<const type_info*>& resource_types,
             std::vector<const type_info*>& resource_const,
             std::vector<const type_info*>& event_read_types,
@@ -165,7 +190,7 @@ struct BasicSystem {
             std::vector<std::tuple<
                 std::vector<const type_info*>,
                 std::vector<const type_info*>,
-                std::vector<const type_info*>>> query_types,
+                std::vector<const type_info*>>>& query_types,
             std::vector<const type_info*>& resource_types,
             std::vector<const type_info*>& resource_const,
             std::vector<const type_info*>& event_read_types,
@@ -207,79 +232,54 @@ struct BasicSystem {
         if (has_command && (other->has_command || other->has_query))
             return true;
         if (has_query && other->has_command) return true;
-        bool query_contrary = false;
         for (auto& [query_include_types, query_include_const, query_exclude_types] :
              query_types) {
             for (auto& [other_query_include_types, other_query_include_const, other_query_exclude_types] :
                  other->query_types) {
+                bool this_exclude_other = false;
+                for (auto type : query_exclude_types) {
+                    if (std::find(
+                            other_query_include_types.begin(),
+                            other_query_include_types.end(), type
+                        ) != other_query_include_types.end()) {
+                        this_exclude_other = true;
+                    }
+                    if (std::find(
+                            other_query_include_const.begin(),
+                            other_query_include_const.end(), type
+                        ) != other_query_include_const.end()) {
+                        this_exclude_other = true;
+                    }
+                }
+                if (this_exclude_other) continue;
+                bool other_exclude_this = false;
+                for (auto type : other_query_exclude_types) {
+                    if (std::find(
+                            query_include_types.begin(),
+                            query_include_types.end(), type
+                        ) != query_include_types.end()) {
+                        other_exclude_this = true;
+                    }
+                    if (std::find(
+                            query_include_const.begin(),
+                            query_include_const.end(), type
+                        ) != query_include_const.end()) {
+                        other_exclude_this = true;
+                    }
+                }
+                if (other_exclude_this) continue;
                 for (auto type : query_include_types) {
                     if (std::find(
                             other_query_include_types.begin(),
                             other_query_include_types.end(), type
                         ) != other_query_include_types.end()) {
-                        query_contrary = true;
-                        break;
+                        return true;
                     }
                     if (std::find(
                             other_query_include_const.begin(),
                             other_query_include_const.end(), type
-                        ) != other_query_exclude_types.end()) {
-                        query_contrary = true;
-                        break;
-                    }
-                }
-                if (!query_contrary) {
-                    for (auto type : other_query_include_types) {
-                        if (std::find(
-                                query_include_types.begin(),
-                                query_include_types.end(), type
-                            ) != query_include_types.end()) {
-                            query_contrary = true;
-                            break;
-                        }
-                        if (std::find(
-                                query_include_const.begin(),
-                                query_include_const.end(), type
-                            ) != query_exclude_types.end()) {
-                            query_contrary = true;
-                            break;
-                        }
-                    }
-                }
-                if (query_contrary) {
-                    for (auto type : query_exclude_types) {
-                        if (std::find(
-                                other_query_include_types.begin(),
-                                other_query_include_types.end(), type
-                            ) != other_query_include_types.end()) {
-                            query_contrary = false;
-                            break;
-                        }
-                        if (std::find(
-                                other_query_include_const.begin(),
-                                other_query_include_const.end(), type
-                            ) != other_query_include_const.end()) {
-                            query_contrary = false;
-                            break;
-                        }
-                    }
-                }
-                if (query_contrary) {
-                    for (auto type : other_query_exclude_types) {
-                        if (std::find(
-                                query_include_types.begin(),
-                                query_include_types.end(), type
-                            ) != query_include_types.end()) {
-                            query_contrary = false;
-                            break;
-                        }
-                        if (std::find(
-                                query_include_const.begin(),
-                                query_include_const.end(), type
-                            ) != query_include_const.end()) {
-                            query_contrary = false;
-                            break;
-                        }
+                        ) != other_query_include_const.end()) {
+                        return true;
                     }
                 }
             }
@@ -316,6 +316,8 @@ struct BasicSystem {
                 }
             }
         }
+        if (resource_contrary) return true;
+
         bool event_contrary = false;
         for (auto type : event_write_types) {
             if (std::find(
@@ -343,12 +345,27 @@ struct BasicSystem {
                 event_contrary = true;
             }
         }
+        for (auto type : event_read_types) {
+            if (std::find(
+                    other->event_read_types.begin(),
+                    other->event_read_types.end(), type
+                ) != other->event_read_types.end()) {
+                event_contrary = true;
+            }
+        }
+        if (event_contrary) return true;
+
         bool state_contrary = false;
         for (auto type : next_state_types) {
             if (std::find(
                     other->next_state_types.begin(),
                     other->next_state_types.end(), type
                 ) != other->next_state_types.end()) {
+                state_contrary = true;
+            }
+            if (std::find(
+                    other->state_types.begin(), other->state_types.end(), type
+                ) != other->state_types.end()) {
                 state_contrary = true;
             }
         }
@@ -358,10 +375,12 @@ struct BasicSystem {
                 ) != next_state_types.end()) {
                 state_contrary = true;
             }
+            if (std::find(state_types.begin(), state_types.end(), type) !=
+                state_types.end()) {
+                state_contrary = true;
+            }
         }
-
-        return query_contrary || resource_contrary || event_contrary ||
-               state_contrary;
+        return state_contrary;
     }
     void print_info_types_name() {
         std::cout << "has command: " << has_command << std::endl;

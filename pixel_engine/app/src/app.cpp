@@ -1,5 +1,7 @@
 #include <spdlog/spdlog.h>
 
+#include <numeric>
+
 #include "pixel_engine/app.h"
 #include "pixel_engine/app/app.h"
 #include "pixel_engine/app/command.h"
@@ -14,54 +16,17 @@ using namespace pixel_engine::prelude;
 using namespace pixel_engine;
 using namespace pixel_engine::app;
 
-app::Schedule prelude::PreStartup() {
-    return app::Schedule(app::StartStage::PreStartup);
-}
-app::Schedule prelude::Startup() {
-    return app::Schedule(app::StartStage::Startup);
-}
-app::Schedule prelude::PostStartup() {
-    return app::Schedule(app::StartStage::PostStartup);
-}
-app::Schedule prelude::First() { return app::Schedule(app::LoopStage::First); }
-app::Schedule prelude::PreUpdate() {
-    return app::Schedule(app::LoopStage::PreUpdate);
-}
-app::Schedule prelude::Update() {
-    return app::Schedule(app::LoopStage::Update);
-}
-app::Schedule prelude::PostUpdate() {
-    return app::Schedule(app::LoopStage::PostUpdate);
-}
-app::Schedule prelude::Last() { return app::Schedule(app::LoopStage::Last); }
-app::Schedule prelude::Prepare() {
-    return app::Schedule(app::RenderStage::Prepare);
-}
-app::Schedule prelude::PreRender() {
-    return app::Schedule(app::RenderStage::PreRender);
-}
-app::Schedule prelude::Render() {
-    return app::Schedule(app::RenderStage::Render);
-}
-app::Schedule prelude::PostRender() {
-    return app::Schedule(app::RenderStage::PostRender);
-}
-app::Schedule prelude::PreShutdown() {
-    return app::Schedule(app::ExitStage::PreShutdown);
-}
-app::Schedule prelude::Shutdown() {
-    return app::Schedule(app::ExitStage::Shutdown);
-}
-app::Schedule prelude::PostShutdown() {
-    return app::Schedule(app::ExitStage::PostShutdown);
+bool SystemNode::contrary_to(SystemNode* other) {
+    for (auto& sys1 : m_system) {
+        for (auto& sys2 : other->m_system) {
+            if (sys1->contrary_to(sys2)) return true;
+        }
+    }
+    return false;
 }
 
 bool SystemNode::condition_pass(SubApp* src, SubApp* dst) {
     bool pass = true;
-    if (m_schedule.m_condition) {
-        pass &= m_schedule.m_condition->run(src, dst);
-    }
-    if (!pass) return false;
     for (auto& cond : m_conditions) {
         pass &= cond->run(src, dst);
         if (!pass) return false;
@@ -69,19 +34,22 @@ bool SystemNode::condition_pass(SubApp* src, SubApp* dst) {
     return true;
 }
 void SystemNode::run(SubApp* src, SubApp* dst) {
-    if (m_system) m_system->run(src, dst);
+    for (auto system : m_system)
+        if (system) system->run(src, dst);
 }
 double SystemNode::reach_time() {
     if (m_reach_time.has_value()) {
         return m_reach_time.value();
     } else {
         double max_time = 0.0;
+        double avg_time = std::accumulate(
+            m_system.begin(), m_system.end(), 0.0,
+            [](double sum, auto system) { return sum + system->get_avg_time(); }
+        );
         for (auto system : m_systems_before) {
             if (auto system_ptr = system.lock()) {
-                max_time = std::max(
-                    max_time, system_ptr->reach_time() +
-                                  system_ptr->m_system->get_avg_time()
-                );
+                max_time =
+                    std::max(max_time, system_ptr->reach_time() + avg_time);
             }
         }
         m_reach_time = max_time;
@@ -98,7 +66,7 @@ void SubStageRunner::build(
     const std::unordered_map<void*, std::shared_ptr<SystemNode>>& systems
 ) {
     build_logger->debug(
-        "Building stage {} : {:d}.", m_stage_type_hash->name(), m_stage_value
+        "Building stage {} : {:d}.", m_stage_type->name(), m_stage_value
     );
     m_systems.clear();
     for (auto& [id, sets] : *m_sets) {
@@ -108,8 +76,8 @@ void SubStageRunner::build(
             set_systems.push_back(ss);
             auto& set_system = set_systems.back();
             for (auto& [addr, system] : systems) {
-                if (system->m_schedule.m_stage_type_hash == m_stage_type_hash &&
-                    system->m_schedule.m_stage_value == m_stage_value &&
+                if (system->m_stage.m_stage_type == m_stage_type &&
+                    system->m_stage.m_stage_value == m_stage_value &&
                     std::find_if(
                         system->m_in_sets.begin(), system->m_in_sets.end(),
                         [=](const auto& sset) {
@@ -126,26 +94,26 @@ void SubStageRunner::build(
                 for (auto& system_i : set_systems[i]) {
                     for (auto& system_j : set_systems[j]) {
                         system_i.lock()->m_system_ptrs_after.insert(
-                            system_j.lock()->m_func_addr
+                            system_j.lock()->m_func_addrs[0]
                         );
                         system_j.lock()->m_system_ptrs_before.insert(
-                            system_i.lock()->m_func_addr
+                            system_i.lock()->m_func_addrs[0]
                         );
                     }
                 }
             }
         }
     }
+    std::unordered_set<std::weak_ptr<SystemNode>> tmp;
     for (auto& [addr, system] : systems) {
-        if (system->m_schedule.m_stage_type_hash == m_stage_type_hash &&
-            system->m_schedule.m_stage_value == m_stage_value) {
-            m_systems.push_back(system);
+        if (system->m_stage.m_stage_type == m_stage_type &&
+            system->m_stage.m_stage_value == m_stage_value) {
+            tmp.insert(system);
             for (auto before_ptr : system->m_system_ptrs_before) {
                 if (systems.find(before_ptr) != systems.end()) {
                     auto sys_before = systems.find(before_ptr)->second;
-                    if (sys_before->m_schedule.m_stage_type_hash ==
-                            m_stage_type_hash &&
-                        sys_before->m_schedule.m_stage_value == m_stage_value) {
+                    if (sys_before->m_stage.m_stage_type == m_stage_type &&
+                        sys_before->m_stage.m_stage_value == m_stage_value) {
                         system->m_systems_before.insert(sys_before);
                         sys_before->m_systems_after.insert(system);
                         sys_before->m_system_ptrs_after.insert(addr);
@@ -155,9 +123,8 @@ void SubStageRunner::build(
             for (auto after_ptr : system->m_system_ptrs_after) {
                 if (systems.find(after_ptr) != systems.end()) {
                     auto sys_after = systems.find(after_ptr)->second;
-                    if (sys_after->m_schedule.m_stage_type_hash ==
-                            m_stage_type_hash &&
-                        sys_after->m_schedule.m_stage_value == m_stage_value) {
+                    if (sys_after->m_stage.m_stage_type == m_stage_type &&
+                        sys_after->m_stage.m_stage_value == m_stage_value) {
                         system->m_systems_after.insert(sys_after);
                         sys_after->m_systems_before.insert(system);
                         sys_after->m_system_ptrs_before.insert(addr);
@@ -166,10 +133,14 @@ void SubStageRunner::build(
             }
         }
     }
+    m_systems.reserve(tmp.size());
+    for (auto& system : tmp) {
+        m_systems.push_back(system);
+    }
     if (build_logger->level() == spdlog::level::debug)
         for (auto& [addr, system] : systems) {
-            if (system->m_schedule.m_stage_type_hash == m_stage_type_hash &&
-                system->m_schedule.m_stage_value == m_stage_value)
+            if (system->m_stage.m_stage_type == m_stage_type &&
+                system->m_stage.m_stage_value == m_stage_value)
                 build_logger->debug(
                     "    System {:#016x} has {:d} defined prevs.", (size_t)addr,
                     system->m_systems_before.size()
@@ -177,7 +148,7 @@ void SubStageRunner::build(
         }
     build_logger->debug(
         "> Stage runner {} : {:d} built. With {} systems in.",
-        m_stage_type_hash->name(), m_stage_value, m_systems.size()
+        m_stage_type->name(), m_stage_value, m_systems.size()
     );
 }
 
@@ -198,8 +169,7 @@ void SubStageRunner::prepare() {
         for (size_t j = i + 1; j < m_systems.size(); j++) {
             if (auto system_ptr = m_systems[i].lock()) {
                 if (auto system_ptr2 = m_systems[j].lock()) {
-                    if (system_ptr->m_system->contrary_to(system_ptr2->m_system
-                        )) {
+                    if (system_ptr->contrary_to(system_ptr2.get())) {
                         system_ptr->m_temp_after.insert(system_ptr2);
                         system_ptr2->m_temp_before.insert(system_ptr);
                     }
@@ -210,8 +180,7 @@ void SubStageRunner::prepare() {
     m_head->clear_temp();
     for (auto system : m_systems) {
         if (auto system_ptr = system.lock()) {
-            if (system_ptr->m_system_ptrs_before.empty() &&
-                system_ptr->m_temp_before.empty()) {
+            if (system_ptr->m_systems_before.empty()) {
                 m_head->m_temp_after.insert(system);
                 system_ptr->m_temp_before.insert(m_head);
             }
@@ -236,14 +205,14 @@ void SubStageRunner::run(std::weak_ptr<SystemNode> system) {
             run_logger->warn(
                 "Worker name : {} is not a valid name, which is used by system "
                 "{:#016x}",
-                system_ptr->m_worker_name, (size_t)system_ptr->m_func_addr
+                system_ptr->m_worker_name, (size_t)system_ptr->m_func_addrs[0]
             );
             notify(system);
             return;
         }
         auto worker = iter->second;
         auto ftr = worker->submit_task([=] {
-            if (system_ptr->m_system &&
+            if (system_ptr->m_system.size() &&
                 system_ptr->condition_pass(m_src.get(), m_dst.get())) {
                 system_ptr->run(m_src.get(), m_dst.get());
             }
@@ -262,8 +231,7 @@ void SubStageRunner::run() {
             run_logger->warn(
                 "Deadlock detected, skipping remaining systems at stage {} "
                 ": {:d}. With {:d} systems remaining.",
-                m_stage_type_hash->name(), m_stage_value,
-                m_unfinished_system_count
+                m_stage_type->name(), m_stage_value, m_unfinished_system_count
             );
             break;
         }
@@ -323,6 +291,22 @@ void StageRunner::run() {
     }
 }
 
+bool Runner::stage_is_startup(const type_info* type) {
+    return m_startup_stages.find(type) != m_startup_stages.end();
+}
+
+bool Runner::stage_is_transition(const type_info* type) {
+    return m_transition_stages.find(type) != m_transition_stages.end();
+}
+
+bool Runner::stage_is_loop(const type_info* type) {
+    return m_loop_stages.find(type) != m_loop_stages.end();
+}
+
+bool Runner::stage_is_exit(const type_info* type) {
+    return m_exit_stages.find(type) != m_exit_stages.end();
+}
+
 Runner::Runner(
     std::unordered_map<const type_info*, std::shared_ptr<SubApp>>* sub_apps,
     std::vector<std::pair<std::string, size_t>> workers
@@ -374,9 +358,31 @@ std::shared_ptr<StageRunnerInfo> Runner::prepare(
 void Runner::run(std::shared_ptr<StageRunnerInfo> stage) {
     auto ftr = m_runner_pool.submit_task([=] {
         auto ptr = stage->operator->();
-        if (ptr) {
-            ptr->prepare();
-            ptr->run();
+        try {
+            if (ptr) {
+                double prepare_time = 0.0;
+                if (stage->m_current_run_time_rate > stage->m_run_time_rate) {
+                    auto start = std::chrono::high_resolution_clock::now();
+                    ptr->prepare();
+                    auto end = std::chrono::high_resolution_clock::now();
+                    prepare_time =
+                        std::chrono::duration<double>(end - start).count();
+                }
+                double run_time = 0.0;
+                auto start = std::chrono::high_resolution_clock::now();
+                ptr->run();
+                auto end = std::chrono::high_resolution_clock::now();
+                run_time = std::chrono::duration<double>(end - start).count();
+                stage->m_current_run_time_rate =
+                    (run_time / prepare_time) * 0.2 +
+                    stage->m_current_run_time_rate * 0.8;
+            }
+        } catch (const std::exception& e) {
+            run_logger->error(
+                "Error occurred while running stage {}.",
+                ptr->m_stage_type->name()
+            );
+            run_logger->error("{}", e.what());
         }
         m_msg_queue.push(stage);
     });
@@ -440,12 +446,23 @@ void Runner::build() {
     }
     for (auto& [stage, stage_runner] : m_startup_stages) {
         stage_runner->operator->()->build(m_systems);
+        stage_runner->m_run_time_rate = m_run_time_rate;
+        stage_runner->operator->()->prepare();
+    }
+    for (auto& [stage, stage_runner] : m_transition_stages) {
+        stage_runner->operator->()->build(m_systems);
+        stage_runner->m_run_time_rate = m_run_time_rate;
+        stage_runner->operator->()->prepare();
     }
     for (auto& [stage, stage_runner] : m_loop_stages) {
         stage_runner->operator->()->build(m_systems);
+        stage_runner->m_run_time_rate = m_run_time_rate;
+        stage_runner->operator->()->prepare();
     }
     for (auto& [stage, stage_runner] : m_exit_stages) {
         stage_runner->operator->()->build(m_systems);
+        stage_runner->m_run_time_rate = m_run_time_rate;
+        stage_runner->operator->()->prepare();
     }
 }
 void Runner::end_commands() {
@@ -465,8 +482,18 @@ void Runner::removing_system(void* func) {
     }
 }
 
-Worker::Worker() : name("default") {}
-Worker::Worker(std::string str) : name(str) {}
+void Runner::set_run_time_rate(double rate) {
+    if (rate >= 0.0 && rate <= 1.0) {
+        m_run_time_rate = rate;
+    } else {
+        setup_logger->warn(
+            "Trying to set run time rate to {}, which is not in the range [0, "
+            "1]. Clamp to [0, 1].",
+            rate
+        );
+        m_run_time_rate = std::clamp(rate, 0.0, 1.0);
+    }
+}
 
 bool pixel_engine::app::check_exit(app::EventReader<AppExit> reader) {
     if (!reader.empty()) run_logger->info("Exit event received.");
@@ -560,6 +587,11 @@ App& App::enable_loop() {
     return *this;
 }
 
+App& App::set_run_time_rate(double rate) {
+    m_runner.set_run_time_rate(rate);
+    return *this;
+}
+
 void App::build_plugins() {
     for (auto& [plugin_type, plugin] : m_plugins) {
         m_building_plugin_type = plugin_type;
@@ -580,19 +612,25 @@ void App::run() {
     run_logger->info("Running app.");
     m_runner.run_startup();
     run_logger->debug("Running loop.");
+    m_runner.end_commands();
     do {
-        run_logger->debug("Run Loop systems.");
-        m_runner.run_loop();
         run_logger->debug("Run state transition systems.");
         m_runner.run_transition();
+        run_logger->debug("Run Loop systems.");
+        m_runner.run_loop();
+        m_runner.end_commands();
         update_states();
         run_logger->debug("Tick events.");
         for (auto& [_, sub_app] : m_sub_apps) {
             sub_app->tick_events();
         }
     } while (m_loop_enabled && !main_sub_app->run_system_v(check_exit));
+    run_logger->debug("Run state transition systems.");
+    m_runner.run_transition();
+    m_runner.end_commands();
     run_logger->info("Exiting app.");
     m_runner.run_exit();
+    m_runner.end_commands();
     run_logger->info("App terminated.");
 }
 

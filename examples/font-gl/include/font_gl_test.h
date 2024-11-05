@@ -19,8 +19,8 @@ void create_camera(Command command) { command.spawn(Camera2dBundle{}); }
 
 void create_text(
     Command command,
-    Resource<AssetServerGL> asset_server,
-    Resource<FT2Library> library
+    ResMut<AssetServerGL> asset_server,
+    ResMut<FT2Library> library
 ) {
     command.spawn(TextBundle{
         .text =
@@ -41,10 +41,11 @@ void create_text(
 
 void camera_ortho_to_primary_window(
     Query<Get<OrthoProjection>, With<Camera2d>> query,
-    Query<Get<WindowSize>, With<PrimaryWindow>> projection_query
+    Query<Get<const Window>, With<PrimaryWindow>> projection_query
 ) {
     for (auto [proj] : query.iter()) {
-        for (auto [size] : projection_query.iter()) {
+        for (auto [window] : projection_query.iter()) {
+            auto size = window.get_size();
             float ratio = (float)size.width / size.height;
             proj.left = -ratio;
             proj.right = ratio;
@@ -55,9 +56,9 @@ void camera_ortho_to_primary_window(
 class TestPlugin : public Plugin {
    public:
     void build(App& app) {
-        app.add_system(Startup(), create_camera)
-            ->add_system(Startup(), create_text)
-            ->add_system(PreRender(), camera_ortho_to_primary_window);
+        app.add_system(Startup, create_camera)
+            ->add_system(Startup, create_text)
+            ->add_system(PreRender, camera_ortho_to_primary_window);
     }
 };
 }  // namespace font_gl_test

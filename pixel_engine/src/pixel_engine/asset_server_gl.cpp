@@ -3,7 +3,6 @@
 #include "pixel_engine/asset_server_gl/systems.h"
 #include "pixel_engine/render_gl/render_gl.h"
 
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -14,20 +13,22 @@ using namespace pixel_engine::render_gl::components;
 
 std::vector<char>
 pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader_source(
-    const std::string& path) {
+    const std::string& path
+) {
     std::ifstream file(m_base_path + path);
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open file: " + path);
     }
     std::vector<char> buffer(
-        (std::istreambuf_iterator<char>(file)),
-        std::istreambuf_iterator<char>());
+        (std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>()
+    );
     buffer.push_back('\0');
     return buffer;
 }
 
 ShaderPtr pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
-    const std::vector<char>& source, int type) {
+    const std::vector<char>& source, int type
+) {
     const char* source_ptr = source.data();
     ShaderPtr shader;
     shader.create(type);
@@ -39,13 +40,15 @@ ShaderPtr pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
         char info_log[512];
         glGetShaderInfoLog(shader.id, 512, NULL, info_log);
         throw std::runtime_error(
-            "Failed to link program: " + std::string(info_log));
+            "Failed to link program: " + std::string(info_log)
+        );
     }
     return shader;
 }
 
 ShaderPtr pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
-    const std::string& path, int type) {
+    const std::string& path, int type
+) {
     std::vector<char> source = load_shader_source(path);
     const char* source_ptr = source.data();
     ShaderPtr shader;
@@ -58,14 +61,16 @@ ShaderPtr pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
         char info_log[512];
         glGetShaderInfoLog(shader.id, 512, NULL, info_log);
         throw std::runtime_error(
-            "Failed to link program: " + std::string(info_log));
+            "Failed to link program: " + std::string(info_log)
+        );
     }
     return shader;
 }
 
 TexturePtr
 pixel_engine::asset_server_gl::resources::AssetServerGL::load_image_2d(
-    const std::string& path) {
+    const std::string& path
+) {
     stbi_set_flip_vertically_on_load(true);
     int width, height, channels;
     stbi_uc* data =
@@ -78,10 +83,12 @@ pixel_engine::asset_server_gl::resources::AssetServerGL::load_image_2d(
     glTextureStorage2D(texture, 1, GL_RGBA8, width, height);
     if (channels == 3) {
         glTextureSubImage2D(
-            texture, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+            texture, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data
+        );
     } else if (channels == 4) {
         glTextureSubImage2D(
-            texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+            texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data
+        );
     }
     glGenerateMipmap(GL_TEXTURE_2D);
     stbi_image_free(data);
@@ -90,7 +97,8 @@ pixel_engine::asset_server_gl::resources::AssetServerGL::load_image_2d(
 
 SamplerPtr
 pixel_engine::asset_server_gl::resources::AssetServerGL::create_sampler(
-    int wrap_s, int wrap_t, int min_filter, int mag_filter) {
+    int wrap_s, int wrap_t, int min_filter, int mag_filter
+) {
     uint32_t sampler;
     glCreateSamplers(1, &sampler);
     glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, wrap_s);
@@ -101,7 +109,8 @@ pixel_engine::asset_server_gl::resources::AssetServerGL::create_sampler(
 }
 
 FT_Face pixel_engine::asset_server_gl::resources::AssetServerGL::load_font(
-    const FT_Library& library, const std::string& path) {
+    const FT_Library& library, const std::string& path
+) {
     if (m_font_faces.find(path) != m_font_faces.end()) {
         return m_font_faces[path];
     }
@@ -118,8 +127,8 @@ FT_Face pixel_engine::asset_server_gl::resources::AssetServerGL::load_font(
 void pixel_engine::asset_server_gl::AssetServerGLPlugin::build(App& app) {
     app.configure_sets(
            AssetServerGLSets::insert_asset_server,
-           AssetServerGLSets::after_insertion)
-        .add_system(
-            PreStartup(), systems::insert_asset_server,
-            in_set(AssetServerGLSets::insert_asset_server));
+           AssetServerGLSets::after_insertion
+    )
+        .add_system(PreStartup, systems::insert_asset_server)
+        .in_set(AssetServerGLSets::insert_asset_server);
 }

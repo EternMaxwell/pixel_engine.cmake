@@ -308,51 +308,45 @@ void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
             RenderGLPipelineCompletionSets::pipeline_completion,
             RenderGLPipelineCompletionSets::after_pipeline_completion
         )
-        .add_system(
-            PreStartup(), context_creation,
-            in_set(
-                window::WindowStartUpSets::after_window_creation,
-                RenderGLStartupSets::context_creation
-            )
+        .add_system(PreStartup, context_creation)
+        .in_set(
+            window::WindowStartUpSets::after_window_creation,
+            RenderGLStartupSets::context_creation
         )
         .use_worker("single")
-        ->add_system(PreRender(), clear_color)
+        ->add_system(PreRender, clear_color)
         .use_worker("single")
-        ->add_system(PreRender(), update_viewport)
+        ->add_system(PreRender, update_viewport)
         .use_worker("single")
-        ->add_system(
-            PreRender(), complete_pipeline,
-            in_set(RenderGLPipelineCompletionSets::pipeline_completion)
-        )
+        ->add_system(PreRender, complete_pipeline)
+        .in_set(RenderGLPipelineCompletionSets::pipeline_completion)
+        .use_worker("single")
+        ->add_system(PostRender, swap_buffers)
         .use_worker("single");
 }
 
-void pixel_engine::render_gl::systems::clear_color(
-    Query<Get<WindowHandle>, With<WindowCreated>, Without<>> query
-) {
-    for (auto [window_handle] : query.iter()) {
-        if (glfwGetCurrentContext() != window_handle.window_handle)
-            glfwMakeContextCurrent(window_handle.window_handle);
+void pixel_engine::render_gl::systems::clear_color(Query<Get<Window>> query) {
+    for (auto [window] : query.iter()) {
+        if (glfwGetCurrentContext() != window.get_handle())
+            glfwMakeContextCurrent(window.get_handle());
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 }
 
-void pixel_engine::render_gl::systems::update_viewport(
-    Query<Get<WindowHandle, WindowSize>, With<WindowCreated>, Without<>> query
+void pixel_engine::render_gl::systems::update_viewport(Query<Get<Window>> query
 ) {
-    for (auto [window_handle, window_size] : query.iter()) {
-        if (glfwGetCurrentContext() != window_handle.window_handle)
-            glfwMakeContextCurrent(window_handle.window_handle);
-        glViewport(0, 0, window_size.width, window_size.height);
+    for (auto [window] : query.iter()) {
+        if (glfwGetCurrentContext() != window.get_handle())
+            glfwMakeContextCurrent(window.get_handle());
+        glViewport(0, 0, window.get_size().width, window.get_size().height);
     }
 }
 
-void pixel_engine::render_gl::systems::context_creation(
-    Query<Get<WindowHandle>, With<WindowCreated>, Without<>> query
+void pixel_engine::render_gl::systems::context_creation(Query<Get<Window>> query
 ) {
-    for (auto [window_handle] : query.iter()) {
-        if (glfwGetCurrentContext() != window_handle.window_handle)
-            glfwMakeContextCurrent(window_handle.window_handle);
+    for (auto [window] : query.iter()) {
+        if (glfwGetCurrentContext() != window.get_handle())
+            glfwMakeContextCurrent(window.get_handle());
         gladLoadGL();
         glEnable(GL_DEBUG_OUTPUT);
         glDebugMessageCallback(
@@ -377,10 +371,18 @@ void pixel_engine::render_gl::systems::context_creation(
     }
 }
 
+void pixel_engine::render_gl::systems::swap_buffers(Query<Get<Window>> query) {
+    for (auto [window] : query.iter()) {
+        if (glfwGetCurrentContext() != window.get_handle())
+            glfwMakeContextCurrent(window.get_handle());
+        glfwSwapBuffers(window.get_handle());
+    }
+}
+
 void pixel_engine::render_gl::systems::complete_pipeline(
     Command command,
     Query<
-        Get<entt::entity, ProgramShaderAttachments, VertexAttribs>,
+        Get<Entity, ProgramShaderAttachments, VertexAttribs>,
         With<PipelineCreation>,
         Without<>> query
 ) {
@@ -398,7 +400,7 @@ void pixel_engine::render_gl::systems::complete_pipeline(
         PipelineLayout layout;
 
         layout.vertex_buffer = vertex_buffer;
-        layout.vertex_array = vertex_array;
+        layout.vertex_array  = vertex_array;
 
         for (auto& attrib : attribs.attribs) {
             glEnableVertexAttribArray(attrib.location);
@@ -434,7 +436,7 @@ void pixel_engine::render_gl::systems::complete_pipeline(
         entity_command.erase<VertexAttribs>();
 
         entity_command.emplace(PipelineBundle{
-            .layout = layout,
+            .layout  = layout,
             .program = program,
         });
     }
