@@ -24,7 +24,7 @@ void systems::create_context(
     Query<
         Get<window::components::Window>,
         With<window::components::PrimaryWindow>> query,
-    Resource<RenderVKPlugin> plugin
+    Res<RenderVKPlugin> plugin
 ) {
     if (!query.single().has_value()) {
         return;

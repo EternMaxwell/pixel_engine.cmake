@@ -14,13 +14,12 @@
 #include "tools.h"
 #include "world.h"
 
-
 namespace pixel_engine {
 namespace app {
 template <typename T>
 struct Local {
     using value_type = T;
-    Local(void* t) : t(t) {}
+    Local(T* t) : t(t) {}
     T& operator*() { return *t; }
     T* operator->() { return t; }
 
@@ -72,7 +71,9 @@ struct BasicSystem {
     };
 
     template <typename T>
-    struct infos_adder {};
+    struct infos_adder {
+        static void add(system_info& info) {};
+    };
 
     template <typename... Includes, typename... Withs, typename... Excludes>
     struct infos_adder<
@@ -179,15 +180,22 @@ struct BasicSystem {
 
     template <typename T>
     Local<T> get_local() {
-        auto it = m_locals.find(&typeid(T));
-        if (it == m_locals.end()) {
+        if (auto it = m_locals.find(&typeid(T)); it == m_locals.end()) {
             m_locals.emplace(
                 &typeid(T),
                 std::static_pointer_cast<void>(std::make_shared<T>())
             );
         }
-        return Local<T>(static_cast<T*>(it->second.get()));
+        return Local<T>(static_cast<T*>(m_locals[&typeid(T)].get()));
     }
+
+    template <typename T>
+    struct LocalRetriever {};
+
+    template <typename T>
+    struct LocalRetriever<Local<T>> {
+        static Local<T> get(BasicSystem* sys) { return sys->get_local<T>(); }
+    };
 
    public:
     bool contrary_to(BasicSystem* other) {
@@ -407,7 +415,7 @@ struct BasicSystem {
             BasicSystem<Ret>* basic_sys, SubApp* src, SubApp* dst
         ) {
             if constexpr (app_tools::is_template_of<Local, T>::value) {
-                return basic_sys->get_local<T::value_type>();
+                return BasicSystem<Ret>::LocalRetriever<T>::get(basic_sys);
             } else {
                 return SubApp::value_type<T>::get(*src, *dst);
             }

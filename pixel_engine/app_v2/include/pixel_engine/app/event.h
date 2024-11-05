@@ -18,6 +18,8 @@ struct EventReader {
     };
 
     iter read() { return iter(m_queue); }
+    void clear() { m_queue->clear(); }
+    bool empty() { return m_queue->empty(); }
 
    private:
     EventQueue<T>* m_queue;
@@ -25,10 +27,17 @@ struct EventReader {
 
 template <typename T>
 struct EventWriter {
-    EventWriter(EventQueueBase* queue) : m_queue(queue) {}
+    EventWriter(EventQueueBase* queue)
+        : m_queue(dynamic_cast<EventQueue<T>*>(queue)) {}
 
-    void write(const T& event) { m_queue->push(event); }
-    void write(T&& event) { m_queue->push(std::move(event)); }
+    EventWriter& write(const T& event) {
+        m_queue->push(event);
+        return *this;
+    }
+    EventWriter& write(T&& event) {
+        m_queue->push(std::forward<T>(event));
+        return *this;
+    }
 
    private:
     EventQueue<T>* m_queue;

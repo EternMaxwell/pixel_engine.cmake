@@ -129,7 +129,6 @@ void pixel_engine::asset_server_gl::AssetServerGLPlugin::build(App& app) {
            AssetServerGLSets::insert_asset_server,
            AssetServerGLSets::after_insertion
     )
-        .add_system(systems::insert_asset_server)
-        .in_stage(app::PreStartup)
+        .add_system(PreStartup, systems::insert_asset_server)
         .in_set(AssetServerGLSets::insert_asset_server);
 }

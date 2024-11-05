@@ -2,11 +2,28 @@
 
 using namespace pixel_engine::prelude;
 
-void func1() {
+struct TestRes {
+    int v;
+};
+
+struct TestComp {
+    int v;
+};
+
+void func1(ResMut<TestRes> res, Query<Get<TestComp>> query) {
     std::cout << "func1" << std::endl;
+    std::cout << res->v++ << std::endl;
+    for (auto [comp] : query.iter()) {
+        std::cout << "comp: " << comp.v++ << std::endl;
+    }
 }
-void func2() {
+void func2(Command cmd, Local<int> v) {
+    cmd.insert_resource(TestRes{1});
+    cmd.spawn(TestComp{1});
     std::cout << "func2" << std::endl;
+    std::cout << "local int: " << (*v)++ << std::endl;
+    // the ++ here only affects the local data, and since same function in
+    // different stages are different systems, they are seperate data.
 }
 
 int main() {

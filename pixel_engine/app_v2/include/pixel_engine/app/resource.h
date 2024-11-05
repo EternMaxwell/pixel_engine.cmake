@@ -10,7 +10,7 @@ struct Res {
     const ResT* m_res;
 
    public:
-    Res(void* resource) : m_res(resource) {}
+    Res(void* resource) : m_res(static_cast<const ResT*>(resource)) {}
     Res() : m_res(nullptr) {}
 
     /**
@@ -28,7 +28,7 @@ struct ResMut {
     ResT* m_res;
 
    public:
-    ResMut(void* resource) : m_res(resource) {}
+    ResMut(void* resource) : m_res(static_cast<ResT*>(resource)) {}
     ResMut() : m_res(nullptr) {}
 
     /**

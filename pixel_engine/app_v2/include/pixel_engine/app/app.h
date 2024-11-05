@@ -8,6 +8,9 @@ enum MainStartupStage {
     Startup,
     PostStartup,
 };
+enum MainTransitStage {
+    Transit,
+};
 enum MainLoopStage {
     First,
     PreUpdate,
@@ -26,6 +29,7 @@ enum RenderStartupStage {
     PostRenderStartup,
 };
 enum RenderLoopStage {
+    Prepare,
     PreRender,
     Render,
     PostRender,
@@ -74,18 +78,19 @@ struct App {
             return *this;
         }
         template <typename... Sets>
-        SystemInfo& in_sets(Sets... sets) {
-            (node->m_in_sets.insert(SystemSet(sets)), ...);
+        SystemInfo& in_set(Sets... sets) {
+            (node->m_in_sets.push_back(SystemSet(sets)), ...);
             return *this;
         }
         template <typename T>
         SystemInfo& on_enter(T state) {
             if (app->m_runner->stage_state_transition(node->m_stage.m_stage)) {
                 node->m_conditions.emplace_back(
-                    std::make_unique<Condition<State<T>, NextState<T>>>(
-                        [state](State<T> s, NextState<T> ns) {
-                            return (s.is_state(state) && s.is_just_created()) ||
-                                   (ns.is_state(state) && !s.is_state(state));
+                    std::make_unique<
+                        Condition<Res<State<T>>, Res<NextState<T>>>>(
+                        [state](Res<State<T>> s, Res<NextState<T>> ns) {
+                            return (s->is_state(state) && s->is_just_created()) ||
+                                   (ns->is_state(state) && !s->is_state(state));
                         }
                     )
                 );
@@ -102,9 +107,10 @@ struct App {
         SystemInfo& on_exit(T state) {
             if (app->m_runner->stage_state_transition(node->m_stage.m_stage)) {
                 node->m_conditions.emplace_back(
-                    std::make_unique<Condition<State<T>, NextState<T>>>(
-                        [state](State<T> s, NextState<T> ns) {
-                            return !ns.is_state(state) && s.is_state(state);
+                    std::make_unique<
+                        Condition<Res<State<T>>, Res<NextState<T>>>>(
+                        [state](Res<State<T>> s, Res<NextState<T>> ns) {
+                            return !ns->is_state(state) && s->is_state(state);
                         }
                     )
                 );
@@ -121,9 +127,10 @@ struct App {
         SystemInfo& on_change() {
             if (app->m_runner->stage_state_transition(node->m_stage.m_stage)) {
                 node->m_conditions.emplace_back(
-                    std::make_unique<Condition<State<T>, NextState<T>>>(
-                        [](State<T> s, NextState<T> ns) {
-                            return !s.is_state(ns);
+                    std::make_unique<
+                        Condition<Res<State<T>>, Res<NextState<T>>>>(
+                        [](Res<State<T>> s, Res<NextState<T>> ns) {
+                            return !s->is_state(ns);
                         }
                     )
                 );
@@ -139,12 +146,14 @@ struct App {
         template <typename T>
         SystemInfo& in_state(T state) {
             node->m_conditions.emplace_back(
-                std::make_unique<Condition<State<T>>>([state](State<T> s) {
-                    return s.is_state(state);
-                })
+                std::make_unique<Condition<Res<State<T>>>>(
+                    [state](Res<State<T>> s) { return s.is_state(state); }
+                )
             );
             return *this;
         }
+
+        App* operator->();
     };
 
     template <typename StageT, typename... Args>
@@ -153,19 +162,96 @@ struct App {
         return {ptr, this};
     }
     template <typename T>
-    void add_plugin(T&& plugin) {
+    App& add_plugin(T&& plugin) {
         m_plugins.emplace(
             &typeid(T), std::make_shared<T>(std::forward<T>(plugin))
         );
+        return *this;
     }
     template <typename T>
-    T& get_plugin() {
-        return *static_cast<T*>(m_plugins.at(&typeid(T)).get());
+    std::shared_ptr<T> get_plugin() {
+        return std::static_pointer_cast<T>(m_plugins[&typeid(T)]);
+    }
+    template <typename T, typename Target = MainSubApp, typename... Args>
+    App& emplace_resource(Args&&... args) {
+        auto it = m_sub_apps->find(&typeid(Target));
+        if (it == m_sub_apps->end()) {
+            spdlog::warn(
+                "Add resource to sub app: {}, which does not exist.",
+                typeid(Target).name()
+            );
+            return *this;
+        }
+        auto& target = it->second;
+        target->emplace_resource<T>(std::forward<Args>(args)...);
+        return *this;
+    }
+    template <typename Target = MainSubApp, typename T>
+    App& insert_resource(T&& res) {
+        auto it = m_sub_apps->find(&typeid(Target));
+        if (it == m_sub_apps->end()) {
+            spdlog::warn(
+                "Add resource to sub app: {}, which does not exist.",
+                typeid(Target).name()
+            );
+            return *this;
+        }
+        auto& target = it->second;
+        target->insert_resource(std::forward<T>(res)...);
+        return *this;
+    }
+    template <typename T, typename Target = MainSubApp>
+    App& init_resource() {
+        auto it = m_sub_apps->find(&typeid(Target));
+        if (it == m_sub_apps->end()) {
+            spdlog::warn(
+                "Add resource to sub app: {}, which does not exist.",
+                typeid(Target).name()
+            );
+            return *this;
+        }
+        auto& target = it->second;
+        target->init_resource<T>();
+        return *this;
+    }
+    template <typename T, typename Target = MainSubApp>
+    App& insert_state(T&& state) {
+        auto it = m_sub_apps->find(&typeid(Target));
+        if (it == m_sub_apps->end()) {
+            spdlog::warn(
+                "Add state to sub app: {}, which does not exist.",
+                typeid(Target).name()
+            );
+            return *this;
+        }
+        auto& target = it->second;
+        target->insert_state(std::forward<T>(state));
+        return *this;
+    }
+    template <typename T, typename Target = MainSubApp>
+    App& init_state() {
+        auto it = m_sub_apps->find(&typeid(Target));
+        if (it == m_sub_apps->end()) {
+            spdlog::warn(
+                "Add state to sub app: {}, which does not exist.",
+                typeid(Target).name()
+            );
+            return *this;
+        }
+        auto& target = it->second;
+        target->init_state<T>();
+        return *this;
+    }
+    template <typename... Sets>
+    App& configure_sets(Sets... sets) {
+        m_runner->configure_sets(sets...);
+        return *this;
     }
 
     void run();
-    void enable_loop();
-    void disable_loop();
+    App& enable_loop();
+    App& disable_loop();
+    App* operator->();
 
    protected:
     App();

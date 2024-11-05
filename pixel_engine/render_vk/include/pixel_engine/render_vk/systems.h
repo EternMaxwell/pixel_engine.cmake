@@ -27,7 +27,7 @@ void create_context(
     Query<
         Get<window::components::Window>,
         With<window::components::PrimaryWindow>> query,
-    Resource<RenderVKPlugin> plugin
+    Res<RenderVKPlugin> plugin
 );
 void recreate_swap_chain(
     Query<Get<PhysicalDevice, Device, Surface, Swapchain>, With<RenderContext>>

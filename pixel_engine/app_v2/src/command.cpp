@@ -4,9 +4,9 @@ using namespace pixel_engine::app;
 
 EntityCommand::EntityCommand(
     World* world,
-    entt::entity entity,
-    std::shared_ptr<std::vector<entt::entity>> despawns,
-    std::shared_ptr<std::vector<entt::entity>> recursive_despawns
+    Entity entity,
+    std::shared_ptr<std::vector<Entity>> despawns,
+    std::shared_ptr<std::vector<Entity>> recursive_despawns
 )
     : m_registry(&world->m_registry),
       m_entity(entity),
@@ -21,10 +21,10 @@ void EntityCommand::despawn_recurse() {
 
 Command::Command(World* world)
     : m_world(world),
-      m_despawns(std::make_shared<std::vector<entt::entity>>()),
-      m_recursive_despawns(std::make_shared<std::vector<entt::entity>>()) {}
+      m_despawns(std::make_shared<std::vector<Entity>>()),
+      m_recursive_despawns(std::make_shared<std::vector<Entity>>()) {}
 
-EntityCommand Command::entity(entt::entity entity) {
+EntityCommand Command::entity(Entity entity) {
     return EntityCommand(m_world, entity, m_despawns, m_recursive_despawns);
 }
 

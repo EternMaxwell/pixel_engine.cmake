@@ -13,7 +13,7 @@ struct Res {
     int data;
 };
 
-void access_resource1(Resource<Res> resource) {
+void access_resource1(ResMut<Res> resource) {
     std::cout << "access_resource" << std::endl;
     if (resource.has_value()) {
         std::cout << "resource: " << resource->data << std::endl;
@@ -23,7 +23,7 @@ void access_resource1(Resource<Res> resource) {
     std::cout << std::endl;
 }
 
-void access_resource2(Resource<Res> resource) {
+void access_resource2(ResMut<Res> resource) {
     std::cout << "access_resource" << std::endl;
     if (resource.has_value()) {
         std::cout << "resource: " << resource->data << std::endl;
@@ -33,7 +33,7 @@ void access_resource2(Resource<Res> resource) {
     std::cout << std::endl;
 }
 
-void access_resource3(Resource<Res> resource) {
+void access_resource3(ResMut<Res> resource) {
     std::cout << "access_resource" << std::endl;
     if (resource.has_value()) {
         std::cout << "resource: " << resource->data << std::endl;
@@ -67,7 +67,7 @@ void remove_resource2(Command command) {
     std::cout << std::endl;
 }
 
-void change_resource(Resource<Res> resource) {
+void change_resource(ResMut<Res> resource) {
     std::cout << "change_resource" << std::endl;
     resource->data = 200;
     std::cout << std::endl;
@@ -76,34 +76,26 @@ void change_resource(Resource<Res> resource) {
 class ResourceTestPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(set_resource)
-            .in_stage(app::Startup)
-            ->add_system(access_resource1)
+        app.add_system(Startup, set_resource)
+            ->add_system(Startup, access_resource1)
             .after(set_resource)
-            .in_stage(app::Startup)
-            ->add_system(remove_resource1)
+            ->add_system(Startup, remove_resource1)
             .after(access_resource1)
-            .in_stage(app::Startup)
-            ->add_system(set_resource_with_init)
+            ->add_system(Startup, set_resource_with_init)
             .after(remove_resource1)
-            .in_stage(app::Startup)
-            ->add_system(access_resource2)
+            ->add_system(Startup, access_resource2)
             .after(set_resource_with_init)
-            .in_stage(app::Startup)
-            ->add_system(change_resource)
+            ->add_system(Startup, change_resource)
             .after(access_resource2)
-            .in_stage(app::Startup)
-            ->add_system(access_resource3)
+            ->add_system(Startup, access_resource3)
             .after(change_resource)
-            .in_stage(app::Startup)
-            ->add_system(remove_resource2)
-            .after(access_resource3)
-            .in_stage(app::Startup);
+            ->add_system(Startup, remove_resource2)
+            .after(access_resource3);
     }
 };
 
 void test() {
-    App app;
+    App app = App::create();
     app.add_plugin(ResourceTestPlugin{}).run();
 }
 }  // namespace test_resource

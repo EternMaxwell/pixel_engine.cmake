@@ -10,6 +10,6 @@ target_link_libraries(pixel_engine_app_v2 BSThreadPool)
 target_link_libraries(pixel_engine_app_v2 spdlog::spdlog)
 target_link_libraries(pixel_engine_app_v2 sparsepp)
 
-add_library(pixel_engine::app2 ALIAS pixel_engine_app_v2)
+add_library(pixel_engine::app ALIAS pixel_engine_app_v2)
 
 add_subdirectory(tests)

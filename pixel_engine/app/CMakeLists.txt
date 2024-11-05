@@ -11,4 +11,4 @@ target_link_libraries(pixel_engine_app_v1 spdlog::spdlog)
 
 add_subdirectory(examples)
 
-add_library(pixel_engine::app ALIAS pixel_engine_app_v1)
+add_library(pixel_engine::app1 ALIAS pixel_engine_app_v1)

@@ -2,11 +2,16 @@
 
 using namespace pixel_engine::app;
 
+App* App::SystemInfo::operator->() { return app; }
+
 App App::create() {
     App app;
     app.add_sub_app<RenderSubApp>();
     app.m_runner->assign_startup_stage<MainSubApp, MainSubApp>(
         PreStartup, Startup, PostStartup
+    );
+    app.m_runner->assign_state_transition_stage<MainSubApp, MainSubApp>(
+        Transit
     );
     app.m_runner->assign_loop_stage<MainSubApp, MainSubApp>(
         First, PreUpdate, Update, PostUpdate, Last
@@ -50,8 +55,15 @@ void App::run() {
     end_commands();
 }
 
-void App::enable_loop() { m_loop_enabled = true; }
-void App::disable_loop() { m_loop_enabled = false; }
+App& App::enable_loop() {
+    m_loop_enabled = true;
+    return *this;
+}
+App& App::disable_loop() {
+    m_loop_enabled = false;
+    return *this;
+}
+App* App::operator->() { return this; }
 
 App::App()
     : m_sub_apps(

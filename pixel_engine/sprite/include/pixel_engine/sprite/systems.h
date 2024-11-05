@@ -17,14 +17,14 @@ void loading_actual_image(
     Command cmd,
     Query<Get<Entity, ImageLoading>> query,
     Query<Get<Device, CommandPool, Queue>, With<RenderContext>> ctx_query,
-    Resource<SpriteServerVK> sprite_server
+    ResMut<SpriteServerVK> sprite_server
 );  // called at render prepare stage
 
 void creating_actual_sampler(
     Command cmd,
     Query<Get<Entity, SamplerCreating>> query,
     Query<Get<Device>, With<RenderContext>> ctx_query,
-    Resource<SpriteServerVK> sprite_server
+    ResMut<SpriteServerVK> sprite_server
 );  // called at render prepare stage
 
 void create_sprite_renderer_vk(
@@ -80,13 +80,13 @@ void draw_sprite_2d_vk(
 );  // called at render stage
 
 void destroy_sprite_server_vk_images(
-    Resource<SpriteServerVK> sprite_server,
+    ResMut<SpriteServerVK> sprite_server,
     Query<Get<Image, ImageView>, With<ImageIndex>> query,
     Query<Get<Device, CommandPool, Queue>, With<RenderContext>> ctx_query
 );  // called at exit stage
 
 void destroy_sprite_server_vk_samplers(
-    Resource<SpriteServerVK> sprite_server,
+    ResMut<SpriteServerVK> sprite_server,
     Query<Get<Sampler>, With<SamplerIndex>> query,
     Query<Get<Device>, With<RenderContext>> ctx_query
 );  // called at exit stage

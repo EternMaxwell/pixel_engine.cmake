@@ -13,7 +13,7 @@ void systems::init_glfw() {
 }
 
 void systems::insert_primary_window(
-    Command command, Resource<window::WindowPlugin> window_plugin
+    Command command, ResMut<window::WindowPlugin> window_plugin
 ) {
     command.spawn(window_plugin->primary_desc(), PrimaryWindow{});
 }
@@ -23,8 +23,8 @@ static std::vector<events::MouseScroll> scroll_cache;
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     std::lock_guard<std::mutex> lock(scroll_mutex);
-    Handle<Window>* ptr =
-        static_cast<Handle<Window>*>(glfwGetWindowUserPointer(window));
+    Entity* ptr =
+        static_cast<Entity*>(glfwGetWindowUserPointer(window));
     scroll_cache.emplace_back(xoffset, yoffset, *ptr);
 }
 
@@ -38,7 +38,7 @@ void systems::create_window_start(
         command.entity(entity).erase<WindowDescription>();
         if (window.has_value()) {
             command.entity(entity).emplace(window.value());
-            Handle<Window>* ptr = new Handle<Window>{entity};
+            Entity* ptr = new Entity{entity};
             glfwSetWindowUserPointer(
                 window.value().get_handle(), static_cast<void*>(ptr)
             );
@@ -62,7 +62,7 @@ void systems::create_window_update(
         command.entity(entity).erase<WindowDescription>();
         if (window.has_value()) {
             command.entity(entity).emplace(window.value());
-            Handle<Window>* ptr = new Handle<Window>{entity};
+            Entity* ptr = new Entity{entity};
             glfwSetWindowUserPointer(
                 window.value().get_handle(), static_cast<void*>(ptr)
             );

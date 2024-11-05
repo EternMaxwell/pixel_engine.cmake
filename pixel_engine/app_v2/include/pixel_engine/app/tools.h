@@ -56,10 +56,10 @@ struct State {
    public:
     State() : m_state() {}
     State(const T& state) : m_state(state) {}
-    bool is_just_created() { return just_created; }
+    bool is_just_created() const { return just_created; }
 
-    bool is_state(const T& state) { return m_state == state; }
-    bool is_state(const NextState<T>& state) {
+    bool is_state(const T& state) const { return m_state == state; }
+    bool is_state(const NextState<T>& state) const {
         return m_state == state.m_state;
     }
 };
@@ -101,7 +101,7 @@ void registry_emplace_single(
         registry_emplace_tuple(registry, entity, std::forward<T>(arg).unpack());
     } else if constexpr (!std::is_same_v<Bundle, std::remove_reference_t<T>>) {
         registry->emplace<std::remove_reference_t<T>>(
-            entity, std::forward(arg)
+            entity, std::forward<T>(arg)
         );
     }
 }
@@ -124,7 +124,10 @@ void registry_emplace_tuple(
 ) {
     registry_emplace(
         registry, entity,
-        std::forward<decltype(std::get<I>(tuple))>(std::get<I>(tuple))...
+        std::forward<
+            decltype(std::get<I>(std::forward<std::tuple<Args...>&&>(tuple)))>(
+            std::get<I>(std::forward<std::tuple<Args...>&&>(tuple))
+        )...
     );
 }
 

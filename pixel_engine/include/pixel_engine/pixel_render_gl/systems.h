@@ -17,7 +17,7 @@ using namespace render_gl::components;
 using namespace components;
 using namespace camera;
 
-void create_pipeline(Command command, Resource<AssetServerGL> asset_server);
+void create_pipeline(Command command, ResMut<AssetServerGL> asset_server);
 
 void draw(
     Query<Get<const Pixels, const PixelSize, const Transform>> pixels_query,

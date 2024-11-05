@@ -14,16 +14,16 @@ using namespace internal_components;
 struct EntityCommand {
    private:
     entt::registry* const m_registry;
-    const entt::entity m_entity;
-    std::shared_ptr<std::vector<entt::entity>> m_despawns;
-    std::shared_ptr<std::vector<entt::entity>> m_recursive_despawns;
+    const Entity m_entity;
+    std::shared_ptr<std::vector<Entity>> m_despawns;
+    std::shared_ptr<std::vector<Entity>> m_recursive_despawns;
 
    public:
     EntityCommand(
         World* world,
-        entt::entity entity,
-        std::shared_ptr<std::vector<entt::entity>> despawns,
-        std::shared_ptr<std::vector<entt::entity>> recursive_despawns
+        Entity entity,
+        std::shared_ptr<std::vector<Entity>> despawns,
+        std::shared_ptr<std::vector<Entity>> recursive_despawns
     );
 
     /*! @brief Spawn an entity.
@@ -40,14 +40,14 @@ struct EntityCommand {
      * @return The child entity id.
      */
     template <typename... Args>
-    entt::entity spawn(Args&&... args) {
+    Entity spawn(Args&&... args) {
         auto child = m_registry->create();
         app_tools::registry_emplace(
             m_registry, child, Parent{.id = m_entity}, args...
         );
-        auto& children = m_registry->get_or_emplace<Children>(m_entity);
+        auto& children = m_registry->get_or_emplace<Children>(m_entity.id);
         children.children.insert(child);
-        return child;
+        return {child};
     }
 
     /*! @brief Emplace new components to the entity.
@@ -57,12 +57,12 @@ struct EntityCommand {
      */
     template <typename... Args>
     void emplace(Args&&... args) {
-        app_tools::registry_emplace(m_registry, m_entity, args...);
+        app_tools::registry_emplace(m_registry, m_entity.id, args...);
     }
 
     template <typename... Args>
     void erase() {
-        app_tools::registry_erase<Args...>(m_registry, m_entity);
+        app_tools::registry_erase<Args...>(m_registry, m_entity.id);
     }
 
     /*! @brief Despawn an entity.
@@ -77,8 +77,8 @@ struct EntityCommand {
 struct Command {
    private:
     World* const m_world;
-    std::shared_ptr<std::vector<entt::entity>> m_despawns;
-    std::shared_ptr<std::vector<entt::entity>> m_recursive_despawns;
+    std::shared_ptr<std::vector<Entity>> m_despawns;
+    std::shared_ptr<std::vector<Entity>> m_recursive_despawns;
 
    public:
     Command(World* world);
@@ -97,13 +97,13 @@ struct Command {
      * @return The child entity id.
      */
     template <typename... Args>
-    entt::entity spawn(Args&&... args) {
+    Entity spawn(Args&&... args) {
         auto m_registry = &m_world->m_registry;
         auto entity     = m_registry->create();
         app_tools::registry_emplace(
             m_registry, entity, std::forward<Args>(args)...
         );
-        return entity;
+        return {entity};
     }
 
     /**
@@ -112,7 +112,7 @@ struct Command {
      * @param entity The entity id.
      * @return `EntityCommand` The entity command.
      */
-    EntityCommand entity(entt::entity entity);
+    EntityCommand entity(Entity entity);
 
     /*! @brief Insert a resource.
      * If the resource already exists, nothing will happen.
@@ -121,7 +121,7 @@ struct Command {
      * @param args The arguments to be passed to the constructor of T
      */
     template <typename T, typename... Args>
-    void insert_resource(Args&&... args) {
+    void emplace_resource(Args&&... args) {
         auto m_resources = &m_world->m_resources;
         if (m_resources->find(&typeid(T)) == m_resources->end()) {
             m_resources->emplace(std::make_pair(

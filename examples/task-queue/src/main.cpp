@@ -6,7 +6,7 @@ int main() {
     using namespace pixel_engine;
     using namespace prelude;
 
-    App app;
+    App app = App::create();
     app.enable_loop()
         .add_plugin(WindowPlugin{})
         .add_plugin(RenderGLPlugin{})

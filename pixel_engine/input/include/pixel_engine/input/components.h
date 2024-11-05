@@ -143,15 +143,15 @@ struct KeyHash {
 template <>
 struct ButtonInput<KeyCode> {
    public:
-    ButtonInput<KeyCode>(Handle<Window> window);
+    ButtonInput<KeyCode>(Entity window);
 
     bool just_pressed(KeyCode key) const;
     bool just_released(KeyCode key) const;
     bool pressed(KeyCode key) const;
 
-    const std::unordered_set<KeyCode, KeyHash>& just_pressed_keys() const;
-    const std::unordered_set<KeyCode, KeyHash>& just_released_keys() const;
-    const std::unordered_set<KeyCode, KeyHash>& pressed_keys() const;
+    const spp::sparse_hash_set<KeyCode, KeyHash>& just_pressed_keys() const;
+    const spp::sparse_hash_set<KeyCode, KeyHash>& just_released_keys() const;
+    const spp::sparse_hash_set<KeyCode, KeyHash>& pressed_keys() const;
 
     bool any_just_pressed(const std::vector<KeyCode>& keys) const;
     bool any_just_released(const std::vector<KeyCode>& keys) const;
@@ -161,14 +161,14 @@ struct ButtonInput<KeyCode> {
 
     const char* key_name(KeyCode key) const;
 
-    Handle<Window> linked_window() const;
+    Entity linked_window() const;
 
    private:
-    Handle<Window> m_window;
+    Entity m_window;
 
-    std::unordered_set<KeyCode, KeyHash> m_just_pressed;
-    std::unordered_set<KeyCode, KeyHash> m_just_released;
-    std::unordered_set<KeyCode, KeyHash> m_pressed;
+    spp::sparse_hash_set<KeyCode, KeyHash> m_just_pressed;
+    spp::sparse_hash_set<KeyCode, KeyHash> m_just_released;
+    spp::sparse_hash_set<KeyCode, KeyHash> m_pressed;
 
     friend void update_key_button_input(
         ButtonInput<KeyCode>& key_input, GLFWwindow* window
@@ -203,17 +203,17 @@ struct MouseButtonHash {
 template <>
 struct ButtonInput<MouseButton> {
    public:
-    ButtonInput<MouseButton>(Handle<Window> window);
+    ButtonInput<MouseButton>(Entity window);
 
     bool just_pressed(MouseButton button) const;
     bool just_released(MouseButton button) const;
     bool pressed(MouseButton button) const;
 
-    const std::unordered_set<MouseButton, MouseButtonHash>& just_pressed_buttons(
-    ) const;
-    const std::unordered_set<MouseButton, MouseButtonHash>&
+    const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
+    just_pressed_buttons() const;
+    const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
     just_released_buttons() const;
-    const std::unordered_set<MouseButton, MouseButtonHash>& pressed_buttons(
+    const spp::sparse_hash_set<MouseButton, MouseButtonHash>& pressed_buttons(
     ) const;
 
     bool any_just_pressed(const std::vector<MouseButton>& buttons) const;
@@ -222,14 +222,14 @@ struct ButtonInput<MouseButton> {
 
     bool all_pressed(const std::vector<MouseButton>& buttons) const;
 
-    Handle<Window> linked_window() const;
+    Entity linked_window() const;
 
    private:
-    Handle<Window> m_window;
+    Entity m_window;
 
-    std::unordered_set<MouseButton, MouseButtonHash> m_just_pressed;
-    std::unordered_set<MouseButton, MouseButtonHash> m_just_released;
-    std::unordered_set<MouseButton, MouseButtonHash> m_pressed;
+    spp::sparse_hash_set<MouseButton, MouseButtonHash> m_just_pressed;
+    spp::sparse_hash_set<MouseButton, MouseButtonHash> m_just_released;
+    spp::sparse_hash_set<MouseButton, MouseButtonHash> m_pressed;
 
     friend void update_mouse_button_input(
         ButtonInput<MouseButton>& mouse_input, GLFWwindow* window

@@ -10,12 +10,11 @@ using namespace components;
 
 struct WindowMap {
    public:
-    void insert(GLFWwindow* window, Handle<Window> handle);
     void insert(GLFWwindow* window, Entity entity);
-    const Handle<Window>& get(GLFWwindow* window) const;
+    const Entity& get(GLFWwindow* window) const;
 
    protected:
-    std::unordered_map<GLFWwindow*, Handle<Window>> window_map;
+    std::unordered_map<GLFWwindow*, Entity> window_map;
 };
 }  // namespace resources
 }  // namespace window

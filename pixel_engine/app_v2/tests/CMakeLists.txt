@@ -10,5 +10,5 @@ add_executable(pixel_engine_app_v2_tests
     ${TEST_HEADERS}
 )
 
-target_link_libraries(pixel_engine_app_v2_tests pixel_engine::app2)
+target_link_libraries(pixel_engine_app_v2_tests pixel_engine::app)
 target_include_directories(pixel_engine_app_v2_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

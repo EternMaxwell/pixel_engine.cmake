@@ -1,5 +1,7 @@
 #pragma once
 
+#include <spdlog/spdlog.h>
+
 #include <entt/entity/registry.hpp>
 
 #include "command.h"
@@ -39,9 +41,7 @@ struct SubApp {
         static Res<ResT> get(SubApp& app) {
             return Res<ResT>(app.m_world.m_resources[&typeid(ResT)].get());
         }
-        static Res<ResT> get(SubApp& src, SubApp& dst) {
-            return Res<ResT>(dst.m_world.m_resources[&typeid(ResT)].get());
-        }
+        static Res<ResT> get(SubApp& src, SubApp& dst) { return get(dst); }
     };
 
     template <typename ResT>
@@ -49,9 +49,7 @@ struct SubApp {
         static ResMut<ResT> get(SubApp& app) {
             return ResMut<ResT>(app.m_world.m_resources[&typeid(ResT)].get());
         }
-        static ResMut<ResT> get(SubApp& src, SubApp& dst) {
-            return ResMut<ResT>(dst.m_world.m_resources[&typeid(ResT)].get());
-        }
+        static ResMut<ResT> get(SubApp& src, SubApp& dst) { return get(dst); }
     };
 
     template <>
@@ -60,30 +58,41 @@ struct SubApp {
             app.m_command_cache.emplace_back(Command(&app.m_world));
             return app.m_command_cache.back();
         }
-        static Command get(SubApp& src, SubApp& dst) {
-            dst.m_command_cache.emplace_back(Command(&dst.m_world));
-            return dst.m_command_cache.back();
-        }
+        static Command get(SubApp& src, SubApp& dst) { return get(dst); }
     };
 
     template <typename T>
     struct value_type<EventReader<T>> {
         static EventReader<T> get(SubApp& app) {
-            return EventReader<T>(app.m_world.m_event_queues[&typeid(T)].get());
+            auto it = app.m_world.m_event_queues.find(&typeid(T));
+            if (it == app.m_world.m_event_queues.end()) {
+                app.m_world.m_event_queues.emplace(
+                    &typeid(T), std::make_unique<EventQueue<T>>()
+                );
+                return EventReader<T>(
+                    app.m_world.m_event_queues[&typeid(T)].get()
+                );
+            }
+            return EventReader<T>(it->second.get());
         }
-        static EventReader<T> get(SubApp& src, SubApp& dst) {
-            return EventReader<T>(src.m_world.m_event_queues[&typeid(T)].get());
-        }
+        static EventReader<T> get(SubApp& src, SubApp& dst) { return get(src); }
     };
 
     template <typename T>
     struct value_type<EventWriter<T>> {
         static EventWriter<T> get(SubApp& app) {
-            return EventWriter<T>(app.m_world.m_event_queues[&typeid(T)].get());
+            auto it = app.m_world.m_event_queues.find(&typeid(T));
+            if (it == app.m_world.m_event_queues.end()) {
+                app.m_world.m_event_queues.emplace(
+                    &typeid(T), std::make_unique<EventQueue<T>>()
+                );
+                return EventWriter<T>(
+                    app.m_world.m_event_queues[&typeid(T)].get()
+                );
+            }
+            return EventWriter<T>(it->second.get());
         }
-        static EventWriter<T> get(SubApp& src, SubApp& dst) {
-            return EventWriter<T>(dst.m_world.m_event_queues[&typeid(T)].get());
-        }
+        static EventWriter<T> get(SubApp& src, SubApp& dst) { return get(dst); }
     };
 
     template <typename... Gs, typename... Ws, typename... WOs>
@@ -97,9 +106,7 @@ struct SubApp {
         static Query<Get<Gs...>, With<Ws...>, Without<WOs...>> get(
             SubApp& src, SubApp& dst
         ) {
-            return Query<Get<Gs...>, With<Ws...>, Without<WOs...>>(
-                dst.m_world.m_registry
-            );
+            return get(dst);
         }
     };
 
@@ -114,9 +121,7 @@ struct SubApp {
         static Extract<Get<Gs...>, With<Ws...>, Without<WOs...>> get(
             SubApp& src, SubApp& dst
         ) {
-            return Extract<Get<Gs...>, With<Ws...>, Without<WOs...>>(
-                src.m_world.m_registry
-            );
+            return get(src);
         }
     };
 
@@ -125,10 +130,15 @@ struct SubApp {
     void end_commands();
     void update_states();
 
-    template <typename... Args>
-    void insert_resource(Args&&... resource) {
+    template <typename T, typename... Args>
+    void emplace_resource(Args&&... args) {
         Command command(&m_world);
-        command.insert_resource(std::forward<Args>(resource)...);
+        command.emplace_resource<T>(std::forward<Args>(args)...);
+    }
+    template <typename T>
+    void insert_resource(T&& res) {
+        Command command(&m_world);
+        command.insert_resource(std::forward<T>(res));
     }
     template <typename T>
     void init_resource() {
@@ -137,23 +147,45 @@ struct SubApp {
     }
     template <typename T>
     void insert_state(T&& state) {
+        if (m_world.m_resources.find(&typeid(State<T>)) !=
+                m_world.m_resources.end() ||
+            m_world.m_resources.find(&typeid(NextState<T>)) !=
+                m_world.m_resources.end()) {
+            spdlog::warn("State already exists.");
+            return;
+        }
         Command command(&m_world);
         command.insert_resource(State<T>(std::forward<T>(state)));
         command.insert_resource(NextState<T>(std::forward<T>(state)));
         m_state_updates.push_back(
-            std::make_unique<System<State<T>, NextState<T>>>(
-                [this](State<T>& state, NextState<T>& next_state) {
-                    state.m_state      = next_state.m_state;
-                    state.just_created = false;
+            std::make_unique<System<ResMut<State<T>>, Res<NextState<T>>>>(
+                [](ResMut<State<T>> state, Res<NextState<T>> next_state) {
+                    state->m_state      = next_state->m_state;
+                    state->just_created = false;
                 }
             )
         );
     }
     template <typename T>
     void init_state() {
+        if (m_world.m_resources.find(&typeid(State<T>)) !=
+                m_world.m_resources.end() ||
+            m_world.m_resources.find(&typeid(NextState<T>)) !=
+                m_world.m_resources.end()) {
+            spdlog::warn("State already exists.");
+            return;
+        }
         Command command(&m_world);
-        command.init_resource(State<T>());
-        command.init_resource(NextState<T>());
+        command.init_resource<State<T>>();
+        command.init_resource<NextState<T>>();
+        m_state_updates.push_back(
+            std::make_unique<System<ResMut<State<T>>, Res<NextState<T>>>>(
+                [](ResMut<State<T>> state, Res<NextState<T>> next_state) {
+                    state->m_state      = next_state->m_state;
+                    state->just_created = false;
+                }
+            )
+        );
     }
 
    private:

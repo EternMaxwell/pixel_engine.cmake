@@ -22,7 +22,7 @@ void systems::insert_ft2_library(Command command) {
 void systems::create_renderer(
     Command command,
     Query<Get<Device, Queue, CommandPool>, With<RenderContext>> query,
-    Resource<FontPlugin> font_plugin
+    Res<FontPlugin> font_plugin
 ) {
     if (!query.single().has_value()) return;
     auto [device, queue, command_pool] = query.single().value();
@@ -276,10 +276,10 @@ void systems::create_renderer(
 void systems::draw_text(
     Query<Get<TextRenderer>> text_renderer_query,
     Query<Get<Text, TextPos>> text_query,
-    Resource<FT2Library> ft2_library,
+    ResMut<FT2Library> ft2_library,
     Query<Get<Device, Queue, CommandPool, Swapchain>, With<RenderContext>>
         swapchain_query,
-    Resource<FontPlugin> font_plugin
+    Res<FontPlugin> font_plugin
 ) {
     if (!text_renderer_query.single().has_value()) return;
     if (!swapchain_query.single().has_value()) return;
@@ -469,7 +469,7 @@ void systems::draw_text(
 
 void systems::destroy_renderer(
     Query<Get<Device>, With<RenderContext>> query,
-    Resource<FT2Library> ft2_library,
+    ResMut<FT2Library> ft2_library,
     Query<Get<TextRenderer>> text_renderer_query
 ) {
     if (!text_renderer_query.single().has_value()) return;

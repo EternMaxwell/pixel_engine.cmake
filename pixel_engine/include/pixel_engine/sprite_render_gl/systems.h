@@ -21,7 +21,7 @@ using namespace camera;
 
 using sprite_query_type = Query<Get<Transform, Sprite>, With<>, Without<>>;
 
-void create_pipeline(Command command, Resource<AssetServerGL> asset_server);
+void create_pipeline(Command command, ResMut<AssetServerGL> asset_server);
 
 void draw_sprite(
     render_gl::PipelineQuery::query_type<SpritePipeline> pipeline_query,

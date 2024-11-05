@@ -11,7 +11,7 @@ namespace events {
 using namespace prelude;
 using namespace components;
 struct AnyWindowClose {
-    Handle<Window> handle;
+    Entity window;
 };
 struct NoWindowExists {};
 struct PrimaryWindowClose {};
@@ -19,12 +19,12 @@ struct PrimaryWindowClose {};
 struct MouseScroll {
     double xoffset;
     double yoffset;
-    Handle<Window> window;
+    Entity window;
 };
 struct CursorMove {
     double x;
     double y;
-    Handle<Window> window;
+    Entity window;
 };
 }  // namespace events
 }  // namespace window

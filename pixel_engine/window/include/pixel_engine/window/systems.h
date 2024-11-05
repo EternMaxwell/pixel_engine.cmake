@@ -20,7 +20,7 @@ using namespace pixel_engine::prelude;
 
 void init_glfw();
 void insert_primary_window(
-    Command command, Resource<window::WindowPlugin> window_plugin
+    Command command, ResMut<window::WindowPlugin> window_plugin
 );
 void create_window_start(
     Command command,

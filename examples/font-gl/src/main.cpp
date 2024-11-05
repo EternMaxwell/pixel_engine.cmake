@@ -5,7 +5,7 @@ int main() {
     using namespace font_gl_test;
     using namespace prelude;
 
-    App app;
+    App app = App::create();
     app.enable_loop()
         .add_plugin(WindowPlugin{})
         .add_plugin(AssetServerGLPlugin{})
