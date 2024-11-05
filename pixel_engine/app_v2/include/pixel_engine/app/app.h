@@ -89,7 +89,8 @@ struct App {
                     std::make_unique<
                         Condition<Res<State<T>>, Res<NextState<T>>>>(
                         [state](Res<State<T>> s, Res<NextState<T>> ns) {
-                            return (s->is_state(state) && s->is_just_created()) ||
+                            return (s->is_state(state) && s->is_just_created()
+                                   ) ||
                                    (ns->is_state(state) && !s->is_state(state));
                         }
                     )
@@ -164,7 +165,8 @@ struct App {
     template <typename T>
     App& add_plugin(T&& plugin) {
         m_plugins.emplace(
-            &typeid(T), std::make_shared<T>(std::forward<T>(plugin))
+            &typeid(std::remove_reference_t<T>),
+            std::make_shared<T>(std::forward<T>(plugin))
         );
         return *this;
     }

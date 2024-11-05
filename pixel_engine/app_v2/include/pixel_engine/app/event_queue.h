@@ -14,13 +14,17 @@ struct EventQueue : public EventQueueBase {
         uint8_t count;
     };
     void tick() override {
-        for (auto it = m_queue.begin(); it != m_queue.end();) {
-            if (it->count == 0) {
-                m_queue.erase(it);
+        while (!m_queue.empty()) {
+            auto& front = m_queue.front();
+            if (front.count == 0) {
+                m_queue.pop_front();
             } else {
-                it->count--;
-                it++;
+                break;
             }
+        }
+        for (auto it = m_queue.begin(); it != m_queue.end();) {
+            it->count--;
+            it++;
         }
     }
     void push(const T& event) { m_queue.push_back({event, 1}); }

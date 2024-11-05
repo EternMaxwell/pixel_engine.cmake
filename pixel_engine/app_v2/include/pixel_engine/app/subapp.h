@@ -39,7 +39,10 @@ struct SubApp {
     template <typename ResT>
     struct value_type<Res<ResT>> {
         static Res<ResT> get(SubApp& app) {
-            return Res<ResT>(app.m_world.m_resources[&typeid(ResT)].get());
+            return Res<ResT>(
+                app.m_world.m_resources[&typeid(std::remove_const_t<ResT>)].get(
+                )
+            );
         }
         static Res<ResT> get(SubApp& src, SubApp& dst) { return get(dst); }
     };
@@ -47,7 +50,10 @@ struct SubApp {
     template <typename ResT>
     struct value_type<ResMut<ResT>> {
         static ResMut<ResT> get(SubApp& app) {
-            return ResMut<ResT>(app.m_world.m_resources[&typeid(ResT)].get());
+            return ResMut<ResT>(
+                app.m_world.m_resources[&typeid(std::remove_const_t<ResT>)].get(
+                )
+            );
         }
         static ResMut<ResT> get(SubApp& src, SubApp& dst) { return get(dst); }
     };

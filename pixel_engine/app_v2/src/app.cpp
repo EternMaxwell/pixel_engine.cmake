@@ -84,7 +84,7 @@ App::App()
 void App::build_plugins() {
     for (auto& [ptr, plugin] : m_plugins) {
         plugin->build(*this);
-        for (auto& [ptr, subapp] : *m_sub_apps) {
+        for (auto& [app_ptr, subapp] : *m_sub_apps) {
             subapp->m_world.m_resources.emplace(ptr, plugin);
         }
     }
