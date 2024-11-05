@@ -18,7 +18,7 @@ App App::create() {
     );
     app.m_runner
         ->assign_loop_stage<MainSubApp, MainSubApp>(
-            PreRender, Render, PostRender
+            Prepare, PreRender, Render, PostRender
         )
         ->add_prev_stage<MainLoopStage>();
     // this is temporary, currently the render stages are still in main
