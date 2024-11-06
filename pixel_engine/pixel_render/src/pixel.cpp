@@ -652,9 +652,9 @@ void systems::destroy_pixel_pipeline(
 }
 
 void PixelRenderPlugin::build(App& app) {
-    app.add_system(app::Startup, systems::create_pixel_pipeline);
-    app.add_system(app::Render, systems::draw_pixel_blocks_vk)
+    app.add_system(Startup, systems::create_pixel_pipeline);
+    app.add_system(Render, systems::draw_pixel_blocks_vk)
         .before(font::systems::draw_text);
-    app.add_system(app::Shutdown, systems::destroy_pixel_pipeline);
+    app.add_system(Exit, systems::destroy_pixel_pipeline);
 }
 }  // namespace pixel_engine::render::pixel
