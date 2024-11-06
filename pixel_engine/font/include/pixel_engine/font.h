@@ -8,17 +8,17 @@ namespace pixel_engine {
 namespace font {
 using namespace prelude;
 struct FontPlugin : Plugin {
-    uint32_t canvas_width = 4096;
+    uint32_t canvas_width  = 4096;
     uint32_t canvas_height = 1024;
     void build(App& app) override {
         auto render_vk_plugin = app.get_plugin<render_vk::RenderVKPlugin>();
         if (!render_vk_plugin) {
             throw std::runtime_error("FontPlugin requires RenderVKPlugin");
         }
-        app.add_system(systems::insert_ft2_library).in_stage(app::PreStartup);
-        app.add_system(systems::create_renderer).in_stage(app::Startup);
-        app.add_system(systems::draw_text).in_stage(app::Render);
-        app.add_system(systems::destroy_renderer).in_stage(app::Shutdown);
+        app.add_system(PreStartup, systems::insert_ft2_library);
+        app.add_system(Startup, systems::create_renderer);
+        app.add_system(Render, systems::draw_text);
+        app.add_system(Exit, systems::destroy_renderer);
     }
 };
 }  // namespace font

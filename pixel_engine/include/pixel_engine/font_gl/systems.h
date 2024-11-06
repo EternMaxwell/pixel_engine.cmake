@@ -24,7 +24,7 @@ using namespace transform;
 using namespace camera;
 
 void insert_ft2_library(Command command);
-void create_pipeline(Command command, Resource<AssetServerGL> asset_server);
+void create_pipeline(Command command, ResMut<AssetServerGL> asset_server);
 void draw(
     Query<Get<const Text, const Transform>> text_query,
     Query<

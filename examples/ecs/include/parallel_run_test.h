@@ -54,27 +54,21 @@ class ParallelTestPlugin : public Plugin {
    public:
     void build(App& app) override {
         app.enable_loop()
-            ->add_system(spawn_data1)
-            .in_stage(app::Startup)
-            ->add_system(spawn_data2)
-            .in_stage(app::Startup)
-            ->add_system(print_data1)
+            ->add_system(Startup, spawn_data1)
+            ->add_system(Startup, spawn_data2)
+            ->add_system(Update, print_data1)
             .in_set(Stage::data)
-            .in_stage(app::Update)
-            ->add_system(print_data2)
+            ->add_system(Update, print_data2)
             .in_set(Stage::data)
-            .in_stage(app::Update)
-            ->add_system(print_endl)
+            ->add_system(Update, print_endl)
             .in_set(Stage::endl)
-            .in_stage(app::Update)
             ->configure_sets(Stage::data, Stage::endl)
-            ->add_system(exit)
-            .in_stage(app::Update);
+            ->add_system(Update, exit);
     }
 };
 
 void test() {
-    App app;
+    App app = App::create();
     app.add_plugin(ParallelTestPlugin{}).run();
 }
 }  // namespace test_parallel_run

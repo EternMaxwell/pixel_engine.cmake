@@ -14,8 +14,8 @@ struct Health {
     Health(Health&& other) = default;
     Health(float life = 100.0f) : life(life) {}
     Health& operator=(const Health& other) = delete;
-    Health(const Health& other) = delete;
-    Health& operator=(Health&& other) = default;
+    Health(const Health& other)            = delete;
+    Health& operator=(Health&& other)      = default;
     ~Health() { std::cout << "Health destructor" << std::endl; }
 };
 
@@ -24,8 +24,8 @@ struct Position {
     Position(Position&& other) = default;
     Position(float x = 0.0f, float y = 0.0f) : x(x), y(y) {}
     Position& operator=(const Position& other) = delete;
-    Position(const Position& other) = delete;
-    Position& operator=(Position&& other) = default;
+    Position(const Position& other)            = delete;
+    Position& operator=(Position&& other)      = default;
     ~Position() { std::cout << "Position destructor" << std::endl; }
 };
 
@@ -123,7 +123,7 @@ void change_component_data(
     std::cout << "change_component_data" << std::endl;
     for (auto [id, health] : query.iter()) {
         auto [heal2] = query.get(id);
-        heal2.life = 200.0f;
+        heal2.life   = 200.0f;
     }
     std::cout << std::endl;
 }
@@ -141,33 +141,25 @@ void despawn(
 class SpawnDespawnPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(spawn)
-            .in_stage(app::Startup)
-            ->add_system(print_count_1)
+        app.add_system(Startup, spawn)
+            ->add_system(Startup, print_count_1)
             .after(spawn)
-            .in_stage(app::Startup)
-            ->add_system(print_1)
+            ->add_system(Startup, print_1)
             .after(print_count_1)
-            .in_stage(app::Startup)
-            ->add_system(change_component_data)
+            ->add_system(Startup, change_component_data)
             .after(print_1)
-            .in_stage(app::Startup)
-            ->add_system(print_count_2)
+            ->add_system(Startup, print_count_2)
             .after(change_component_data)
-            .in_stage(app::Startup)
-            ->add_system(print_2)
+            ->add_system(Startup, print_2)
             .after(print_count_2)
-            .in_stage(app::Startup)
-            ->add_system(despawn)
+            ->add_system(Startup, despawn)
             .after(print_2)
-            .in_stage(app::Startup)
-            ->add_system(print_count_3)
-            .in_stage(app::Update);
+            ->add_system(Update, print_count_3);
     }
 };
 
 void test() {
-    App app;
+    App app = App::create();
     app.add_plugin(SpawnDespawnPlugin{}).run();
 }
 }  // namespace test_spawn_despawn

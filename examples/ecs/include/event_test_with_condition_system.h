@@ -60,24 +60,19 @@ bool check_if_event_exist(EventReader<TestEvent> event) {
 class EventTestPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(write_event_s)
-            .in_stage(app::Startup)
-            ->add_system(read_event_s)
-            .in_stage(app::Startup)
+        app.add_system(Startup, write_event_s)
+            ->add_system(Startup, read_event_s)
             .after(write_event_s)
-            ->add_system(read_event_u)
-            .in_stage(app::Update)
-            ->add_system(write_event_u)
-            .in_stage(app::Update)
+            ->add_system(Update, read_event_u)
+            ->add_system(Update, write_event_u)
             .after(read_event_u)
-            ->add_system(read_event_u2)
-            .in_stage(app::Update)
+            ->add_system(Update, read_event_u2)
             .after(write_event_u);
     }
 };
 
 void test() {
-    App app;
+    App app = App::create();
     app.add_plugin(EventTestPlugin{}).run();
 }
 }  // namespace test_event

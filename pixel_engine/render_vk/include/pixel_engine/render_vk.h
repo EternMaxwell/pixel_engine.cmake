@@ -16,22 +16,17 @@ struct RenderVKPlugin : Plugin {
             {{GLFW_RESIZABLE, GLFW_TRUE}, {GLFW_CLIENT_API, GLFW_NO_API}}
         );
 
-        app.add_system(systems::create_context)
-            .in_stage(app::PreStartup)
+        app.add_system(PreStartup, systems::create_context)
             .in_set(window::WindowStartUpSets::after_window_creation)
             .use_worker("single");
-        app.add_system(systems::recreate_swap_chain)
-            .in_stage(app::Prepare)
+        app.add_system(Prepare, systems::recreate_swap_chain)
             .use_worker("single");
-        app.add_system(systems::get_next_image)
-            .in_stage(app::PreRender)
+        app.add_system(PreRender, systems::get_next_image)
             .use_worker("single")
             .after(systems::recreate_swap_chain);
-        app.add_system(systems::present_frame)
-            .in_stage(app::PostRender)
+        app.add_system(PostRender, systems::present_frame)
             .use_worker("single");
-        app.add_system(systems::destroy_context)
-            .in_stage(app::PostShutdown)
+        app.add_system(PostExit, systems::destroy_context)
             .use_worker("single");
     }
 };

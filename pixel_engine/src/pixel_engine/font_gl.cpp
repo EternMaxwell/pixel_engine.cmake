@@ -7,15 +7,12 @@ using namespace pixel_engine::font_gl::resources;
 
 void pixel_engine::font_gl::FontGLPlugin::build(App& app) {
     app.configure_sets(FontGLSets::insert_library, FontGLSets::after_insertion)
-        .add_system(insert_ft2_library)
-        .in_stage(app::PreStartup)
+        .add_system(PreStartup, insert_ft2_library)
         .in_set(FontGLSets::insert_library)
-        ->add_system(create_pipeline)
-        .in_stage(app::PreStartup)
+        ->add_system(PreStartup, create_pipeline)
         .in_set(render_gl::RenderGLStartupSets::after_context_creation)
         .use_worker("single")
-        ->add_system(draw)
-        .in_stage(app::Render)
+        ->add_system(Render, draw)
         .use_worker("single");
 }
 
@@ -29,7 +26,7 @@ void pixel_engine::font_gl::systems::insert_ft2_library(Command command) {
 }
 
 void pixel_engine::font_gl::systems::create_pipeline(
-    Command command, Resource<AssetServerGL> asset_server
+    Command command, ResMut<AssetServerGL> asset_server
 ) {
     command.spawn(
         PipelineCreationBundle{

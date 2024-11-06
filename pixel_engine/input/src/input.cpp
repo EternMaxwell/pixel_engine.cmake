@@ -16,10 +16,10 @@ void systems::create_input_for_window_start(
     for (auto [entity, window] : query.iter()) {
         spdlog::debug("create input for window {} at startup.", window.m_title);
         command.entity(entity).emplace(
-            ButtonInput<KeyCode>(Handle<Window>{entity})
+            ButtonInput<KeyCode>(entity)
         );
         command.entity(entity).emplace(
-            ButtonInput<MouseButton>(Handle<Window>{entity})
+            ButtonInput<MouseButton>(entity)
         );
     }
 }
@@ -33,10 +33,10 @@ void systems::create_input_for_window_update(
     for (auto [entity, window] : query.iter()) {
         spdlog::debug("create input for window {} at update.", window.m_title);
         command.entity(entity).emplace(
-            ButtonInput<KeyCode>(Handle<Window>{entity})
+            ButtonInput<KeyCode>(entity)
         );
         command.entity(entity).emplace(
-            ButtonInput<MouseButton>(Handle<Window>{entity})
+            ButtonInput<MouseButton>(entity)
         );
     }
 }

@@ -41,7 +41,7 @@ void create_pixels(Command command) {
     }});
 }
 
-void create_sprite(Command command, Resource<AssetServerGL> asset_server) {
+void create_sprite(Command command, ResMut<AssetServerGL> asset_server) {
     using namespace sprite_render_gl::components;
 
     command.spawn(SpriteBundle{
@@ -89,17 +89,12 @@ void camera_ortho_to_primary_window(
 class TestPlugin : public Plugin {
    public:
     void build(App& app) override {
-        app.add_system(insert_camera)
-            .in_stage(app::Startup)
-            ->add_system(create_sprite)
-            .in_stage(app::Startup)
+        app.add_system(Startup, insert_camera)
+            ->add_system(Startup, create_sprite)
             .use_worker("single")
-            ->add_system(create_pixels)
-            .in_stage(app::Startup)
-            ->add_system(camera_ortho_to_primary_window)
-            .in_stage(app::Update)
-            ->add_system(move_sprite)
-            .in_stage(app::Update);
+            ->add_system(Startup, create_pixels)
+            ->add_system(Update, camera_ortho_to_primary_window)
+            ->add_system(Update, move_sprite);
     }
 };
 }  // namespace pipeline_test

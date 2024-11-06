@@ -11,7 +11,7 @@ int main() {
     using namespace prelude;
     using namespace pipeline_test;
 
-    App app;
+    App app = App::create();
     app.enable_loop()
         .add_plugin(WindowPlugin{})
         .add_plugin(AssetServerGLPlugin{})

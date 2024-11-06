@@ -20,41 +20,37 @@ void systems::insert_sprite_server_vk(Command cmd) {
     cmd.insert_resource(SpriteServerVK{});
 }
 
-Handle<ImageView> SpriteServerVK::load_image(
-    Command& cmd, const std::string& _path
-) {
+Entity SpriteServerVK::load_image(Command& cmd, const std::string& _path) {
     std::string path = std::filesystem::absolute(_path).string();
-    auto image = images.find(path);
+    auto image       = images.find(path);
     if (image != images.end()) {
         return image->second;
     } else {
-        Handle<ImageView> image_view{cmd.spawn(ImageLoading{path})};
-        images[path] = image_view;
+        auto image_view = cmd.spawn(ImageLoading{path});
+        images[path]    = image_view;
         return image_view;
     }
 }
 
-Handle<Sampler> SpriteServerVK::create_sampler(
+Entity SpriteServerVK::create_sampler(
     Command& cmd, vk::SamplerCreateInfo create_info, const std::string& name
 ) {
     auto sampler = samplers.find(name);
     if (sampler != samplers.end()) {
         return sampler->second;
     } else {
-        Handle<Sampler> sampler_handle{
-            cmd.spawn(SamplerCreating{create_info, name})
-        };
-        samplers[name] = sampler_handle;
+        auto sampler_handle = cmd.spawn(SamplerCreating{create_info, name});
+        samplers[name]      = sampler_handle;
         return sampler_handle;
     }
 }
 
-Handle<Sampler> SpriteServerVK::get_sampler(const std::string& name) {
+Entity SpriteServerVK::get_sampler(const std::string& name) {
     auto sampler = samplers.find(name);
     if (sampler != samplers.end()) {
         return sampler->second;
     } else {
-        return Handle<Sampler>{};
+        return {};
     }
 }
 
@@ -62,7 +58,7 @@ void systems::loading_actual_image(
     Command cmd,
     Query<Get<Entity, ImageLoading>> query,
     Query<Get<Device, CommandPool, Queue>, With<RenderContext>> ctx_query,
-    Resource<SpriteServerVK> sprite_server
+    ResMut<SpriteServerVK> sprite_server
 ) {
     if (!query.single().has_value()) return;
     if (!ctx_query.single().has_value()) return;
@@ -197,7 +193,7 @@ void systems::creating_actual_sampler(
     Command cmd,
     Query<Get<Entity, SamplerCreating>> query,
     Query<Get<Device>, With<RenderContext>> ctx_query,
-    Resource<SpriteServerVK> sprite_server
+    ResMut<SpriteServerVK> sprite_server
 ) {
     if (!ctx_query.single().has_value()) return;
     auto [device] = ctx_query.single().value();
@@ -227,7 +223,7 @@ void systems::creating_actual_sampler(
 }
 
 void systems::destroy_sprite_server_vk_images(
-    Resource<SpriteServerVK> sprite_server,
+    ResMut<SpriteServerVK> sprite_server,
     Query<Get<Image, ImageView>, With<ImageIndex>> query,
     Query<Get<Device, CommandPool, Queue>, With<RenderContext>> ctx_query
 ) {
@@ -241,7 +237,7 @@ void systems::destroy_sprite_server_vk_images(
 }
 
 void systems::destroy_sprite_server_vk_samplers(
-    Resource<SpriteServerVK> sprite_server,
+    ResMut<SpriteServerVK> sprite_server,
     Query<Get<Sampler>, With<SamplerIndex>> query,
     Query<Get<Device>, With<RenderContext>> ctx_query
 ) {

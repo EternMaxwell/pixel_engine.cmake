@@ -176,7 +176,7 @@ void free_vertex_buffer(
 
 void create_index_buffer(
     Query<Get<Renderer>> renderer_query,
-    Resource<RenderContext> render_context,
+    ResMut<RenderContext> render_context,
     Query<Get<Device, Queue, CommandPool>, With<RenderContext>> query
 ) {
     if (!renderer_query.single().has_value()) return;
@@ -228,7 +228,7 @@ void create_index_buffer(
 
 void free_index_buffer(
     Query<Get<Renderer>> renderer_query,
-    Resource<RenderContext> render_context,
+    ResMut<RenderContext> render_context,
     Query<Get<Device>, With<RenderContext>> query
 ) {
     if (!renderer_query.single().has_value()) return;
@@ -242,7 +242,7 @@ void free_index_buffer(
 void create_descriptor_set_layout(
     Query<Get<Device>, With<RenderContext>> query,
     Query<Get<Renderer>> renderer_query,
-    Resource<RenderContext> render_context
+    ResMut<RenderContext> render_context
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
@@ -264,7 +264,7 @@ void create_descriptor_set_layout(
 void destroy_descriptor_set_layout(
     Query<Get<Device>, With<RenderContext>> query,
     Query<Get<Renderer>> renderer_query,
-    Resource<RenderContext> render_context
+    ResMut<RenderContext> render_context
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
@@ -277,7 +277,7 @@ void destroy_descriptor_set_layout(
 void create_uniform_buffers(
     Query<Get<Device>, With<RenderContext>> query,
     Query<Get<Renderer>> renderer_query,
-    Resource<RenderContext> render_context
+    ResMut<RenderContext> render_context
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
@@ -305,7 +305,7 @@ void create_uniform_buffers(
 void destroy_uniform_buffers(
     Query<Get<Device>, With<RenderContext>> query,
     Query<Get<Renderer>> renderer_query,
-    Resource<RenderContext> render_context
+    ResMut<RenderContext> render_context
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
@@ -321,7 +321,7 @@ void destroy_uniform_buffers(
 void update_uniform_buffer(
     Query<Get<Swapchain>, With<RenderContext>> query,
     Query<Get<Renderer>> renderer_query,
-    Resource<RenderContext> render_context
+    ResMut<RenderContext> render_context
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
@@ -573,7 +573,7 @@ void create_texture_image_view(
     Command cmd,
     Query<Get<Device>, With<RenderContext>> query,
     Query<Get<Renderer>> renderer_query,
-    Resource<SpriteServerVK> sprite_server
+    ResMut<SpriteServerVK> sprite_server
 ) {
     if (sprite_server.has_value()) {
         cmd.spawn(
@@ -710,7 +710,7 @@ void destroy_texture_image_sampler(
 void create_descriptor_pool(
     Query<Get<Device>, With<RenderContext>> query,
     Query<Get<Renderer>> renderer_query,
-    Resource<RenderContext> render_context
+    ResMut<RenderContext> render_context
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
@@ -1105,10 +1105,6 @@ void end_draw(
     cmd.free(device, command_pool);
 }
 
-auto draw_frame = std::make_tuple(
-    begin_draw, update_uniform_buffer, record_command_buffer, end_draw
-);
-
 void destroy_pipeline(
     Query<Get<Device>, With<RenderContext>> query,
     Query<Get<Renderer>> renderer_query
@@ -1146,7 +1142,7 @@ void wait_for_device(Query<Get<Device>, With<RenderContext>> query) {
 
 void create_text(
     Command command,
-    Resource<pixel_engine::font::resources::FT2Library> ft2_library
+    ResMut<pixel_engine::font::resources::FT2Library> ft2_library
 ) {
     if (!ft2_library.has_value()) return;
     pixel_engine::font::components::Text text;
@@ -1260,129 +1256,110 @@ struct VK_TrialPlugin : Plugin {
         using namespace pixel_engine;
 
         app.enable_loop();
-        app.add_system(create_renderer)
-            .use_worker("single")
-            .in_stage(app::PreStartup);
-        app.add_system(create_vertex_buffer)
-            .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(create_index_buffer)
-            .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(create_uniform_buffers)
-            .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(destroy_uniform_buffers)
+        app.add_system(PreStartup, create_renderer).use_worker("single");
+        app.add_system(Startup, create_vertex_buffer).use_worker("single");
+        app.add_system(Startup, create_index_buffer).use_worker("single");
+        app.add_system(Startup, create_uniform_buffers).use_worker("single");
+        app.add_system(Exit, destroy_uniform_buffers)
             .after(wait_for_device)
-            .in_stage(app::Shutdown)
             .use_worker("single");
-        app.add_system(create_depth_image)
-            .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(destroy_depth_image)
+        app.add_system(Startup, create_depth_image).use_worker("single");
+        app.add_system(Exit, destroy_depth_image)
             .after(wait_for_device)
-            .use_worker("single")
-            .in_stage(app::Shutdown);
-        app.add_system(create_depth_image_view)
+            .use_worker("single");
+        app.add_system(Startup, create_depth_image_view)
             .after(create_depth_image)
-            .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(destroy_depth_image_view)
+            .use_worker("single");
+        app.add_system(Exit, destroy_depth_image_view)
             .after(wait_for_device)
             .before(destroy_depth_image)
-            .use_worker("single")
-            .in_stage(app::Shutdown);
-        app.add_system(create_texture_image)
-            .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(destroy_texture_image)
+            .use_worker("single");
+        app.add_system(Startup, create_texture_image).use_worker("single");
+        app.add_system(Exit, destroy_texture_image)
             .after(wait_for_device)
-            .use_worker("single")
-            .in_stage(app::Shutdown);
-        app.add_system(create_texture_image_view)
+            .use_worker("single");
+        app.add_system(Startup, create_texture_image_view)
             .after(create_texture_image)
-            .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(destroy_texture_image_view)
+            .use_worker("single");
+        app.add_system(Exit, destroy_texture_image_view)
             .after(wait_for_device)
             .before(destroy_texture_image)
-            .use_worker("single")
-            .in_stage(app::Shutdown);
-        app.add_system(create_texture_image_sampler)
+            .use_worker("single");
+        app.add_system(Startup, create_texture_image_sampler)
             .after(create_texture_image_view)
             .before(create_descriptor_sets)
-            .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(destroy_texture_image_sampler)
+            .use_worker("single");
+        app.add_system(Exit, destroy_texture_image_sampler)
             .after(wait_for_device)
             .before(destroy_texture_image_view)
-            .use_worker("single")
-            .in_stage(app::Shutdown);
-        app.add_system(create_descriptor_set_layout)
+            .use_worker("single");
+        app.add_system(Startup, create_descriptor_set_layout)
             .before(create_descriptor_pool)
             .before(create_graphics_pipeline)
-            .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(destroy_descriptor_set_layout)
+            .use_worker("single");
+        app.add_system(Exit, destroy_descriptor_set_layout)
             .after(wait_for_device)
+            .use_worker("single");
+        app.add_system(Startup, create_descriptor_pool).use_worker("single");
+        app.add_system(Exit, destroy_descriptor_pool)
             .use_worker("single")
-            .in_stage(app::Shutdown);
-        app.add_system(create_descriptor_pool)
-            .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(destroy_descriptor_pool)
-            .use_worker("single")
-            .in_stage(app::Shutdown)
             .before(destroy_descriptor_set_layout)
             .after(wait_for_device);
-        app.add_system(create_descriptor_sets)
+        app.add_system(Startup, create_descriptor_sets)
             .after(create_descriptor_pool, create_uniform_buffers)
-            .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(create_render_pass)
-            .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(create_graphics_pipeline)
+            .use_worker("single");
+        app.add_system(Startup, create_render_pass).use_worker("single");
+        app.add_system(Startup, create_graphics_pipeline)
             .after(create_render_pass)
+            .use_worker("single");
+        app.add_system(Render, begin_draw)
             .use_worker("single")
-            .in_stage(app::Startup);
-        app.add_system(draw_frame)
+            .before(
+                pixel_engine::font::systems::draw_text,
+                pixel_engine::sprite::systems::draw_sprite_2d_vk,
+                update_uniform_buffer
+            );
+        app.add_system(Render, update_uniform_buffer)
             .use_worker("single")
-            .in_stage(app::Render)
+            .before(
+                pixel_engine::font::systems::draw_text,
+                pixel_engine::sprite::systems::draw_sprite_2d_vk,
+                record_command_buffer
+            );
+        app.add_system(Render, record_command_buffer)
+            .use_worker("single")
+            .before(
+                pixel_engine::font::systems::draw_text,
+                pixel_engine::sprite::systems::draw_sprite_2d_vk, end_draw
+            );
+        app.add_system(Render, end_draw)
+            .use_worker("single")
             .before(
                 pixel_engine::font::systems::draw_text,
                 pixel_engine::sprite::systems::draw_sprite_2d_vk
             );
-        app.add_system(wait_for_device)
-            .use_worker("single")
-            .in_stage(app::Shutdown);
-        app.add_system(free_vertex_buffer)
+        app.add_system(Exit, wait_for_device).use_worker("single");
+        app.add_system(Exit, free_vertex_buffer)
             .after(wait_for_device)
-            .use_worker("single")
-            .in_stage(app::Shutdown);
-        app.add_system(free_index_buffer)
+            .use_worker("single");
+        app.add_system(Exit, free_index_buffer)
             .after(wait_for_device)
-            .use_worker("single")
-            .in_stage(app::Shutdown);
-        app.add_system(destroy_pipeline)
+            .use_worker("single");
+        app.add_system(Exit, destroy_pipeline)
             .after(wait_for_device)
-            .use_worker("single")
-            .in_stage(app::Shutdown);
-        app.add_system(destroy_render_pass)
+            .use_worker("single");
+        app.add_system(Exit, destroy_render_pass)
             .after(wait_for_device)
-            .use_worker("single")
-            .in_stage(app::Shutdown);
-        app.add_system(create_text).in_stage(app::Startup);
-        app.add_system(create_pixel_block).in_stage(app::Startup);
-        app.add_system(shuffle_text).in_stage(app::Update);
-        app.add_system(output_event).in_stage(app::Update);
+            .use_worker("single");
+        app.add_system(Startup, create_text);
+        app.add_system(Startup, create_pixel_block);
+        app.add_system(Update, shuffle_text);
+        app.add_system(Update, output_event);
     }
 };
 
 void run() {
-    App app;
-    app.set_run_time_rate(1.0);
-    app.log_level(App::Loggers::Build, spdlog::level::debug);
+    App app = App::create();
     app.enable_loop();
     app.add_plugin(pixel_engine::window::WindowPlugin{});
     app.add_plugin(pixel_engine::input::InputPlugin{});

@@ -19,8 +19,8 @@ void create_camera(Command command) { command.spawn(Camera2dBundle{}); }
 
 void create_text(
     Command command,
-    Resource<AssetServerGL> asset_server,
-    Resource<FT2Library> library
+    ResMut<AssetServerGL> asset_server,
+    ResMut<FT2Library> library
 ) {
     command.spawn(TextBundle{
         .text =
@@ -56,12 +56,9 @@ void camera_ortho_to_primary_window(
 class TestPlugin : public Plugin {
    public:
     void build(App& app) {
-        app.add_system(create_camera)
-            .in_stage(app::Startup)
-            ->add_system(create_text)
-            .in_stage(app::Startup)
-            ->add_system(camera_ortho_to_primary_window)
-            .in_stage(app::PreRender);
+        app.add_system(Startup, create_camera)
+            ->add_system(Startup, create_text)
+            ->add_system(PreRender, camera_ortho_to_primary_window);
     }
 };
 }  // namespace font_gl_test

@@ -9,7 +9,7 @@ size_t KeyHash::operator()(const KeyCode& key) const {
     return std::hash<int>()(static_cast<int>(key));
 }
 
-ButtonInput<KeyCode>::ButtonInput(Handle<Window> window) : m_window(window) {}
+ButtonInput<KeyCode>::ButtonInput(Entity window) : m_window(window) {}
 bool ButtonInput<KeyCode>::just_pressed(KeyCode key) const {
     return m_just_pressed.find(key) != m_just_pressed.end();
 }
@@ -19,15 +19,15 @@ bool ButtonInput<KeyCode>::just_released(KeyCode key) const {
 bool ButtonInput<KeyCode>::pressed(KeyCode key) const {
     return m_pressed.find(key) != m_pressed.end();
 }
-const std::unordered_set<KeyCode, KeyHash>&
+const spp::sparse_hash_set<KeyCode, KeyHash>&
 ButtonInput<KeyCode>::just_pressed_keys() const {
     return m_just_pressed;
 }
-const std::unordered_set<KeyCode, KeyHash>&
+const spp::sparse_hash_set<KeyCode, KeyHash>&
 ButtonInput<KeyCode>::just_released_keys() const {
     return m_just_released;
 }
-const std::unordered_set<KeyCode, KeyHash>& ButtonInput<KeyCode>::pressed_keys(
+const spp::sparse_hash_set<KeyCode, KeyHash>& ButtonInput<KeyCode>::pressed_keys(
 ) const {
     return m_pressed;
 }
@@ -60,7 +60,7 @@ bool ButtonInput<KeyCode>::any_pressed(const std::vector<KeyCode>& keys) const {
 const char* ButtonInput<KeyCode>::key_name(KeyCode key) const {
     return glfwGetKeyName(static_cast<int>(key), 0);
 }
-Handle<Window> ButtonInput<KeyCode>::linked_window() const { return m_window; }
+Entity ButtonInput<KeyCode>::linked_window() const { return m_window; }
 
 static std::vector<KeyCode> keyCodeAll = {
     KeyA,
@@ -210,7 +210,7 @@ void components::update_key_button_input(
     );
 }
 
-ButtonInput<MouseButton>::ButtonInput(Handle<Window> window)
+ButtonInput<MouseButton>::ButtonInput(Entity window)
     : m_window(window) {}
 bool ButtonInput<MouseButton>::just_pressed(MouseButton button) const {
     return m_just_pressed.find(button) != m_just_pressed.end();
@@ -221,15 +221,15 @@ bool ButtonInput<MouseButton>::just_released(MouseButton button) const {
 bool ButtonInput<MouseButton>::pressed(MouseButton button) const {
     return m_pressed.find(button) != m_pressed.end();
 }
-const std::unordered_set<MouseButton, MouseButtonHash>&
+const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
 ButtonInput<MouseButton>::just_pressed_buttons() const {
     return m_just_pressed;
 }
-const std::unordered_set<MouseButton, MouseButtonHash>&
+const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
 ButtonInput<MouseButton>::just_released_buttons() const {
     return m_just_released;
 }
-const std::unordered_set<MouseButton, MouseButtonHash>&
+const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
 ButtonInput<MouseButton>::pressed_buttons() const {
     return m_pressed;
 }
@@ -265,7 +265,7 @@ bool ButtonInput<MouseButton>::all_pressed(
     }
     return true;
 }
-Handle<Window> ButtonInput<MouseButton>::linked_window() const {
+Entity ButtonInput<MouseButton>::linked_window() const {
     return m_window;
 }
 

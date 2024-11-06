@@ -16,12 +16,12 @@ struct KeyEvent {
     components::KeyCode key;
     ButtonState state;
     const char* key_name;
-    Handle<window::components::Window> window;
+    Entity window;
 };
 struct MouseButtonEvent {
     components::MouseButton button;
     ButtonState state;
-    Handle<window::components::Window> window;
+    Entity window;
 };
 }  // namespace events
 }  // namespace input

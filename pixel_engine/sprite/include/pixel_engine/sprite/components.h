@@ -12,8 +12,8 @@ using namespace prelude;
 using namespace render_vk::components;
 
 struct Sprite {
-    Handle<ImageView> image;
-    Handle<Sampler> sampler;
+    Entity image;
+    Entity sampler;
     glm::vec2 size;
     glm::vec2 center = {0.5f, 0.5f};
     glm::vec4 color = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -52,11 +52,11 @@ struct SamplerIndex {
 };
 
 struct ImageBindingUpdate {
-    Handle<ImageView> image_view;
+    Entity image_view;
 };
 
 struct SamplerBindingUpdate {
-    Handle<Sampler> sampler;
+    Entity sampler;
 };
 
 struct SamplerCreating {
