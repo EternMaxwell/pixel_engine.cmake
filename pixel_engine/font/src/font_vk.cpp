@@ -28,8 +28,8 @@ void systems::create_renderer(
 ) {
     if (!query.single().has_value()) return;
     auto [device, queue, command_pool] = query.single().value();
-    auto canvas_width = font_plugin->canvas_width;
-    auto canvas_height = font_plugin->canvas_height;
+    auto canvas_width                  = font_plugin->canvas_width;
+    auto canvas_height                 = font_plugin->canvas_height;
     TextRenderer text_renderer;
     text_renderer.text_descriptor_set_layout = DescriptorSetLayout::create(
         device,
@@ -257,6 +257,13 @@ void systems::create_renderer(
                     .setMinLod(0.0f)
                     .setMaxLod(0.0f)
     );
+    text_renderer.fence = Fence::create(
+        device,
+        vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled)
+    );
+    text_renderer.command_buffer = CommandBuffer::allocate_primary(
+        device, command_pool
+    );
 
     vk::DescriptorBufferInfo buffer_info;
     buffer_info.setBuffer(text_renderer.text_uniform_buffer);
@@ -288,17 +295,17 @@ void systems::draw_text(
     auto [device, queue, command_pool, swapchain] =
         swapchain_query.single().value();
     auto [text_renderer] = text_renderer_query.single().value();
-    const auto& extent = swapchain.extent;
-    auto canvas_width = font_plugin->canvas_width;
-    auto canvas_height = font_plugin->canvas_height;
-    glm::mat4 inverse_y = glm::scale(glm::mat4(1.0f), {1.0f, -1.0f, 1.0f});
+    const auto& extent   = swapchain.extent;
+    auto canvas_width    = font_plugin->canvas_width;
+    auto canvas_height   = font_plugin->canvas_height;
+    glm::mat4 inverse_y  = glm::scale(glm::mat4(1.0f), {1.0f, -1.0f, 1.0f});
     glm::mat4 proj =
         inverse_y *
         glm::ortho(0.0f, (float)extent.width, 0.0f, (float)extent.height);
     glm::mat4 view = glm::mat4(1.0f);
     TextUniformBuffer text_uniform_buffer;
-    text_uniform_buffer.view = view;
-    text_uniform_buffer.proj = proj;
+    text_uniform_buffer.view           = view;
+    text_uniform_buffer.proj           = proj;
     Buffer text_uniform_buffer_staging = Buffer::create_host(
         device, sizeof(TextUniformBuffer), vk::BufferUsageFlagBits::eTransferSrc
     );
@@ -341,12 +348,12 @@ void systems::draw_text(
             if (!glyph_opt.has_value()) continue;
             auto glyph = glyph_opt.value();
             if (glyph.size.x == 0 || glyph.size.y == 0) continue;
-            float w = glyph.size.x;
-            float h = glyph.size.y;
-            float x = ax + glyph.bearing.x;
-            float y = ay - (h - glyph.bearing.y);
-            float u = glyph.uv_1.x;
-            float v = glyph.uv_1.y;
+            float w  = glyph.size.x;
+            float h  = glyph.size.y;
+            float x  = ax + glyph.bearing.x;
+            float y  = ay - (h - glyph.bearing.y);
+            float u  = glyph.uv_1.x;
+            float v  = glyph.uv_1.y;
             float u2 = glyph.uv_2.x;
             float v2 = glyph.uv_2.y;
 
@@ -476,7 +483,7 @@ void systems::destroy_renderer(
 ) {
     if (!text_renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]        = query.single().value();
     auto [text_renderer] = text_renderer_query.single().value();
     logger->debug("destroy text renderer");
     ft2_library->clear_font_textures(device);
@@ -491,5 +498,6 @@ void systems::destroy_renderer(
     text_renderer.text_uniform_buffer.destroy(device);
     text_renderer.text_vertex_buffer.destroy(device);
     text_renderer.text_texture_sampler.destroy(device);
+    text_renderer.fence.destroy(device);
     FT_Done_FreeType(ft2_library->library);
 }

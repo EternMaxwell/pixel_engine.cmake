@@ -19,7 +19,7 @@ static std::unordered_map<std::string, FT_Face> font_faces;
 
 struct Font {
     bool antialias = true;
-    int pixels = 64;
+    int pixels     = 64;
     FT_Face font_face;
 
     bool operator==(const Font& other) const {
@@ -36,8 +36,8 @@ struct TextUniformBuffer {
 struct Text {
     Font font;
     std::wstring text;
-    float height = 0;
-    float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float height    = 0;
+    float color[4]  = {1.0f, 1.0f, 1.0f, 1.0f};
     float center[2] = {0.0f, 0.0f};
 };
 
@@ -67,6 +67,9 @@ struct TextRenderer {
     Buffer text_vertex_buffer;
 
     Sampler text_texture_sampler;
+
+    Fence fence;
+    CommandBuffer command_buffer;
 };
 }  // namespace components
 }  // namespace font

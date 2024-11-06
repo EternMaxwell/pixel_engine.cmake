@@ -10,7 +10,6 @@ namespace components {
 using namespace pixel_engine::prelude;
 
 struct PixelVertex {
-    glm::vec2 pos;
     glm::vec4 color;
     int model_index;
 };
@@ -18,6 +17,12 @@ struct PixelVertex {
 struct PixelUniformBuffer {
     glm::mat4 view;
     glm::mat4 proj;
+};
+
+struct PixelBlockData {
+    glm::mat4 model;
+    glm::uvec2 size;
+    uint32_t offset;
 };
 
 struct PixelBlock {
@@ -42,12 +47,15 @@ struct PixelRenderer {
     Pipeline graphics_pipeline;
     PipelineLayout pipeline_layout;
     Buffer vertex_buffer;
-    Buffer index_buffer;
+    Buffer vertex_staging_buffer;
     Buffer uniform_buffer;
     Buffer block_model_buffer;
     DescriptorSetLayout descriptor_set_layout;
     DescriptorPool descriptor_pool;
     DescriptorSet descriptor_set;
+    Fence fence;
+    CommandBuffer command_buffer;
+    Framebuffer framebuffer;
 };
 }  // namespace components
 }  // namespace pixel_engine::render::pixel
