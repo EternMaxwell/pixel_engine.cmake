@@ -1229,6 +1229,25 @@ void output_event(
     }
 }
 
+void create_pixel_block(Command command) {
+    auto block =
+        pixel_engine::render::pixel::components::PixelBlock::create({512, 512});
+    for (size_t i = 0; i < block.size.x; i++) {
+        for (size_t j = 0; j < block.size.y; j++) {
+            block[{i, j}] = {
+                std::rand() / (float)RAND_MAX, std::rand() / (float)RAND_MAX,
+                std::rand() / (float)RAND_MAX, 1.0f
+            };
+        }
+    }
+    command.spawn(
+        std::move(block),
+        pixel_engine::render::pixel::components::BlockPos2d{
+            .pos = {-1000, -1000, 0}, .scale = {4.0f, 4.0f}
+        }
+    );
+}
+
 struct VK_TrialPlugin : Plugin {
     void build(App &app) override {
         auto window_plugin = app.get_plugin<WindowPlugin>();
@@ -1333,6 +1352,7 @@ struct VK_TrialPlugin : Plugin {
             .after(wait_for_device)
             .use_worker("single");
         app.add_system(Startup, create_text);
+        app.add_system(Startup, create_pixel_block);
         app.add_system(Update, shuffle_text);
         app.add_system(Update, output_event);
     }
@@ -1346,6 +1366,7 @@ void run() {
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
     app.add_plugin(pixel_engine::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});
+    app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
     app.add_plugin(pixel_engine::sprite::SpritePluginVK{});
     app.run();
 }

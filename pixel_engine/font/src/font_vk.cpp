@@ -1,6 +1,8 @@
 #include <unordered_map>
 
 #include "pixel_engine/font.h"
+#include "shaders/fragment_shader.h"
+#include "shaders/vertex_shader.h"
 
 using namespace pixel_engine;
 using namespace pixel_engine::font;
@@ -255,6 +257,13 @@ void systems::vulkan::create_renderer(
                     .setMinLod(0.0f)
                     .setMaxLod(0.0f)
     );
+    text_renderer.fence = Fence::create(
+        device,
+        vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled)
+    );
+    text_renderer.command_buffer = CommandBuffer::allocate_primary(
+        device, command_pool
+    );
 
     vk::DescriptorBufferInfo buffer_info;
     buffer_info.setBuffer(text_renderer.text_uniform_buffer);
@@ -489,5 +498,6 @@ void systems::vulkan::destroy_renderer(
     text_renderer.text_uniform_buffer.destroy(device);
     text_renderer.text_vertex_buffer.destroy(device);
     text_renderer.text_texture_sampler.destroy(device);
+    text_renderer.fence.destroy(device);
     FT_Done_FreeType(ft2_library->library);
 }

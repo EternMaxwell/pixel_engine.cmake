@@ -77,6 +77,10 @@ struct SpriteRenderer {
     Buffer sprite_vertex_buffer;
     Buffer sprite_index_buffer;
     Buffer sprite_model_buffer;
+
+    Fence fence;
+    CommandBuffer command_buffer;
+    Framebuffer frame_buffer;
 };
 
 struct SpriteDepth {};

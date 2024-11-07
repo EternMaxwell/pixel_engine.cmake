@@ -338,15 +338,21 @@ void systems::create_sprite_renderer_vk(
 
     SpriteRenderer sprite_renderer;
     sprite_renderer.sprite_descriptor_set_layout = sprite_descriptor_set_layout;
-    sprite_renderer.sprite_descriptor_pool = sprite_descriptor_pool;
-    sprite_renderer.sprite_descriptor_set = sprite_descriptor_set;
-    sprite_renderer.sprite_render_pass = sprite_render_pass;
-    sprite_renderer.sprite_pipeline_layout = sprite_pipeline_layout;
-    sprite_renderer.sprite_pipeline = sprite_pipeline;
-    sprite_renderer.sprite_uniform_buffer = sprite_uniform_buffer;
-    sprite_renderer.sprite_vertex_buffer = sprite_vertex_buffer;
-    sprite_renderer.sprite_index_buffer = sprite_index_buffer;
-    sprite_renderer.sprite_model_buffer = sprite_model_buffer;
+    sprite_renderer.sprite_descriptor_pool       = sprite_descriptor_pool;
+    sprite_renderer.sprite_descriptor_set        = sprite_descriptor_set;
+    sprite_renderer.sprite_render_pass           = sprite_render_pass;
+    sprite_renderer.sprite_pipeline_layout       = sprite_pipeline_layout;
+    sprite_renderer.sprite_pipeline              = sprite_pipeline;
+    sprite_renderer.sprite_uniform_buffer        = sprite_uniform_buffer;
+    sprite_renderer.sprite_vertex_buffer         = sprite_vertex_buffer;
+    sprite_renderer.sprite_index_buffer          = sprite_index_buffer;
+    sprite_renderer.sprite_model_buffer          = sprite_model_buffer;
+    sprite_renderer.fence                        = Fence::create(
+        device,
+        vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled)
+    );
+    sprite_renderer.command_buffer =
+        CommandBuffer::allocate_primary(device, command_pool);
     cmd.spawn(sprite_renderer);
 }
 
@@ -358,11 +364,11 @@ void systems::update_image_bindings(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!ctx_query.single().has_value()) return;
-    auto [device] = ctx_query.single().value();
+    auto [device]   = ctx_query.single().value();
     auto [renderer] = renderer_query.single().value();
     for (auto [update] : query.iter()) {
         auto [image_view, image_index_t] = image_query.get(update.image_view);
-        auto image_index = image_index_t.index;
+        auto image_index                 = image_index_t.index;
         vk::DescriptorImageInfo image_info;
         image_info.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
             .setImageView(*image_view);
@@ -385,11 +391,11 @@ void systems::update_sampler_bindings(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!ctx_query.single().has_value()) return;
-    auto [device] = ctx_query.single().value();
+    auto [device]   = ctx_query.single().value();
     auto [renderer] = renderer_query.single().value();
     for (auto [update] : query.iter()) {
         auto [sampler, sampler_index_t] = sampler_query.get(update.sampler);
-        auto sampler_index = sampler_index_t.index;
+        auto sampler_index              = sampler_index_t.index;
         vk::DescriptorImageInfo sampler_info;
         sampler_info.setSampler(*sampler);
         vk::WriteDescriptorSet write_descriptor_set;
@@ -454,7 +460,7 @@ void systems::update_sprite_depth_vk(
     if (!ctx_query.single().has_value()) return;
     if (!query.single().has_value()) return;
     auto [image_view, image, extent] = query.single().value();
-    auto [device, swapchain] = ctx_query.single().value();
+    auto [device, swapchain]         = ctx_query.single().value();
     if (extent.width != swapchain.extent.width ||
         extent.height != swapchain.extent.height) {
         vk::ImageCreateInfo depth_image_create_info;
@@ -491,7 +497,7 @@ void systems::update_sprite_depth_vk(
         image_view.destroy(device);
         image.destroy(device);
         *(&image_view) = depth_image_view;
-        *(&image) = depth_image;
+        *(&image)      = depth_image;
         *(&extent) =
             SpriteDepthExtent{swapchain.extent.width, swapchain.extent.height};
     }
@@ -525,10 +531,10 @@ void systems::draw_sprite_2d_vk(
     if (!depth_query.single().has_value()) return;
     auto [depth_image_view] = depth_query.single().value();
     auto [device, command_pool, queue, swapchain] = ctx_query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    auto [renderer]           = renderer_query.single().value();
     void* uniform_buffer_data = renderer.sprite_uniform_buffer.map(device);
     glm::mat4* uniform_buffer = static_cast<glm::mat4*>(uniform_buffer_data);
-    uniform_buffer[1] = glm::ortho(
+    uniform_buffer[1]         = glm::ortho(
         -static_cast<float>(swapchain.extent.width) / 2.0f,
         static_cast<float>(swapchain.extent.width) / 2.0f,
         static_cast<float>(swapchain.extent.height) / 2.0f,
@@ -556,10 +562,10 @@ void systems::draw_sprite_2d_vk(
         return pos_2d_a->pos.z > pos_2d_b->pos.z;
     });
     for (auto [sprite_p, pos_2d_p] : sprites) {
-        auto& sprite = *sprite_p;
-        auto& pos_2d = *pos_2d_p;
+        auto& sprite    = *sprite_p;
+        auto& pos_2d    = *pos_2d_p;
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, pos_2d.pos);
+        model           = glm::translate(model, pos_2d.pos);
         model =
             glm::rotate(model, pos_2d.rotation, glm::vec3(0.0f, 0.0f, 1.0f));
         model = glm::scale(model, glm::vec3(pos_2d.scale, 1.0f));
@@ -579,7 +585,7 @@ void systems::draw_sprite_2d_vk(
             sprite_logger->error("Sprite does not have a sampler assigned.");
             continue;
         }
-        auto [image_index] = image_query.get(sprite.image);
+        auto [image_index]   = image_query.get(sprite.image);
         auto [sampler_index] = sampler_query.get(sprite.sampler);
 
         if (vertices_count + 4 > 65536) {
@@ -589,40 +595,40 @@ void systems::draw_sprite_2d_vk(
         }
 
         vertex_buffer_data->pos = -glm::vec3(sprite.size * sprite.center, 0.0f);
-        vertex_buffer_data->tex_coord = {0.0f, 0.0f};
-        vertex_buffer_data->color = sprite.color;
-        vertex_buffer_data->model_index = models_count - 1;
-        vertex_buffer_data->image_index = image_index.index;
+        vertex_buffer_data->tex_coord     = {0.0f, 0.0f};
+        vertex_buffer_data->color         = sprite.color;
+        vertex_buffer_data->model_index   = models_count - 1;
+        vertex_buffer_data->image_index   = image_index.index;
         vertex_buffer_data->sampler_index = sampler_index.index;
         vertex_buffer_data++;
         vertex_buffer_data->pos = glm::vec3(
             sprite.size.x * (1.0f - sprite.center.x),
             -sprite.size.y * sprite.center.y, 0.0f
         );
-        vertex_buffer_data->tex_coord = {1.0f, 0.0f};
-        vertex_buffer_data->color = sprite.color;
-        vertex_buffer_data->model_index = models_count - 1;
-        vertex_buffer_data->image_index = image_index.index;
+        vertex_buffer_data->tex_coord     = {1.0f, 0.0f};
+        vertex_buffer_data->color         = sprite.color;
+        vertex_buffer_data->model_index   = models_count - 1;
+        vertex_buffer_data->image_index   = image_index.index;
         vertex_buffer_data->sampler_index = sampler_index.index;
         vertex_buffer_data++;
         vertex_buffer_data->pos = glm::vec3(
             sprite.size.x * (1.0f - sprite.center.x),
             sprite.size.y * (1.0f - sprite.center.y), 0.0f
         );
-        vertex_buffer_data->tex_coord = {1.0f, 1.0f};
-        vertex_buffer_data->color = sprite.color;
-        vertex_buffer_data->model_index = models_count - 1;
-        vertex_buffer_data->image_index = image_index.index;
+        vertex_buffer_data->tex_coord     = {1.0f, 1.0f};
+        vertex_buffer_data->color         = sprite.color;
+        vertex_buffer_data->model_index   = models_count - 1;
+        vertex_buffer_data->image_index   = image_index.index;
         vertex_buffer_data->sampler_index = sampler_index.index;
         vertex_buffer_data++;
         vertex_buffer_data->pos = glm::vec3(
             -sprite.size.x * sprite.center.x,
             sprite.size.y * (1.0f - sprite.center.y), 0.0f
         );
-        vertex_buffer_data->tex_coord = {0.0f, 1.0f};
-        vertex_buffer_data->color = sprite.color;
-        vertex_buffer_data->model_index = models_count - 1;
-        vertex_buffer_data->image_index = image_index.index;
+        vertex_buffer_data->tex_coord     = {0.0f, 1.0f};
+        vertex_buffer_data->color         = sprite.color;
+        vertex_buffer_data->model_index   = models_count - 1;
+        vertex_buffer_data->image_index   = image_index.index;
         vertex_buffer_data->sampler_index = sampler_index.index;
         vertex_buffer_data++;
         vertices_count += 4;
@@ -651,7 +657,12 @@ void systems::draw_sprite_2d_vk(
 
     if (indices_count == 0) return;
 
-    auto command_buffer = CommandBuffer::allocate_primary(device, command_pool);
+    auto& command_buffer = renderer.command_buffer;
+    auto& fence          = renderer.fence;
+    device->waitForFences(*fence, VK_TRUE, UINT64_MAX);
+    device->resetFences(*fence);
+    command_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
+    renderer.frame_buffer.destroy(device);
     vk::CommandBufferBeginInfo begin_info;
     command_buffer->begin(begin_info);
     std::array<vk::ImageView, 2> attachments = {
@@ -665,6 +676,7 @@ void systems::draw_sprite_2d_vk(
         .setLayers(1);
     Framebuffer frame_buffer =
         Framebuffer::create(device, frame_buffer_create_info);
+    renderer.frame_buffer = frame_buffer;
     vk::RenderPassBeginInfo render_pass_begin_info;
     render_pass_begin_info.setRenderPass(*renderer.sprite_render_pass)
         .setFramebuffer(*frame_buffer)
@@ -705,10 +717,7 @@ void systems::draw_sprite_2d_vk(
     command_buffer->end();
     vk::SubmitInfo submit_info;
     submit_info.setCommandBuffers(*command_buffer);
-    queue->submit(submit_info);
-    queue->waitIdle();
-    command_buffer.free(device, command_pool);
-    frame_buffer.destroy(device);
+    queue->submit(submit_info, *fence);
 }
 
 void systems::destroy_sprite_renderer_vk(
@@ -717,7 +726,7 @@ void systems::destroy_sprite_renderer_vk(
 ) {
     if (!renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]   = query.single().value();
     auto [renderer] = renderer_query.single().value();
     renderer.sprite_descriptor_set_layout.destroy(device);
     renderer.sprite_descriptor_pool.destroy(device);
@@ -728,4 +737,6 @@ void systems::destroy_sprite_renderer_vk(
     renderer.sprite_vertex_buffer.destroy(device);
     renderer.sprite_index_buffer.destroy(device);
     renderer.sprite_model_buffer.destroy(device);
+    renderer.fence.destroy(device);
+    if (renderer.frame_buffer) renderer.frame_buffer.destroy(device);
 }

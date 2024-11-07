@@ -65,6 +65,9 @@ struct TextRenderer {
     Buffer text_vertex_buffer;
 
     Sampler text_texture_sampler;
+
+    Fence fence;
+    CommandBuffer command_buffer;
 };
 
 struct TextRendererGl {

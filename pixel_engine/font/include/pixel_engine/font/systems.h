@@ -13,8 +13,6 @@
 
 #include "components.h"
 #include "resources.h"
-#include "shaders/fragment_shader.h"
-#include "shaders/vertex_shader.h"
 
 namespace pixel_engine {
 namespace font {
