@@ -47,11 +47,36 @@ struct GlyphMap {
 };
 }  // namespace tools
 using namespace tools;
+namespace res_ogl {
+struct FT2LibGL {
+    using texture_handle = uint64_t;
+    using texture_id     = uint32_t;
+    using buffer_id      = uint32_t;
+    struct CharLoadingState {
+        uint32_t current_x           = 0;
+        uint32_t current_y           = 0;
+        uint32_t current_layer       = 0;
+        uint32_t current_line_height = 0;
+    };
+    FT_Face load_font(const std::string& file_path);
+    void init();
+    void destroy();
+    const uint32_t font_texture_width  = 2048;
+    const uint32_t font_texture_height = 2048;
+    const uint32_t font_texture_layers = 256;
+    buffer_id font_texture_buffer;
+    spp::sparse_hash_map<std::string, FT_Face> font_faces;
+    spp::sparse_hash_map<Font, texture_handle> font_texture_handles;
+    spp::sparse_hash_map<Font, texture_id> font_texture_ids;
+    spp::sparse_hash_map<Font, CharLoadingState> char_loading_states;
+};
+}  // namespace res_ogl
+namespace vulkan {
 struct FT2Library {
     struct CharLoadingState {
-        uint32_t current_x = 0;
-        uint32_t current_y = 0;
-        uint32_t current_layer = 0;
+        uint32_t current_x           = 0;
+        uint32_t current_y           = 0;
+        uint32_t current_layer       = 0;
         uint32_t current_line_height = 0;
     };
     FT_Face load_font(const std::string& file_path);
@@ -87,7 +112,7 @@ struct FT2Library {
     void clear_font_textures(Device& device);
     void destroy();
 
-    const uint32_t font_texture_width = 2048;
+    const uint32_t font_texture_width  = 2048;
     const uint32_t font_texture_height = 2048;
     const uint32_t font_texture_layers = 256;
     FT_Library library;
@@ -96,6 +121,7 @@ struct FT2Library {
         font_textures;
     std::unordered_map<Font, CharLoadingState> char_loading_states;
 };
+}  // namespace vulkan
 }  // namespace resources
 }  // namespace font
 }  // namespace pixel_engine

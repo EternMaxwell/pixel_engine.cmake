@@ -1142,7 +1142,7 @@ void wait_for_device(Query<Get<Device>, With<RenderContext>> query) {
 
 void create_text(
     Command command,
-    ResMut<pixel_engine::font::resources::FT2Library> ft2_library
+    ResMut<pixel_engine::font::resources::vulkan::FT2Library> ft2_library
 ) {
     if (!ft2_library.has_value()) return;
     pixel_engine::font::components::Text text;
@@ -1296,27 +1296,27 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(Render, begin_draw)
             .use_worker("single")
             .before(
-                pixel_engine::font::systems::draw_text,
+                pixel_engine::font::systems::vulkan::draw_text,
                 pixel_engine::sprite::systems::draw_sprite_2d_vk,
                 update_uniform_buffer
             );
         app.add_system(Render, update_uniform_buffer)
             .use_worker("single")
             .before(
-                pixel_engine::font::systems::draw_text,
+                pixel_engine::font::systems::vulkan::draw_text,
                 pixel_engine::sprite::systems::draw_sprite_2d_vk,
                 record_command_buffer
             );
         app.add_system(Render, record_command_buffer)
             .use_worker("single")
             .before(
-                pixel_engine::font::systems::draw_text,
+                pixel_engine::font::systems::vulkan::draw_text,
                 pixel_engine::sprite::systems::draw_sprite_2d_vk, end_draw
             );
         app.add_system(Render, end_draw)
             .use_worker("single")
             .before(
-                pixel_engine::font::systems::draw_text,
+                pixel_engine::font::systems::vulkan::draw_text,
                 pixel_engine::sprite::systems::draw_sprite_2d_vk
             );
         app.add_system(Exit, wait_for_device).use_worker("single");

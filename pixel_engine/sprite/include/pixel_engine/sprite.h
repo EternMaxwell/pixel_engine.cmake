@@ -27,7 +27,7 @@ struct SpritePluginVK : Plugin {
             .after(creating_actual_sampler);
         app.add_system(PreRender, update_sprite_depth_vk);
         app.add_system(Render, draw_sprite_2d_vk)
-            .before(pixel_engine::font::systems::draw_text);
+            .before(pixel_engine::font::systems::vulkan::draw_text);
         app.add_system(
             Exit, destroy_sprite_server_vk_images
         );

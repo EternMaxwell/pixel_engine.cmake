@@ -3,6 +3,7 @@
 #include <freetype/freetype.h>
 #include <ft2build.h>
 #include <pixel_engine/app.h>
+#include <pixel_engine/render_ogl.h>
 #include <pixel_engine/render_vk.h>
 
 #include <glm/glm.hpp>
@@ -14,12 +15,9 @@ namespace font {
 namespace components {
 using namespace prelude;
 using namespace render_vk::components;
-
-static std::unordered_map<std::string, FT_Face> font_faces;
-
 struct Font {
     bool antialias = true;
-    int pixels = 64;
+    int pixels     = 64;
     FT_Face font_face;
 
     bool operator==(const Font& other) const {
@@ -36,8 +34,8 @@ struct TextUniformBuffer {
 struct Text {
     Font font;
     std::wstring text;
-    float height = 0;
-    float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float height    = 0;
+    float color[4]  = {1.0f, 1.0f, 1.0f, 1.0f};
     float center[2] = {0.0f, 0.0f};
 };
 
@@ -67,6 +65,14 @@ struct TextRenderer {
     Buffer text_vertex_buffer;
 
     Sampler text_texture_sampler;
+};
+
+struct TextRendererGl {
+    uint32_t text_program;
+    uint32_t text_vao;
+    uint32_t text_vbo;
+    uint32_t text_ibo;
+    uint32_t text_ubo;
 };
 }  // namespace components
 }  // namespace font

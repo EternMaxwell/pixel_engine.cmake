@@ -15,10 +15,10 @@ struct FontPlugin : Plugin {
         if (!render_vk_plugin) {
             throw std::runtime_error("FontPlugin requires RenderVKPlugin");
         }
-        app.add_system(PreStartup, systems::insert_ft2_library);
-        app.add_system(Startup, systems::create_renderer);
-        app.add_system(Render, systems::draw_text);
-        app.add_system(Exit, systems::destroy_renderer);
+        app.add_system(PreStartup, systems::vulkan::insert_ft2_library);
+        app.add_system(Startup, systems::vulkan::create_renderer);
+        app.add_system(Render, systems::vulkan::draw_text);
+        app.add_system(Exit, systems::vulkan::destroy_renderer);
     }
 };
 }  // namespace font

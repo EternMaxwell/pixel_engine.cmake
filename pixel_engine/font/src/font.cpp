@@ -3,8 +3,7 @@
 using namespace pixel_engine;
 using namespace pixel_engine::font;
 using namespace pixel_engine::font::components;
-using namespace pixel_engine::font::resources;
-using namespace pixel_engine::font::systems;
+using namespace pixel_engine::font::resources::vulkan;
 
 static std::shared_ptr<spdlog::logger> logger =
     spdlog::default_logger()->clone("font");

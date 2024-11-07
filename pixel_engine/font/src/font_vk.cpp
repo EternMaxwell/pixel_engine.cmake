@@ -5,29 +5,29 @@
 using namespace pixel_engine;
 using namespace pixel_engine::font;
 using namespace pixel_engine::font::components;
-using namespace pixel_engine::font::resources;
 using namespace pixel_engine::font::systems;
+using namespace systems::vulkan;
 
 static std::shared_ptr<spdlog::logger> logger =
     spdlog::default_logger()->clone("font");
 
-void systems::insert_ft2_library(Command command) {
-    FT2Library ft2_library;
+void systems::vulkan::insert_ft2_library(Command command) {
+    resources::vulkan::FT2Library ft2_library;
     if (FT_Init_FreeType(&ft2_library.library)) {
         spdlog::error("Failed to initialize FreeType library");
     }
     command.insert_resource(ft2_library);
 }
 
-void systems::create_renderer(
+void systems::vulkan::create_renderer(
     Command command,
     Query<Get<Device, Queue, CommandPool>, With<RenderContext>> query,
     Res<FontPlugin> font_plugin
 ) {
     if (!query.single().has_value()) return;
     auto [device, queue, command_pool] = query.single().value();
-    auto canvas_width = font_plugin->canvas_width;
-    auto canvas_height = font_plugin->canvas_height;
+    auto canvas_width                  = font_plugin->canvas_width;
+    auto canvas_height                 = font_plugin->canvas_height;
     TextRenderer text_renderer;
     text_renderer.text_descriptor_set_layout = DescriptorSetLayout::create(
         device,
@@ -273,10 +273,10 @@ void systems::create_renderer(
     command.spawn(text_renderer);
 }
 
-void systems::draw_text(
+void systems::vulkan::draw_text(
     Query<Get<TextRenderer>> text_renderer_query,
     Query<Get<Text, TextPos>> text_query,
-    ResMut<FT2Library> ft2_library,
+    ResMut<resources::vulkan::FT2Library> ft2_library,
     Query<Get<Device, Queue, CommandPool, Swapchain>, With<RenderContext>>
         swapchain_query,
     Res<FontPlugin> font_plugin
@@ -286,17 +286,17 @@ void systems::draw_text(
     auto [device, queue, command_pool, swapchain] =
         swapchain_query.single().value();
     auto [text_renderer] = text_renderer_query.single().value();
-    const auto& extent = swapchain.extent;
-    auto canvas_width = font_plugin->canvas_width;
-    auto canvas_height = font_plugin->canvas_height;
-    glm::mat4 inverse_y = glm::scale(glm::mat4(1.0f), {1.0f, -1.0f, 1.0f});
+    const auto& extent   = swapchain.extent;
+    auto canvas_width    = font_plugin->canvas_width;
+    auto canvas_height   = font_plugin->canvas_height;
+    glm::mat4 inverse_y  = glm::scale(glm::mat4(1.0f), {1.0f, -1.0f, 1.0f});
     glm::mat4 proj =
         inverse_y *
         glm::ortho(0.0f, (float)extent.width, 0.0f, (float)extent.height);
     glm::mat4 view = glm::mat4(1.0f);
     TextUniformBuffer text_uniform_buffer;
-    text_uniform_buffer.view = view;
-    text_uniform_buffer.proj = proj;
+    text_uniform_buffer.view           = view;
+    text_uniform_buffer.proj           = proj;
     Buffer text_uniform_buffer_staging = Buffer::create_host(
         device, sizeof(TextUniformBuffer), vk::BufferUsageFlagBits::eTransferSrc
     );
@@ -339,12 +339,12 @@ void systems::draw_text(
             if (!glyph_opt.has_value()) continue;
             auto glyph = glyph_opt.value();
             if (glyph.size.x == 0 || glyph.size.y == 0) continue;
-            float w = glyph.size.x;
-            float h = glyph.size.y;
-            float x = ax + glyph.bearing.x;
-            float y = ay - (h - glyph.bearing.y);
-            float u = glyph.uv_1.x;
-            float v = glyph.uv_1.y;
+            float w  = glyph.size.x;
+            float h  = glyph.size.y;
+            float x  = ax + glyph.bearing.x;
+            float y  = ay - (h - glyph.bearing.y);
+            float u  = glyph.uv_1.x;
+            float v  = glyph.uv_1.y;
             float u2 = glyph.uv_2.x;
             float v2 = glyph.uv_2.y;
 
@@ -467,14 +467,14 @@ void systems::draw_text(
     text_uniform_buffer_staging.destroy(device);
 }
 
-void systems::destroy_renderer(
+void systems::vulkan::destroy_renderer(
     Query<Get<Device>, With<RenderContext>> query,
-    ResMut<FT2Library> ft2_library,
+    ResMut<resources::vulkan::FT2Library> ft2_library,
     Query<Get<TextRenderer>> text_renderer_query
 ) {
     if (!text_renderer_query.single().has_value()) return;
     if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    auto [device]        = query.single().value();
     auto [text_renderer] = text_renderer_query.single().value();
     logger->debug("destroy text renderer");
     ft2_library->clear_font_textures(device);

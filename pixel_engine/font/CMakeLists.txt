@@ -11,5 +11,6 @@ target_link_libraries(pixel_engine_font glfw)
 target_link_libraries(pixel_engine_font pixel_engine::app)
 target_link_libraries(pixel_engine_font pixel_engine::window)
 target_link_libraries(pixel_engine_font pixel_engine::render_vk)
+target_link_libraries(pixel_engine_font pixel_engine::render::ogl)
 
 add_library(pixel_engine::font ALIAS pixel_engine_font)
