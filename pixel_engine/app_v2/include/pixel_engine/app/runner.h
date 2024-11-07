@@ -145,6 +145,7 @@ struct Runner {
     void end_commands();
     void update_states();
     void add_worker(const std::string& name, uint32_t num_threads);
+    void set_log_level(spdlog::level::level_enum level);
 
    protected:
     MsgQueueBase<std::shared_ptr<StageNode>> msg_queue;
@@ -160,5 +161,7 @@ struct Runner {
     std::unique_ptr<WorkerPool> m_pools;
     std::unique_ptr<BS::thread_pool> m_control_pool;
     std::unique_ptr<SetMap> m_sets;
+
+    std::shared_ptr<spdlog::logger> m_logger;
 };
 }  // namespace pixel_engine::app

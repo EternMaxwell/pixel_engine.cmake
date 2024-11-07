@@ -251,6 +251,7 @@ struct App {
     }
 
     void run();
+    void set_log_level(spdlog::level::level_enum level);
     App& enable_loop();
     App& disable_loop();
     App* operator->();
@@ -280,5 +281,7 @@ struct App {
     spp::sparse_hash_map<const type_info*, std::shared_ptr<Plugin>> m_plugins;
     std::unique_ptr<BasicSystem<bool>> m_check_exit_func;
     bool m_loop_enabled = false;
+
+    std::shared_ptr<spdlog::logger> m_logger;
 };
 }  // namespace pixel_engine::app

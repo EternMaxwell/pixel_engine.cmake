@@ -13,6 +13,7 @@ Runner::Runner(
         "default", std::clamp(std::thread::hardware_concurrency(), 4u, 16u)
     );
     add_worker("single", 1);
+    m_logger = spdlog::default_logger()->clone("runner");
 }
 Runner::StageNode::StageNode(
     const type_info* stage, std::unique_ptr<StageRunner>&& runner
@@ -76,14 +77,9 @@ void Runner::build() {
     );
     for (size_t i = 0; i < startup_stages.size(); ++i) {
         for (size_t j = i + 1; j < startup_stages.size(); ++j) {
-            if (startup_stages[i]->runner->m_dst !=
-                    startup_stages[j]->runner->m_dst &&
-                startup_stages[i]->runner->m_dst !=
-                    startup_stages[j]->runner->m_src &&
-                startup_stages[j]->runner->m_dst !=
-                    startup_stages[i]->runner->m_src &&
-                startup_stages[i]->runner->m_dst !=
-                    startup_stages[j]->runner->m_src) {
+            if (startup_stages[i]->runner->conflict(
+                    startup_stages[j]->runner.get()
+                )) {
                 startup_stages[i]->weak_next_stages.insert(startup_stages[j]);
                 startup_stages[j]->weak_prev_stages.insert(startup_stages[i]);
             }
@@ -118,14 +114,8 @@ void Runner::build() {
     );
     for (size_t i = 0; i < loop_stages.size(); ++i) {
         for (size_t j = i + 1; j < loop_stages.size(); ++j) {
-            if (loop_stages[i]->runner->m_dst !=
-                    loop_stages[j]->runner->m_dst &&
-                loop_stages[i]->runner->m_dst !=
-                    loop_stages[j]->runner->m_src &&
-                loop_stages[j]->runner->m_dst !=
-                    loop_stages[i]->runner->m_src &&
-                loop_stages[i]->runner->m_dst !=
-                    loop_stages[j]->runner->m_src) {
+            if (loop_stages[i]->runner->conflict(loop_stages[j]->runner.get()
+                )) {
                 loop_stages[i]->weak_next_stages.insert(loop_stages[j]);
                 loop_stages[j]->weak_prev_stages.insert(loop_stages[i]);
             }
@@ -160,14 +150,9 @@ void Runner::build() {
     );
     for (size_t i = 0; i < state_transition_stages.size(); ++i) {
         for (size_t j = i + 1; j < state_transition_stages.size(); ++j) {
-            if (state_transition_stages[i]->runner->m_dst !=
-                    state_transition_stages[j]->runner->m_dst &&
-                state_transition_stages[i]->runner->m_dst !=
-                    state_transition_stages[j]->runner->m_src &&
-                state_transition_stages[j]->runner->m_dst !=
-                    state_transition_stages[i]->runner->m_src &&
-                state_transition_stages[i]->runner->m_dst !=
-                    state_transition_stages[j]->runner->m_src) {
+            if (state_transition_stages[i]->runner->conflict(
+                    state_transition_stages[j]->runner.get()
+                )) {
                 state_transition_stages[i]->weak_next_stages.insert(
                     state_transition_stages[j]
                 );
@@ -206,14 +191,8 @@ void Runner::build() {
     );
     for (size_t i = 0; i < exit_stages.size(); ++i) {
         for (size_t j = i + 1; j < exit_stages.size(); ++j) {
-            if (exit_stages[i]->runner->m_dst !=
-                    exit_stages[j]->runner->m_dst &&
-                exit_stages[i]->runner->m_dst !=
-                    exit_stages[j]->runner->m_src &&
-                exit_stages[j]->runner->m_dst !=
-                    exit_stages[i]->runner->m_src &&
-                exit_stages[i]->runner->m_dst !=
-                    exit_stages[j]->runner->m_src) {
+            if (exit_stages[i]->runner->conflict(exit_stages[j]->runner.get()
+                )) {
                 exit_stages[i]->weak_next_stages.insert(exit_stages[j]);
                 exit_stages[j]->weak_prev_stages.insert(exit_stages[i]);
             }
@@ -237,10 +216,6 @@ void Runner::bake_all() {
 }
 
 void Runner::run(std::shared_ptr<StageNode> node) {
-    if (node->runner->m_src == nullptr) {
-        msg_queue.push(node);
-        return;
-    }
     auto ftr = m_control_pool->submit_task([this, node]() {
         node->runner->run();
         msg_queue.push(node);
@@ -285,7 +260,7 @@ void Runner::run_startup() {
         }
     }
     if (m_remain > 0) {
-        spdlog::warn("Startup stages have circular dependencies");
+        m_logger->warn("Startup stages have circular dependencies");
     }
 }
 
@@ -327,7 +302,7 @@ void Runner::run_loop() {
         }
     }
     if (m_remain > 0) {
-        spdlog::warn("Loop stages have circular dependencies");
+        m_logger->warn("Loop stages have circular dependencies");
     }
 }
 
@@ -369,7 +344,7 @@ void Runner::run_state_transition() {
         }
     }
     if (m_remain > 0) {
-        spdlog::warn("State transition stages have circular dependencies");
+        m_logger->warn("State transition stages have circular dependencies");
     }
 }
 
@@ -411,7 +386,14 @@ void Runner::run_exit() {
         }
     }
     if (m_remain > 0) {
-        spdlog::warn("Exit stages have circular dependencies");
+        m_logger->warn("Exit stages have circular dependencies");
+    }
+}
+
+void Runner::set_log_level(spdlog::level::level_enum level) {
+    m_logger->set_level(level);
+    for (auto&& [stage, node] : m_startup_stages) {
+        node->runner->set_log_level(level);
     }
 }
 

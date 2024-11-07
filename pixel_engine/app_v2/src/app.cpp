@@ -29,16 +29,17 @@ App App::create() {
     return std::move(app);
 }
 void App::run() {
-    spdlog::info("Building");
+    m_logger->info("Building App");
     build();
-    spdlog::info("Startup");
+    m_logger->info("Running App");
+    m_logger->debug("Startup stage");
     m_runner->run_startup();
     end_commands();
     do {
-        spdlog::info("State transition");
+        m_logger->debug("Transition stage");
         m_runner->run_state_transition();
         update_states();
-        spdlog::info("Loop");
+        m_logger->debug("Loop stage");
         m_runner->run_loop();
         tick_events();
         end_commands();
@@ -46,15 +47,20 @@ void App::run() {
                                    m_sub_apps->at(&typeid(MainSubApp)).get(),
                                    m_sub_apps->at(&typeid(MainSubApp)).get()
                                ));
-    spdlog::info("State transition");
+    m_logger->debug("Transition stage");
     m_runner->run_state_transition();
     end_commands();
     update_states();
-    spdlog::info("Exit");
+    m_logger->info("Exiting App");
+    m_logger->debug("Exit stage");
     m_runner->run_exit();
     end_commands();
+    m_logger->info("App terminated");
 }
-
+void App::set_log_level(spdlog::level::level_enum level) {
+    m_logger->set_level(level);
+    m_runner->set_log_level(level);
+}
 App& App::enable_loop() {
     m_loop_enabled = true;
     return *this;
@@ -71,6 +77,7 @@ App::App()
               spp::sparse_hash_map<const type_info*, std::unique_ptr<SubApp>>>()
       ),
       m_runner(std::make_unique<Runner>(m_sub_apps.get())) {
+    m_logger = spdlog::default_logger()->clone("app");
     m_check_exit_func = std::make_unique<Condition<EventReader<AppExit>>>(
         [](EventReader<AppExit> reader) {
             for (auto&& evt : reader.read()) {

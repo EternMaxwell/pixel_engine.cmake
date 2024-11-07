@@ -58,10 +58,14 @@ struct StageRunner {
         );
     }
 
+    bool conflict(const StageRunner* other) const;
+
     void build();
     void bake();
     void run();
+    void set_log_level(spdlog::level::level_enum level);
 
+   protected:
     SubApp* m_src;
     SubApp* m_dst;
     WorkerPool* m_pools;
@@ -70,5 +74,6 @@ struct StageRunner {
     const type_info* m_stage;
     spp::sparse_hash_map<size_t, std::unique_ptr<SubStageRunner>> m_sub_stages;
     std::vector<size_t> m_sub_stage_order;
+    std::shared_ptr<spdlog::logger> m_logger;
 };
 }  // namespace pixel_engine::app

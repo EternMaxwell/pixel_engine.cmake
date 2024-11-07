@@ -98,7 +98,7 @@ void SubStageRunner::run(std::shared_ptr<SystemNode> node) {
             msg_queue.push(node);
         });
     } else {
-        spdlog::warn(
+        m_logger->warn(
             "The runner does not have a worker pool named {}. Skipping "
             "system {:#018x}",
             node->m_worker, (size_t)node->m_sys_addr
@@ -145,10 +145,13 @@ void SubStageRunner::run() {
         }
     }
     if (m_remain != 0) {
-        spdlog::warn(
+        m_logger->warn(
             "Stage {} - {} has {} systems not finished. Maybe a deadlock "
             "or some dependencies are removed during runtime.",
             m_sub_stage.m_stage->name(), m_sub_stage.m_sub_stage, m_remain
         );
     }
+}
+void SubStageRunner::set_log_level(spdlog::level::level_enum level) {
+    m_logger->set_level(level);
 }
