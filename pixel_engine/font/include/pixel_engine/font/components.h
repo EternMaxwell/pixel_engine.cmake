@@ -49,6 +49,8 @@ struct TextVertex {
     float uv[2];
     float color[4];
     int image_index;
+    int font_texture_id;
+    int model_id;
 };
 
 struct TextRenderer {
@@ -61,7 +63,7 @@ struct TextRenderer {
     Pipeline text_pipeline;
 
     Buffer text_uniform_buffer;
-
+    Buffer text_model_buffer;
     Buffer text_vertex_buffer;
 
     Sampler text_texture_sampler;

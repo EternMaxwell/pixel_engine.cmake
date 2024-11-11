@@ -23,11 +23,14 @@ using namespace prelude;
 using namespace font::components;
 using namespace render_vk::components;
 using namespace font::resources;
-void insert_ft2_library(Command command);
+void insert_ft2_library(
+    Command command, Query<Get<Device>, With<RenderContext>> query
+);
 void create_renderer(
     Command command,
     Query<Get<Device, Queue, CommandPool>, With<RenderContext>> query,
-    Res<FontPlugin> font_plugin
+    Res<FontPlugin> font_plugin,
+    ResMut<resources::vulkan::FT2Library> ft2_library
 );
 void draw_text(
     Query<Get<TextRenderer>> text_renderer_query,

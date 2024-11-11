@@ -86,6 +86,7 @@ struct FT2Library {
         CommandPool& command_pool,
         Queue& queue
     );
+    uint32_t font_index(const Font& font);
     void add_char_to_texture(
         const Font& font,
         wchar_t c,
@@ -117,9 +118,14 @@ struct FT2Library {
     const uint32_t font_texture_layers = 256;
     FT_Library library;
     std::unordered_map<std::string, FT_Face> font_faces;
+    std::unordered_map<Font, uint32_t> font_texture_index;
     std::unordered_map<Font, std::tuple<Image, ImageView, GlyphMap>>
         font_textures;
     std::unordered_map<Font, CharLoadingState> char_loading_states;
+    DescriptorSetLayout font_texture_descriptor_set_layout;
+    DescriptorPool font_texture_descriptor_pool;
+    DescriptorSet font_texture_descriptor_set;
+    uint32_t font_texture_count = 0;
 };
 }  // namespace vulkan
 }  // namespace resources

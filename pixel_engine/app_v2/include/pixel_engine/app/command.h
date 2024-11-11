@@ -123,28 +123,32 @@ struct Command {
     template <typename T, typename... Args>
     void emplace_resource(Args&&... args) {
         auto m_resources = &m_world->m_resources;
-        if (m_resources->find(&typeid(T)) == m_resources->end()) {
-            m_resources->emplace(std::make_pair(
-                &typeid(T), std::static_pointer_cast<void>(
-                                std::make_shared<std::remove_reference_t<T>>(
-                                    std::forward<Args>(args)...
-                                )
-                            )
-            ));
+        if (m_resources->find(&typeid(std::remove_reference_t<T>)) ==
+            m_resources->end()) {
+            m_resources->emplace(
+                &typeid(std::remove_reference_t<T>),
+                std::static_pointer_cast<void>(
+                    std::make_shared<std::remove_reference_t<T>>(
+                        std::forward<Args>(args)...
+                    )
+                )
+            );
         }
     }
 
     template <typename T>
     void insert_resource(T&& res) {
         auto m_resources = &m_world->m_resources;
-        if (m_resources->find(&typeid(T)) == m_resources->end()) {
-            m_resources->emplace(std::make_pair(
-                &typeid(T), std::static_pointer_cast<void>(
-                                std::make_shared<std::remove_reference_t<T>>(
-                                    std::forward<T>(res)
-                                )
-                            )
-            ));
+        if (m_resources->find(&typeid(std::remove_reference_t<T>)) ==
+            m_resources->end()) {
+            m_resources->emplace(
+                &typeid(std::remove_reference_t<T>),
+                std::static_pointer_cast<void>(
+                    std::make_shared<std::remove_reference_t<T>>(
+                        std::forward<T>(res)
+                    )
+                )
+            );
         }
     }
 

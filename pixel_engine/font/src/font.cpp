@@ -104,7 +104,30 @@ std::tuple<Image, ImageView, GlyphMap>& FT2Library::get_font_texture(
     GlyphMap glyph_map;
 
     font_textures[font] = {image, image_view, glyph_map};
+    vk::DescriptorImageInfo image_info;
+    image_info.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+    image_info.setImageView(image_view);
+    vk::WriteDescriptorSet descriptor_write;
+    descriptor_write.setDstSet(*font_texture_descriptor_set);
+    descriptor_write.setDstBinding(0);
+    descriptor_write.setDstArrayElement(font_texture_count);
+    descriptor_write.setDescriptorType(vk::DescriptorType::eSampledImage);
+    descriptor_write.setDescriptorCount(1);
+    descriptor_write.setPImageInfo(&image_info);
+    auto descriptor_writes = {descriptor_write};
+    device->updateDescriptorSets(descriptor_writes, nullptr);
+    logger->info("Created font texture with index {}", font_texture_count);
+    font_texture_index.emplace(font, font_texture_count);
+    font_texture_count += 1;
     return font_textures[font];
+}
+
+uint32_t FT2Library::font_index(const Font& font) {
+    if (font_texture_index.find(font) == font_texture_index.end()) {
+        logger->error("Font not found, replacing it with 0");
+        return 0;
+    }
+    return font_texture_index[font];
 }
 
 void FT2Library::add_char_to_texture(
@@ -116,7 +139,7 @@ void FT2Library::add_char_to_texture(
 ) {
     auto&& [image, image_view, glyph_map] = font_textures[font];
 
-    FT_Face face = font.font_face;
+    FT_Face face   = font.font_face;
     uint32_t index = FT_Get_Char_Index(face, c);
 
     if (glyph_map.contains(index)) {
@@ -146,7 +169,7 @@ void FT2Library::add_char_to_texture(
     }
 
     FT_GlyphSlot slot = face->glyph;
-    FT_Bitmap bitmap = slot->bitmap;
+    FT_Bitmap bitmap  = slot->bitmap;
 
     if (current_x + bitmap.width >= font_texture_width) {
         current_x = 0;
@@ -256,6 +279,18 @@ void FT2Library::add_char_to_texture(
         image_view.destroy(device);
         std::get<0>(font_textures[font]) = new_image;
         std::get<1>(font_textures[font]) = new_image_view;
+        vk::WriteDescriptorSet descriptor_write;
+        vk::DescriptorImageInfo image_desc_info;
+        image_desc_info.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+        image_desc_info.setImageView(new_image_view);
+        descriptor_write.setDstSet(*font_texture_descriptor_set);
+        descriptor_write.setDstBinding(0);
+        descriptor_write.setDstArrayElement(font_texture_index[font]);
+        descriptor_write.setDescriptorType(vk::DescriptorType::eSampledImage);
+        descriptor_write.setDescriptorCount(1);
+        descriptor_write.setPImageInfo(&image_desc_info);
+        auto descriptor_writes = {descriptor_write};
+        device->updateDescriptorSets(descriptor_writes, nullptr);
     }
 
     if (current_layer >= font_texture_layers) {
@@ -356,9 +391,9 @@ void FT2Library::add_char_to_texture(
         static_cast<int>(slot->metrics.horiBearingX >> 6),
         static_cast<int>(slot->metrics.horiBearingY >> 6)
     };
-    glyph.size = {bitmap.width, bitmap.rows};
+    glyph.size        = {bitmap.width, bitmap.rows};
     glyph.image_index = current_layer;
-    glyph.uv_1 = {
+    glyph.uv_1        = {
         current_x / static_cast<float>(font_texture_width),
         current_y / static_cast<float>(font_texture_height)
     };
@@ -392,7 +427,7 @@ std::optional<const Glyph> FT2Library::get_glyph(const Font& font, wchar_t c) {
         return std::nullopt;
     }
     auto [image, image_view, glyph_map] = font_textures[font];
-    uint32_t index = FT_Get_Char_Index(font.font_face, c);
+    uint32_t index                      = FT_Get_Char_Index(font.font_face, c);
     if (!glyph_map.contains(index)) {
         return std::nullopt;
     }
@@ -410,7 +445,7 @@ std::optional<const Glyph> FT2Library::get_glyph_add(
         return std::nullopt;
     }
     auto [image, image_view, glyph_map] = font_textures[font];
-    uint32_t index = FT_Get_Char_Index(font.font_face, c);
+    uint32_t index                      = FT_Get_Char_Index(font.font_face, c);
     if (!glyph_map.contains(index)) {
         add_char_to_texture(font, c, device, command_pool, queue);
     }
