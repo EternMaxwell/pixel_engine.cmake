@@ -3,7 +3,7 @@
 using namespace pixel_engine::app;
 
 StageRunner::StageRunner(
-    const type_info* stage,
+    std::type_index stage,
     SubApp* src,
     SubApp* dst,
     WorkerPool* pools,
@@ -11,7 +11,7 @@ StageRunner::StageRunner(
 )
     : m_src(src), m_dst(dst), m_pools(pools), m_sets(sets), m_stage(stage) {
     m_logger =
-        spdlog::default_logger()->clone("stage: " + std::string(stage->name()));
+        spdlog::default_logger()->clone("stage: " + std::string(stage.name()));
 }
 
 void StageRunner::set_log_level(spdlog::level::level_enum level) {

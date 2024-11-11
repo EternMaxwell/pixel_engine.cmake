@@ -39,10 +39,11 @@ struct SubApp {
     template <typename ResT>
     struct value_type<Res<ResT>> {
         static Res<ResT> get(SubApp& app) {
-            return Res<ResT>(
-                app.m_world.m_resources[&typeid(std::remove_const_t<ResT>)].get(
-                )
-            );
+            return Res<ResT>(app.m_world
+                                 .m_resources[std::type_index(
+                                     typeid(std::remove_const_t<ResT>)
+                                 )]
+                                 .get());
         }
         static Res<ResT> get(SubApp& src, SubApp& dst) { return get(dst); }
     };
@@ -50,10 +51,11 @@ struct SubApp {
     template <typename ResT>
     struct value_type<ResMut<ResT>> {
         static ResMut<ResT> get(SubApp& app) {
-            return ResMut<ResT>(
-                app.m_world.m_resources[&typeid(std::remove_const_t<ResT>)].get(
-                )
-            );
+            return ResMut<ResT>(app.m_world
+                                    .m_resources[std::type_index(
+                                        typeid(std::remove_const_t<ResT>)
+                                    )]
+                                    .get());
         }
         static ResMut<ResT> get(SubApp& src, SubApp& dst) { return get(dst); }
     };
@@ -70,13 +72,15 @@ struct SubApp {
     template <typename T>
     struct value_type<EventReader<T>> {
         static EventReader<T> get(SubApp& app) {
-            auto it = app.m_world.m_event_queues.find(&typeid(T));
+            auto it =
+                app.m_world.m_event_queues.find(std::type_index(typeid(T)));
             if (it == app.m_world.m_event_queues.end()) {
                 app.m_world.m_event_queues.emplace(
-                    &typeid(T), std::make_unique<EventQueue<T>>()
+                    std::type_index(typeid(T)),
+                    std::make_unique<EventQueue<T>>()
                 );
                 return EventReader<T>(
-                    app.m_world.m_event_queues[&typeid(T)].get()
+                    app.m_world.m_event_queues[std::type_index(typeid(T))].get()
                 );
             }
             return EventReader<T>(it->second.get());
@@ -87,13 +91,15 @@ struct SubApp {
     template <typename T>
     struct value_type<EventWriter<T>> {
         static EventWriter<T> get(SubApp& app) {
-            auto it = app.m_world.m_event_queues.find(&typeid(T));
+            auto it =
+                app.m_world.m_event_queues.find(std::type_index(typeid(T)));
             if (it == app.m_world.m_event_queues.end()) {
                 app.m_world.m_event_queues.emplace(
-                    &typeid(T), std::make_unique<EventQueue<T>>()
+                    std::type_index(typeid(T)),
+                    std::make_unique<EventQueue<T>>()
                 );
                 return EventWriter<T>(
-                    app.m_world.m_event_queues[&typeid(T)].get()
+                    app.m_world.m_event_queues[std::type_index(typeid(T))].get()
                 );
             }
             return EventWriter<T>(it->second.get());
@@ -153,9 +159,9 @@ struct SubApp {
     }
     template <typename T>
     void insert_state(T&& state) {
-        if (m_world.m_resources.find(&typeid(State<T>)) !=
+        if (m_world.m_resources.find(std::type_index(typeid(State<T>))) !=
                 m_world.m_resources.end() ||
-            m_world.m_resources.find(&typeid(NextState<T>)) !=
+            m_world.m_resources.find(std::type_index(typeid(NextState<T>))) !=
                 m_world.m_resources.end()) {
             spdlog::warn("State already exists.");
             return;
@@ -174,9 +180,9 @@ struct SubApp {
     }
     template <typename T>
     void init_state() {
-        if (m_world.m_resources.find(&typeid(State<T>)) !=
+        if (m_world.m_resources.find(std::type_index(typeid(State<T>))) !=
                 m_world.m_resources.end() ||
-            m_world.m_resources.find(&typeid(NextState<T>)) !=
+            m_world.m_resources.find(std::type_index(typeid(NextState<T>))) !=
                 m_world.m_resources.end()) {
             spdlog::warn("State already exists.");
             return;

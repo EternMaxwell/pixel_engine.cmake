@@ -77,20 +77,15 @@ void SubStageRunner::bake() {
             }
         }
     }
-    m_head = std::make_shared<SystemNode>();
+    m_heads.clear();
     for (auto& system : systems) {
         if (!system->m_strong_prevs.empty()) return;
         if (system->m_weak_prevs.empty()) {
-            m_head->m_weak_nexts.insert(system);
-            system->m_weak_prevs.insert(m_head);
+            m_heads.insert(system);
         }
     }
 }
 void SubStageRunner::run(std::shared_ptr<SystemNode> node) {
-    if (node == m_head) {
-        msg_queue.push(node);
-        return;
-    }
     auto pool = m_pools->get_pool(node->m_worker);
     if (pool) {
         auto ftr = pool->submit_task([this, node]() {
@@ -113,9 +108,11 @@ void SubStageRunner::run() {
         system->m_next_count =
             system->m_strong_nexts.size() + system->m_weak_nexts.size();
     }
-    run(m_head);
-    size_t m_remain  = m_systems.size() + 1;
-    size_t m_running = 1;
+    for (auto& head : m_heads) {
+        run(head);
+    }
+    size_t m_remain  = m_systems.size();
+    size_t m_running = m_heads.size();
     while (m_running > 0) {
         msg_queue.wait();
         auto ptr = msg_queue.pop();
@@ -148,7 +145,7 @@ void SubStageRunner::run() {
         m_logger->warn(
             "Stage {} - {} has {} systems not finished. Maybe a deadlock "
             "or some dependencies are removed during runtime.",
-            m_sub_stage.m_stage->name(), m_sub_stage.m_sub_stage, m_remain
+            m_sub_stage.m_stage.name(), m_sub_stage.m_sub_stage, m_remain
         );
     }
 }

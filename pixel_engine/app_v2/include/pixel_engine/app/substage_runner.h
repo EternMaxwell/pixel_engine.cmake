@@ -42,7 +42,7 @@ struct SubStageRunner {
     SystemStage m_sub_stage;
     MsgQueueBase<std::shared_ptr<SystemNode>> msg_queue;
     spp::sparse_hash_map<void*, std::shared_ptr<SystemNode>> m_systems;
-    std::shared_ptr<SystemNode> m_head;
+    spp::sparse_hash_set<std::shared_ptr<SystemNode>> m_heads;
     SetMap* m_sets;
 
     std::shared_ptr<spdlog::logger> m_logger;
