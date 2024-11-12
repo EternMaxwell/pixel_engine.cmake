@@ -72,9 +72,18 @@ struct SubApp {
     template <typename T>
     struct value_type<EventReader<T>> {
         static EventReader<T> get(SubApp& app) {
-            return EventReader<T>(
-                app.m_world.m_event_queues[std::type_index(typeid(T))].get()
-            );
+            auto it =
+                app.m_world.m_event_queues.find(std::type_index(typeid(T)));
+            if (it == app.m_world.m_event_queues.end()) {
+                app.m_world.m_event_queues.emplace(
+                    std::type_index(typeid(T)),
+                    std::make_unique<EventQueue<T>>()
+                );
+                return EventReader<T>(
+                    app.m_world.m_event_queues[std::type_index(typeid(T))].get()
+                );
+            }
+            return EventReader<T>(it->second.get());
         }
         static EventReader<T> get(SubApp& src, SubApp& dst) { return get(src); }
     };
@@ -82,9 +91,18 @@ struct SubApp {
     template <typename T>
     struct value_type<EventWriter<T>> {
         static EventWriter<T> get(SubApp& app) {
-            return EventWriter<T>(
-                app.m_world.m_event_queues[std::type_index(typeid(T))].get()
-            );
+            auto it =
+                app.m_world.m_event_queues.find(std::type_index(typeid(T)));
+            if (it == app.m_world.m_event_queues.end()) {
+                app.m_world.m_event_queues.emplace(
+                    std::type_index(typeid(T)),
+                    std::make_unique<EventQueue<T>>()
+                );
+                return EventWriter<T>(
+                    app.m_world.m_event_queues[std::type_index(typeid(T))].get()
+                );
+            }
+            return EventWriter<T>(it->second.get());
         }
         static EventWriter<T> get(SubApp& src, SubApp& dst) { return get(dst); }
     };

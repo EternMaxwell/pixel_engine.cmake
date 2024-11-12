@@ -257,6 +257,7 @@ struct App {
         }
         auto& target = it->second;
         target->add_event<EventT>();
+        return *this;
     }
     template <typename... Sets>
     App& configure_sets(Sets... sets) {
