@@ -99,7 +99,7 @@ struct App {
                 spdlog::warn(
                     "adding system {:#018x} to stage {} is not allowed"
                     "on_enter can only be used in state transition stages",
-                    (size_t)node->m_sys_addr, node->m_stage.m_stage->name()
+                    (size_t)node->m_sys_addr, node->m_stage.m_stage.name()
                 );
             }
             return *this;
@@ -165,18 +165,18 @@ struct App {
     template <typename T>
     App& add_plugin(T&& plugin) {
         m_plugins.emplace(
-            &typeid(std::remove_reference_t<T>),
+            std::type_index(typeid(std::remove_reference_t<T>)),
             std::make_shared<T>(std::forward<T>(plugin))
         );
         return *this;
     }
     template <typename T>
     std::shared_ptr<T> get_plugin() {
-        return std::static_pointer_cast<T>(m_plugins[&typeid(T)]);
+        return std::static_pointer_cast<T>(m_plugins[std::type_index(typeid(T))]);
     }
     template <typename T, typename Target = MainSubApp, typename... Args>
     App& emplace_resource(Args&&... args) {
-        auto it = m_sub_apps->find(&typeid(Target));
+        auto it = m_sub_apps->find(std::type_index(typeid(Target)));
         if (it == m_sub_apps->end()) {
             spdlog::warn(
                 "Add resource to sub app: {}, which does not exist.",
@@ -190,7 +190,7 @@ struct App {
     }
     template <typename Target = MainSubApp, typename T>
     App& insert_resource(T&& res) {
-        auto it = m_sub_apps->find(&typeid(Target));
+        auto it = m_sub_apps->find(std::type_index(typeid(Target)));
         if (it == m_sub_apps->end()) {
             spdlog::warn(
                 "Add resource to sub app: {}, which does not exist.",
@@ -204,7 +204,7 @@ struct App {
     }
     template <typename T, typename Target = MainSubApp>
     App& init_resource() {
-        auto it = m_sub_apps->find(&typeid(Target));
+        auto it = m_sub_apps->find(std::type_index(typeid(Target)));
         if (it == m_sub_apps->end()) {
             spdlog::warn(
                 "Add resource to sub app: {}, which does not exist.",
@@ -218,7 +218,7 @@ struct App {
     }
     template <typename T, typename Target = MainSubApp>
     App& insert_state(T&& state) {
-        auto it = m_sub_apps->find(&typeid(Target));
+        auto it = m_sub_apps->find(std::type_index(typeid(Target)));
         if (it == m_sub_apps->end()) {
             spdlog::warn(
                 "Add state to sub app: {}, which does not exist.",
@@ -232,7 +232,7 @@ struct App {
     }
     template <typename T, typename Target = MainSubApp>
     App& init_state() {
-        auto it = m_sub_apps->find(&typeid(Target));
+        auto it = m_sub_apps->find(std::type_index(typeid(Target)));
         if (it == m_sub_apps->end()) {
             spdlog::warn(
                 "Add state to sub app: {}, which does not exist.",
@@ -265,7 +265,7 @@ struct App {
 
     template <typename T>
     void add_sub_app() {
-        m_sub_apps->emplace(&typeid(T), std::make_unique<SubApp>());
+        m_sub_apps->emplace(std::type_index(typeid(T)), std::make_unique<SubApp>());
     }
 
     void build_plugins();
@@ -275,10 +275,10 @@ struct App {
     void update_states();
 
     std::unique_ptr<
-        spp::sparse_hash_map<const type_info*, std::unique_ptr<SubApp>>>
+        spp::sparse_hash_map<std::type_index, std::unique_ptr<SubApp>>>
         m_sub_apps;
     std::unique_ptr<Runner> m_runner;
-    spp::sparse_hash_map<const type_info*, std::shared_ptr<Plugin>> m_plugins;
+    spp::sparse_hash_map<std::type_index, std::shared_ptr<Plugin>> m_plugins;
     std::unique_ptr<BasicSystem<bool>> m_check_exit_func;
     bool m_loop_enabled = false;
 

@@ -7,7 +7,7 @@
 namespace pixel_engine::app {
 struct StageRunner {
     StageRunner(
-        const type_info* stage,
+        std::type_index stage,
         SubApp* src,
         SubApp* dst,
         WorkerPool* pools,
@@ -18,9 +18,9 @@ struct StageRunner {
 
     template <typename StageT>
     void add_sub_stage(StageT sub_stage) {
-        if (typeid(StageT) != *m_stage) {
+        if (std::type_index(typeid(StageT)) != m_stage) {
             spdlog::warn(
-                "Stage {} cannot add sub stage {} - {}", m_stage->name(),
+                "Stage {} cannot add sub stage {} - {}", m_stage.name(),
                 typeid(StageT).name(), static_cast<size_t>(sub_stage)
             );
             return;
@@ -71,7 +71,7 @@ struct StageRunner {
     WorkerPool* m_pools;
     SetMap* m_sets;
 
-    const type_info* m_stage;
+    std::type_index m_stage;
     spp::sparse_hash_map<size_t, std::unique_ptr<SubStageRunner>> m_sub_stages;
     std::vector<size_t> m_sub_stage_order;
     std::shared_ptr<spdlog::logger> m_logger;

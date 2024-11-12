@@ -11,29 +11,27 @@
 
 namespace pixel_engine::app {
 struct SystemStage {
-    SystemStage() = default;
     template <typename T>
     SystemStage(T stage)
-        : m_stage(&typeid(T)), m_sub_stage(static_cast<size_t>(stage)) {}
+        : m_stage(typeid(T)), m_sub_stage(static_cast<size_t>(stage)) {}
     bool operator==(const SystemStage& other) const;
     bool operator!=(const SystemStage& other) const;
 
-    const type_info* m_stage;
+    std::type_index m_stage;
     size_t m_sub_stage;
 };
 struct SystemSet {
     template <typename T>
-    SystemSet(T set) : m_type(&typeid(T)), m_value(static_cast<size_t>(set)) {}
+    SystemSet(T set) : m_type(typeid(T)), m_value(static_cast<size_t>(set)) {}
     bool operator==(const SystemSet& other) const;
     bool operator!=(const SystemSet& other) const;
 
-    const type_info* m_type;
+    std::type_index m_type;
     size_t m_value;
 };
-struct SetMap : spp::sparse_hash_map<const type_info*, std::vector<SystemSet>> {
+struct SetMap : spp::sparse_hash_map<std::type_index, std::vector<SystemSet>> {
 };
 struct SystemNode {
-    SystemNode() = default;
     template <typename StageT, typename... Args>
     SystemNode(StageT stage, void (*func)(Args...))
         : m_stage(stage), m_system(std::make_unique<System<Args...>>(func)) {

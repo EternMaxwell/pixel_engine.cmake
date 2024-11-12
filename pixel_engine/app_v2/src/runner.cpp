@@ -3,7 +3,7 @@
 using namespace pixel_engine::app;
 
 Runner::Runner(
-    spp::sparse_hash_map<const type_info*, std::unique_ptr<SubApp>>* sub_apps
+    spp::sparse_hash_map<std::type_index, std::unique_ptr<SubApp>>* sub_apps
 )
     : m_sub_apps(sub_apps),
       m_pools(std::make_unique<WorkerPool>()),
@@ -16,7 +16,7 @@ Runner::Runner(
     m_logger = spdlog::default_logger()->clone("runner");
 }
 Runner::StageNode::StageNode(
-    const type_info* stage, std::unique_ptr<StageRunner>&& runner
+    std::type_index stage, std::unique_ptr<StageRunner>&& runner
 )
     : stage(stage),
       runner(std::forward<std::unique_ptr<StageRunner>>(runner)) {}
@@ -34,17 +34,17 @@ size_t Runner::StageNode::get_depth() {
     }
     return depth.value();
 }
-bool Runner::stage_startup(const type_info* stage) {
+bool Runner::stage_startup(std::type_index stage) {
     return m_startup_stages.find(stage) != m_startup_stages.end();
 }
-bool Runner::stage_loop(const type_info* stage) {
+bool Runner::stage_loop(std::type_index stage) {
     return m_loop_stages.find(stage) != m_loop_stages.end();
 }
-bool Runner::stage_state_transition(const type_info* stage) {
+bool Runner::stage_state_transition(std::type_index stage) {
     return m_state_transition_stages.find(stage) !=
            m_state_transition_stages.end();
 }
-bool Runner::stage_exit(const type_info* stage) {
+bool Runner::stage_exit(std::type_index stage) {
     return m_exit_stages.find(stage) != m_exit_stages.end();
 }
 void Runner::build() {

@@ -30,43 +30,43 @@ struct Local {
 template <typename Ret>
 struct BasicSystem {
    protected:
-    spp::sparse_hash_map<const type_info*, std::shared_ptr<void>> m_locals;
+    spp::sparse_hash_map<std::type_index, std::shared_ptr<void>> m_locals;
     double avg_time = 1.0;  // in milliseconds
     struct system_info {
         bool has_command = false;
         bool has_query   = false;
         std::vector<std::tuple<
-            std::vector<const type_info*>,
-            std::vector<const type_info*>,
-            std::vector<const type_info*>>>
+            std::vector<std::type_index>,
+            std::vector<std::type_index>,
+            std::vector<std::type_index>>>
             query_types;
-        std::vector<const type_info*> resource_types;
-        std::vector<const type_info*> resource_const;
-        std::vector<const type_info*> event_read_types;
-        std::vector<const type_info*> event_write_types;
-        std::vector<const type_info*> state_types;
-        std::vector<const type_info*> next_state_types;
+        std::vector<std::type_index> resource_types;
+        std::vector<std::type_index> resource_const;
+        std::vector<std::type_index> event_read_types;
+        std::vector<std::type_index> event_write_types;
+        std::vector<std::type_index> state_types;
+        std::vector<std::type_index> next_state_types;
     } system_infos;
 
     template <typename Arg>
     struct info_add {
-        static void add(std::vector<const type_info*>& infos) {
-            infos.push_back(&typeid(std::remove_const_t<Arg>));
+        static void add(std::vector<std::type_index>& infos) {
+            infos.push_back(std::type_index(typeid(std::remove_const_t<Arg>)));
         }
     };
 
     template <typename Arg>
     struct const_infos_adder {
-        static void add(std::vector<const type_info*>& infos) {
+        static void add(std::vector<std::type_index>& infos) {
             if constexpr (std::is_const_v<Arg>)
-                infos.push_back(&typeid(std::remove_const_t<Arg>));
+                infos.push_back(std::type_index(typeid(std::remove_const_t<Arg>)));
         }
     };
 
     template <typename Arg>
     struct non_const_infos_adder {
-        static void add(std::vector<const type_info*>& infos) {
-            if constexpr (!std::is_const_v<Arg>) infos.push_back(&typeid(Arg));
+        static void add(std::vector<std::type_index>& infos) {
+            if constexpr (!std::is_const_v<Arg>) infos.push_back(std::type_index(typeid(Arg)));
         }
     };
 
@@ -80,7 +80,7 @@ struct BasicSystem {
         Query<Get<Includes...>, With<Withs...>, Without<Excludes...>>> {
         static void add(system_info& info) {
             auto& query_types = info.query_types;
-            std::vector<const type_info*> query_include_types,
+            std::vector<std::type_index> query_include_types,
                 query_exclude_types, query_include_const;
             (non_const_infos_adder<Includes>::add(query_include_types), ...);
             (const_infos_adder<Includes>::add(query_include_const), ...);
@@ -96,7 +96,7 @@ struct BasicSystem {
     struct infos_adder<Query<Get<Includes...>, Without<Excludes...>, T>> {
         static void add(system_info& info) {
             auto& query_types = info.query_types;
-            std::vector<const type_info*> query_include_types,
+            std::vector<std::type_index> query_include_types,
                 query_exclude_types, query_include_const;
             (non_const_infos_adder<Includes>::add(query_include_types), ...);
             (const_infos_adder<Includes>::add(query_include_const), ...);
@@ -180,13 +180,13 @@ struct BasicSystem {
 
     template <typename T>
     Local<T> get_local() {
-        if (auto it = m_locals.find(&typeid(T)); it == m_locals.end()) {
+        if (auto it = m_locals.find(std::type_index(typeid(T))); it == m_locals.end()) {
             m_locals.emplace(
-                &typeid(T),
+                std::type_index(typeid(T)),
                 std::static_pointer_cast<void>(std::make_shared<T>())
             );
         }
-        return Local<T>(static_cast<T*>(m_locals[&typeid(T)].get()));
+        return Local<T>(static_cast<T*>(m_locals[std::type_index(typeid(T))].get()));
     }
 
     template <typename T>
@@ -363,48 +363,48 @@ struct BasicSystem {
              system_infos.query_types) {
             std::cout << "query_include_types: ";
             for (auto type : query_include_types)
-                std::cout << type->name() << " ";
+                std::cout << type.name() << " ";
             std::cout << std::endl;
 
             std::cout << "query_include_const: ";
             for (auto type : query_include_const)
-                std::cout << type->name() << " ";
+                std::cout << type.name() << " ";
             std::cout << std::endl;
 
             std::cout << "query_exclude_types: ";
             for (auto type : query_exclude_types)
-                std::cout << type->name() << " ";
+                std::cout << type.name() << " ";
             std::cout << std::endl;
         }
 
         std::cout << "resource_types: ";
         for (auto type : system_infos.resource_types)
-            std::cout << type->name() << " ";
+            std::cout << type.name() << " ";
         std::cout << std::endl;
 
         std::cout << "resource_const: ";
         for (auto type : system_infos.resource_const)
-            std::cout << type->name() << " ";
+            std::cout << type.name() << " ";
         std::cout << std::endl;
 
         std::cout << "event_read_types: ";
         for (auto type : system_infos.event_read_types)
-            std::cout << type->name() << " ";
+            std::cout << type.name() << " ";
         std::cout << std::endl;
 
         std::cout << "event_write_types: ";
         for (auto type : system_infos.event_write_types)
-            std::cout << type->name() << " ";
+            std::cout << type.name() << " ";
         std::cout << std::endl;
 
         std::cout << "state_types: ";
         for (auto type : system_infos.state_types)
-            std::cout << type->name() << " ";
+            std::cout << type.name() << " ";
         std::cout << std::endl;
 
         std::cout << "next_state_types: ";
         for (auto type : system_infos.next_state_types)
-            std::cout << type->name() << " ";
+            std::cout << type.name() << " ";
         std::cout << std::endl;
     }
     const double get_avg_time() { return avg_time; }

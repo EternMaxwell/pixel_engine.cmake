@@ -44,8 +44,8 @@ void App::run() {
         tick_events();
         end_commands();
     } while (m_loop_enabled && !m_check_exit_func->run(
-                                   m_sub_apps->at(&typeid(MainSubApp)).get(),
-                                   m_sub_apps->at(&typeid(MainSubApp)).get()
+                                   m_sub_apps->at(std::type_index(typeid(MainSubApp))).get(),
+                                   m_sub_apps->at(std::type_index(typeid(MainSubApp))).get()
                                ));
     m_logger->debug("Transition stage");
     m_runner->run_state_transition();
@@ -74,7 +74,7 @@ App* App::operator->() { return this; }
 App::App()
     : m_sub_apps(
           std::make_unique<
-              spp::sparse_hash_map<const type_info*, std::unique_ptr<SubApp>>>()
+              spp::sparse_hash_map<std::type_index, std::unique_ptr<SubApp>>>()
       ),
       m_runner(std::make_unique<Runner>(m_sub_apps.get())) {
     m_logger = spdlog::default_logger()->clone("app");
