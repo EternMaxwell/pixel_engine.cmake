@@ -39,12 +39,17 @@ struct TextPos {
 };
 
 struct TextVertex {
-    float pos[3];
-    float uv[2];
-    float color[4];
+    float pos[2];
+    float uvs[4];
+    float size[2];
     int image_index;
-    int font_texture_id;
     int model_id;
+};
+
+struct TextModelData {
+    glm::mat4 model;
+    glm::vec4 color;
+    alignas(16) int texture_index;
 };
 
 struct TextRenderer {
@@ -73,7 +78,7 @@ struct TextRenderer {
         CommandPool* command_pool;
         ResMut<resources::vulkan::FT2Library> ft2_library;
         TextVertex* vertices;
-        glm::mat4* models;
+        TextModelData* models;
         uint32_t vertex_count = 0;
         int model_count       = 0;
     };
@@ -89,8 +94,8 @@ struct TextRenderer {
     );
     void reset_cmd();
     void flush();
-    void setModel(const glm::mat4& model);
-    void setModel(const TextPos& pos);
+    void setModel(const TextModelData& model);
+    void setModel(const TextPos& pos, int texture_id);
     void draw(const Text& text, const TextPos& pos);
     void end();
 };

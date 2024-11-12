@@ -2,6 +2,7 @@
 
 #include "pixel_engine/font.h"
 #include "shaders/fragment_shader.h"
+#include "shaders/geometry_shader.h"
 #include "shaders/vertex_shader.h"
 
 using namespace pixel_engine;
@@ -45,7 +46,7 @@ void TextRenderer::begin(
     memcpy(data, &text_uniform, sizeof(TextUniformBuffer));
     text_uniform_buffer.unmap(*device);
     ctx.value().vertices = (TextVertex*)text_vertex_buffer.map(*device);
-    ctx.value().models   = (glm::mat4*)text_model_buffer.map(*device);
+    ctx.value().models   = (TextModelData*)text_model_buffer.map(*device);
 }
 
 void TextRenderer::reset_cmd() {
@@ -122,15 +123,19 @@ void TextRenderer::flush() {
     ctx.value().model_count  = 0;
 }
 
-void TextRenderer::setModel(const glm::mat4& model) {
+void TextRenderer::setModel(const TextModelData& model) {
     if (!ctx.has_value()) return;
     if (ctx.value().model_count >= 1024) flush();
     ctx.value().models[ctx.value().model_count] = model;
     ctx.value().model_count++;
 }
 
-void TextRenderer::setModel(const TextPos& pos) {
-    setModel(glm::translate(glm::mat4(1.0f), {pos.x, pos.y, 0.0f}));
+void TextRenderer::setModel(const TextPos& pos, int texture_id) {
+    setModel(
+        {glm::translate(glm::mat4(1.0f), {pos.x, pos.y, 0.0f}),
+         {1.0f, 1.0f, 1.0f, 1.0f},
+         texture_id}
+    );
 }
 
 void TextRenderer::draw(const Text& text, const TextPos& pos) {
@@ -142,12 +147,12 @@ void TextRenderer::draw(const Text& text, const TextPos& pos) {
     float ax       = 0;
     float ay       = 0;
     int texture_id = (int)context.ft2_library->font_index(text.font);
-    setModel(pos);
-    for (auto c : text.text) {
-        if (context.vertex_count + 6 >= 4096 * 6) {
+    setModel(pos, texture_id);
+    for (auto& c : text.text) {
+        if (context.vertex_count >= 256 * 4096) {
             flush();
             reset_cmd();
-            setModel(pos);
+            setModel(pos, texture_id);
         }
         auto&& glyph_opt = context.ft2_library->get_glyph_add(
             text.font, c, *context.device, *context.command_pool, *context.queue
@@ -155,63 +160,14 @@ void TextRenderer::draw(const Text& text, const TextPos& pos) {
         if (!glyph_opt.has_value()) continue;
         auto&& glyph = glyph_opt.value();
         if (glyph.size.x == 0 || glyph.size.y == 0) continue;
-        float w                                    = glyph.size.x;
-        float h                                    = glyph.size.y;
-        float x                                    = ax + glyph.bearing.x;
-        float y                                    = ay - (h - glyph.bearing.y);
-        float u                                    = glyph.uv_1.x;
-        float v                                    = glyph.uv_1.y;
-        float u2                                   = glyph.uv_2.x;
-        float v2                                   = glyph.uv_2.y;
-        context.vertices[context.vertex_count + 0] = {
-            {x, y, 0.0f},
-            {u, v},
-            {text.color[0], text.color[1], text.color[2], text.color[3]},
+        context.vertices[context.vertex_count] = {
+            {ax + glyph.bearing.x, ay - (glyph.size.y - glyph.bearing.y)},
+            {glyph.uv_1.x, glyph.uv_1.y, glyph.uv_2.x, glyph.uv_2.y},
+            {(float)glyph.size.x, (float)glyph.size.y},
             glyph.image_index,
-            texture_id,
             context.model_count - 1
         };
-        context.vertices[context.vertex_count + 1] = {
-            {x + w, y, 0.0f},
-            {u2, v},
-            {text.color[0], text.color[1], text.color[2], text.color[3]},
-            glyph.image_index,
-            texture_id,
-            context.model_count - 1
-        };
-        context.vertices[context.vertex_count + 2] = {
-            {x + w, y + h, 0.0f},
-            {u2, v2},
-            {text.color[0], text.color[1], text.color[2], text.color[3]},
-            glyph.image_index,
-            texture_id,
-            context.model_count - 1
-        };
-        context.vertices[context.vertex_count + 3] = {
-            {x, y, 0.0f},
-            {u, v},
-            {text.color[0], text.color[1], text.color[2], text.color[3]},
-            glyph.image_index,
-            texture_id,
-            context.model_count - 1
-        };
-        context.vertices[context.vertex_count + 4] = {
-            {x + w, y + h, 0.0f},
-            {u2, v2},
-            {text.color[0], text.color[1], text.color[2], text.color[3]},
-            glyph.image_index,
-            texture_id,
-            context.model_count - 1
-        };
-        context.vertices[context.vertex_count + 5] = {
-            {x, y + h, 0.0f},
-            {u, v2},
-            {text.color[0], text.color[1], text.color[2], text.color[3]},
-            glyph.image_index,
-            texture_id,
-            context.model_count - 1
-        };
-        context.vertex_count += 6;
+        context.vertex_count++;
         ax += glyph.advance.x;
         ay += glyph.advance.y;
     }
@@ -295,12 +251,12 @@ void systems::vulkan::create_renderer(
                      .setBinding(1)
                      .setDescriptorType(vk::DescriptorType::eStorageBuffer)
                      .setDescriptorCount(1)
-                     .setStageFlags(vk::ShaderStageFlagBits::eVertex),
+                     .setStageFlags(vk::ShaderStageFlagBits::eGeometry),
                  vk::DescriptorSetLayoutBinding()
                      .setBinding(0)
                      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                      .setDescriptorCount(1)
-                     .setStageFlags(vk::ShaderStageFlagBits::eVertex)}
+                     .setStageFlags(vk::ShaderStageFlagBits::eGeometry)}
     );
     auto pool_sizes = std::vector<vk::DescriptorPoolSize>{
         vk::DescriptorPoolSize()
@@ -343,7 +299,7 @@ void systems::vulkan::create_renderer(
         device, text_uniform_buffer_create_info, text_uniform_buffer_alloc_info
     );
     vk::BufferCreateInfo buffer_create_info;
-    buffer_create_info.setSize(sizeof(TextVertex) * 6 * 4096);
+    buffer_create_info.setSize(sizeof(TextVertex) * 256 * 4096);
     buffer_create_info.setUsage(vk::BufferUsageFlagBits::eVertexBuffer);
     buffer_create_info.setSharingMode(vk::SharingMode::eExclusive);
     AllocationCreateInfo alloc_info;
@@ -352,7 +308,7 @@ void systems::vulkan::create_renderer(
     text_renderer.text_vertex_buffer =
         Buffer::create(device, buffer_create_info, alloc_info);
     vk::BufferCreateInfo model_buffer_create_info;
-    model_buffer_create_info.setSize(sizeof(glm::mat4) * 1024);
+    model_buffer_create_info.setSize(sizeof(TextModelData) * 1024);
     model_buffer_create_info.setUsage(vk::BufferUsageFlagBits::eStorageBuffer);
     AllocationCreateInfo model_alloc_info;
     model_alloc_info.setUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
@@ -400,10 +356,14 @@ void systems::vulkan::create_renderer(
     vert_shader_module_info.setCode(font_vk_vertex_spv);
     vk::ShaderModuleCreateInfo frag_shader_module_info;
     frag_shader_module_info.setCode(font_vk_fragment_spv);
+    vk::ShaderModuleCreateInfo geom_shader_module_info;
+    geom_shader_module_info.setCode(font_vk_geometry_spv);
     ShaderModule vert_shader_module =
         ShaderModule::create(device, vert_shader_module_info);
     ShaderModule frag_shader_module =
         ShaderModule::create(device, frag_shader_module_info);
+    ShaderModule geom_shader_module =
+        ShaderModule::create(device, geom_shader_module_info);
 
     vk::PipelineShaderStageCreateInfo vert_shader_stage_info;
     vert_shader_stage_info.setStage(vk::ShaderStageFlagBits::eVertex);
@@ -415,8 +375,13 @@ void systems::vulkan::create_renderer(
     frag_shader_stage_info.setModule(frag_shader_module);
     frag_shader_stage_info.setPName("main");
 
+    vk::PipelineShaderStageCreateInfo geom_shader_stage_info;
+    geom_shader_stage_info.setStage(vk::ShaderStageFlagBits::eGeometry);
+    geom_shader_stage_info.setModule(geom_shader_module);
+    geom_shader_stage_info.setPName("main");
+
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
-        vert_shader_stage_info, frag_shader_stage_info
+        vert_shader_stage_info, frag_shader_stage_info, geom_shader_stage_info
     };
 
     pipeline_info.setStages(shader_stages);
@@ -426,7 +391,7 @@ void systems::vulkan::create_renderer(
     binding_description.setBinding(0);
     binding_description.setStride(sizeof(TextVertex));
     binding_description.setInputRate(vk::VertexInputRate::eVertex);
-    std::array<vk::VertexInputAttributeDescription, 6> attribute_descriptions =
+    std::array<vk::VertexInputAttributeDescription, 5> attribute_descriptions =
         {vk::VertexInputAttributeDescription()
              .setBinding(0)
              .setLocation(0)
@@ -435,13 +400,13 @@ void systems::vulkan::create_renderer(
          vk::VertexInputAttributeDescription()
              .setBinding(0)
              .setLocation(1)
-             .setFormat(vk::Format::eR32G32Sfloat)
-             .setOffset(offsetof(TextVertex, uv)),
+             .setFormat(vk::Format::eR32G32B32A32Sfloat)
+             .setOffset(offsetof(TextVertex, uvs)),
          vk::VertexInputAttributeDescription()
              .setBinding(0)
              .setLocation(2)
-             .setFormat(vk::Format::eR32G32B32A32Sfloat)
-             .setOffset(offsetof(TextVertex, color)),
+             .setFormat(vk::Format::eR32G32Sfloat)
+             .setOffset(offsetof(TextVertex, size)),
          vk::VertexInputAttributeDescription()
              .setBinding(0)
              .setLocation(3)
@@ -451,11 +416,6 @@ void systems::vulkan::create_renderer(
              .setBinding(0)
              .setLocation(4)
              .setFormat(vk::Format::eR32Sint)
-             .setOffset(offsetof(TextVertex, font_texture_id)),
-         vk::VertexInputAttributeDescription()
-             .setBinding(0)
-             .setLocation(5)
-             .setFormat(vk::Format::eR32Sint)
              .setOffset(offsetof(TextVertex, model_id))};
     vertex_input_info.setVertexBindingDescriptions({binding_description});
     vertex_input_info.setVertexAttributeDescriptions(attribute_descriptions);
@@ -463,7 +423,7 @@ void systems::vulkan::create_renderer(
     pipeline_info.setPVertexInputState(&vertex_input_info);
 
     vk::PipelineInputAssemblyStateCreateInfo input_assembly_info;
-    input_assembly_info.setTopology(vk::PrimitiveTopology::eTriangleList);
+    input_assembly_info.setTopology(vk::PrimitiveTopology::ePointList);
     input_assembly_info.setPrimitiveRestartEnable(VK_FALSE);
 
     pipeline_info.setPInputAssemblyState(&input_assembly_info);
@@ -523,6 +483,7 @@ void systems::vulkan::create_renderer(
 
     vert_shader_module.destroy(device);
     frag_shader_module.destroy(device);
+    geom_shader_module.destroy(device);
 
     text_renderer.text_texture_sampler = Sampler::create(
         device, vk::SamplerCreateInfo()
