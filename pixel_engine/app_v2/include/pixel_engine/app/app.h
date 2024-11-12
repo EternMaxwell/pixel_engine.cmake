@@ -172,7 +172,8 @@ struct App {
     }
     template <typename T>
     std::shared_ptr<T> get_plugin() {
-        return std::static_pointer_cast<T>(m_plugins[std::type_index(typeid(T))]);
+        return std::static_pointer_cast<T>(m_plugins[std::type_index(typeid(T))]
+        );
     }
     template <typename T, typename Target = MainSubApp, typename... Args>
     App& emplace_resource(Args&&... args) {
@@ -244,6 +245,19 @@ struct App {
         target->init_state<T>();
         return *this;
     }
+    template <typename EventT, typename Target = MainSubApp>
+    App& add_event() {
+        auto it = m_sub_apps->find(std::type_index(typeid(Target)));
+        if (it == m_sub_apps->end()) {
+            spdlog::warn(
+                "Add state to sub app: {}, which does not exist.",
+                typeid(Target).name()
+            );
+            return *this;
+        }
+        auto& target = it->second;
+        target->add_event<EventT>();
+    }
     template <typename... Sets>
     App& configure_sets(Sets... sets) {
         m_runner->configure_sets(sets...);
@@ -265,7 +279,9 @@ struct App {
 
     template <typename T>
     void add_sub_app() {
-        m_sub_apps->emplace(std::type_index(typeid(T)), std::make_unique<SubApp>());
+        m_sub_apps->emplace(
+            std::type_index(typeid(T)), std::make_unique<SubApp>()
+        );
     }
 
     void build_plugins();

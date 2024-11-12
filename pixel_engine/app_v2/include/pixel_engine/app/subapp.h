@@ -72,18 +72,9 @@ struct SubApp {
     template <typename T>
     struct value_type<EventReader<T>> {
         static EventReader<T> get(SubApp& app) {
-            auto it =
-                app.m_world.m_event_queues.find(std::type_index(typeid(T)));
-            if (it == app.m_world.m_event_queues.end()) {
-                app.m_world.m_event_queues.emplace(
-                    std::type_index(typeid(T)),
-                    std::make_unique<EventQueue<T>>()
-                );
-                return EventReader<T>(
-                    app.m_world.m_event_queues[std::type_index(typeid(T))].get()
-                );
-            }
-            return EventReader<T>(it->second.get());
+            return EventReader<T>(
+                app.m_world.m_event_queues[std::type_index(typeid(T))].get()
+            );
         }
         static EventReader<T> get(SubApp& src, SubApp& dst) { return get(src); }
     };
@@ -91,18 +82,9 @@ struct SubApp {
     template <typename T>
     struct value_type<EventWriter<T>> {
         static EventWriter<T> get(SubApp& app) {
-            auto it =
-                app.m_world.m_event_queues.find(std::type_index(typeid(T)));
-            if (it == app.m_world.m_event_queues.end()) {
-                app.m_world.m_event_queues.emplace(
-                    std::type_index(typeid(T)),
-                    std::make_unique<EventQueue<T>>()
-                );
-                return EventWriter<T>(
-                    app.m_world.m_event_queues[std::type_index(typeid(T))].get()
-                );
-            }
-            return EventWriter<T>(it->second.get());
+            return EventWriter<T>(
+                app.m_world.m_event_queues[std::type_index(typeid(T))].get()
+            );
         }
         static EventWriter<T> get(SubApp& src, SubApp& dst) { return get(dst); }
     };
@@ -197,6 +179,15 @@ struct SubApp {
                     state->just_created = false;
                 }
             )
+        );
+    }
+    template <typename T>
+    void add_event() {
+        if (m_world.m_event_queues.find(std::type_index(typeid(T))) !=
+            m_world.m_event_queues.end())
+            return;
+        m_world.m_event_queues.emplace(
+            std::type_index(typeid(T)), std::make_unique<EventQueue<T>>()
         );
     }
 

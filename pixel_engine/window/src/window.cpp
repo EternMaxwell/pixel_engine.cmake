@@ -13,6 +13,11 @@ WindowDescription& WindowPlugin::primary_desc() {
 
 void pixel_engine::window::WindowPlugin::build(App& app) {
     app.enable_loop();
+    app.add_event<events::AnyWindowClose>();
+    app.add_event<events::NoWindowExists>();
+    app.add_event<events::PrimaryWindow>();
+    app.add_event<events::MouseScroll>();
+    app.add_event<events::CursorMove>();
     app->configure_sets(
            WindowStartUpSets::glfw_initialization,
            WindowStartUpSets::window_creation,

@@ -13,6 +13,219 @@ using namespace systems::vulkan;
 static std::shared_ptr<spdlog::logger> logger =
     spdlog::default_logger()->clone("font");
 
+void TextRenderer::begin(
+    Device* device,
+    Swapchain* swapchain,
+    Queue* queue,
+    CommandPool* command_pool,
+    ResMut<resources::vulkan::FT2Library> ft2_library
+) {
+    if (ctx.has_value()) return;
+    ctx = Context{device, queue, swapchain, command_pool, ft2_library};
+    reset_cmd();
+    framebuffer.destroy(*device);
+    framebuffer = Framebuffer::create(
+        *device, vk::FramebufferCreateInfo()
+                     .setRenderPass(*text_render_pass)
+                     .setAttachments(*swapchain->current_image_view())
+                     .setWidth(swapchain->extent.width)
+                     .setHeight(swapchain->extent.height)
+                     .setLayers(1)
+    );
+    auto& extent        = swapchain->extent;
+    glm::mat4 inverse_y = glm::scale(glm::mat4(1.0f), {1.0f, -1.0f, 1.0f});
+    glm::mat4 proj =
+        inverse_y *
+        glm::ortho(0.0f, (float)extent.width, 0.0f, (float)extent.height);
+    glm::mat4 view = glm::mat4(1.0f);
+    TextUniformBuffer text_uniform;
+    text_uniform.view = view;
+    text_uniform.proj = proj;
+    void* data        = text_uniform_buffer.map(*device);
+    memcpy(data, &text_uniform, sizeof(TextUniformBuffer));
+    text_uniform_buffer.unmap(*device);
+    ctx.value().vertices = (TextVertex*)text_vertex_buffer.map(*device);
+    ctx.value().models   = (glm::mat4*)text_model_buffer.map(*device);
+}
+
+void TextRenderer::reset_cmd() {
+    if (!ctx.has_value()) return;
+    auto& device = *ctx.value().device;
+    device->waitForFences(*fence, VK_TRUE, UINT64_MAX);
+    device->resetFences(*fence);
+    command_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
+}
+
+void TextRenderer::flush() {
+    if (!ctx.has_value()) return;
+    auto& device = *ctx.value().device;
+    auto& queue  = *ctx.value().queue;
+    if (ctx.value().vertex_count == 0 || ctx.value().model_count == 0) return;
+    command_buffer->begin(vk::CommandBufferBeginInfo{});
+    vk::ImageMemoryBarrier barrier;
+    barrier.setOldLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    barrier.setNewLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+    barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+    barrier.setImage(*ctx.value().swapchain->current_image());
+    barrier.setSubresourceRange(
+        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
+    );
+    barrier.setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+    barrier.setDstAccessMask(
+        vk::AccessFlagBits::eMemoryRead |
+        vk::AccessFlagBits::eColorAttachmentWrite
+    );
+    command_buffer->pipelineBarrier(
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits::eBottomOfPipe |
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        {}, {}, {}, barrier
+    );
+    command_buffer->beginRenderPass(
+        vk::RenderPassBeginInfo()
+            .setRenderPass(*text_render_pass)
+            .setFramebuffer(*framebuffer)
+            .setRenderArea({{0, 0}, ctx.value().swapchain->extent})
+            .setClearValues(vk::ClearValue().setColor(
+                std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f}
+            )),
+        vk::SubpassContents::eInline
+    );
+    command_buffer->bindPipeline(
+        vk::PipelineBindPoint::eGraphics, *text_pipeline
+    );
+    std::vector<vk::DescriptorSet> sets = {
+        *text_descriptor_set,
+        *ctx.value().ft2_library->font_texture_descriptor_set
+    };
+    command_buffer->bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, *text_pipeline_layout, 0, sets, {}
+    );
+    command_buffer->bindVertexBuffers(0, *text_vertex_buffer, {0});
+    command_buffer->setViewport(
+        0, vk::Viewport()
+               .setWidth((float)ctx.value().swapchain->extent.width)
+               .setHeight((float)ctx.value().swapchain->extent.height)
+               .setMinDepth(0.0f)
+               .setMaxDepth(1.0f)
+    );
+    command_buffer->setScissor(
+        0,
+        vk::Rect2D().setOffset({0, 0}).setExtent(ctx.value().swapchain->extent)
+    );
+    command_buffer->draw(ctx.value().vertex_count, 1, 0, 0);
+    command_buffer->endRenderPass();
+    command_buffer->end();
+    queue->submit(vk::SubmitInfo().setCommandBuffers(*command_buffer), *fence);
+    ctx.value().vertex_count = 0;
+    ctx.value().model_count  = 0;
+}
+
+void TextRenderer::setModel(const glm::mat4& model) {
+    if (!ctx.has_value()) return;
+    if (ctx.value().model_count >= 1024) flush();
+    ctx.value().models[ctx.value().model_count] = model;
+    ctx.value().model_count++;
+}
+
+void TextRenderer::setModel(const TextPos& pos) {
+    setModel(glm::translate(glm::mat4(1.0f), {pos.x, pos.y, 0.0f}));
+}
+
+void TextRenderer::draw(const Text& text, const TextPos& pos) {
+    if (!ctx.has_value()) return;
+    auto& context = ctx.value();
+    auto&& tmp    = context.ft2_library->get_font_texture(
+        text.font, *context.device, *context.command_pool, *context.queue
+    );
+    float ax       = 0;
+    float ay       = 0;
+    int texture_id = (int)context.ft2_library->font_index(text.font);
+    setModel(pos);
+    for (auto c : text.text) {
+        if (context.vertex_count + 6 >= 4096 * 6) {
+            flush();
+            reset_cmd();
+            setModel(pos);
+        }
+        auto&& glyph_opt = context.ft2_library->get_glyph_add(
+            text.font, c, *context.device, *context.command_pool, *context.queue
+        );
+        if (!glyph_opt.has_value()) continue;
+        auto&& glyph = glyph_opt.value();
+        if (glyph.size.x == 0 || glyph.size.y == 0) continue;
+        float w                                    = glyph.size.x;
+        float h                                    = glyph.size.y;
+        float x                                    = ax + glyph.bearing.x;
+        float y                                    = ay - (h - glyph.bearing.y);
+        float u                                    = glyph.uv_1.x;
+        float v                                    = glyph.uv_1.y;
+        float u2                                   = glyph.uv_2.x;
+        float v2                                   = glyph.uv_2.y;
+        context.vertices[context.vertex_count + 0] = {
+            {x, y, 0.0f},
+            {u, v},
+            {text.color[0], text.color[1], text.color[2], text.color[3]},
+            glyph.image_index,
+            texture_id,
+            context.model_count - 1
+        };
+        context.vertices[context.vertex_count + 1] = {
+            {x + w, y, 0.0f},
+            {u2, v},
+            {text.color[0], text.color[1], text.color[2], text.color[3]},
+            glyph.image_index,
+            texture_id,
+            context.model_count - 1
+        };
+        context.vertices[context.vertex_count + 2] = {
+            {x + w, y + h, 0.0f},
+            {u2, v2},
+            {text.color[0], text.color[1], text.color[2], text.color[3]},
+            glyph.image_index,
+            texture_id,
+            context.model_count - 1
+        };
+        context.vertices[context.vertex_count + 3] = {
+            {x, y, 0.0f},
+            {u, v},
+            {text.color[0], text.color[1], text.color[2], text.color[3]},
+            glyph.image_index,
+            texture_id,
+            context.model_count - 1
+        };
+        context.vertices[context.vertex_count + 4] = {
+            {x + w, y + h, 0.0f},
+            {u2, v2},
+            {text.color[0], text.color[1], text.color[2], text.color[3]},
+            glyph.image_index,
+            texture_id,
+            context.model_count - 1
+        };
+        context.vertices[context.vertex_count + 5] = {
+            {x, y + h, 0.0f},
+            {u, v2},
+            {text.color[0], text.color[1], text.color[2], text.color[3]},
+            glyph.image_index,
+            texture_id,
+            context.model_count - 1
+        };
+        context.vertex_count += 6;
+        ax += glyph.advance.x;
+        ay += glyph.advance.y;
+    }
+}
+
+void TextRenderer::end() {
+    if (!ctx.has_value()) return;
+    auto& device = *ctx.value().device;
+    flush();
+    text_vertex_buffer.unmap(device);
+    text_model_buffer.unmap(device);
+    ctx.reset();
+}
+
 void systems::vulkan::insert_ft2_library(
     Command command, Query<Get<Device>, With<RenderContext>> query
 ) {
@@ -114,17 +327,24 @@ void systems::vulkan::create_renderer(
                     .setDescriptorPool(*text_renderer.text_descriptor_pool)
                     .setSetLayouts({*text_renderer.text_descriptor_set_layout})
     );
-    text_renderer.text_uniform_buffer = Buffer::create_device(
-        device, sizeof(TextUniformBuffer),
-        vk::BufferUsageFlagBits::eUniformBuffer |
-            vk::BufferUsageFlagBits::eTransferDst
+    vk::BufferCreateInfo text_uniform_buffer_create_info;
+    text_uniform_buffer_create_info.setSize(sizeof(TextUniformBuffer));
+    text_uniform_buffer_create_info.setUsage(
+        vk::BufferUsageFlagBits::eUniformBuffer
+    );
+    text_uniform_buffer_create_info.setSharingMode(vk::SharingMode::eExclusive);
+    AllocationCreateInfo text_uniform_buffer_alloc_info;
+    text_uniform_buffer_alloc_info.setUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
+    );
+    text_uniform_buffer_alloc_info.setFlags(
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+    );
+    text_renderer.text_uniform_buffer = Buffer::create(
+        device, text_uniform_buffer_create_info, text_uniform_buffer_alloc_info
     );
     vk::BufferCreateInfo buffer_create_info;
     buffer_create_info.setSize(sizeof(TextVertex) * 6 * 4096);
-    buffer_create_info.setUsage(
-        vk::BufferUsageFlagBits::eTransferDst |
-        vk::BufferUsageFlagBits::eVertexBuffer
-    );
+    buffer_create_info.setUsage(vk::BufferUsageFlagBits::eVertexBuffer);
     buffer_create_info.setSharingMode(vk::SharingMode::eExclusive);
     AllocationCreateInfo alloc_info;
     alloc_info.setUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
@@ -382,180 +602,13 @@ void systems::vulkan::draw_text(
     auto [device, queue, command_pool, swapchain] =
         swapchain_query.single().value();
     auto [text_renderer] = text_renderer_query.single().value();
-    const auto& extent   = swapchain.extent;
-    auto canvas_width    = font_plugin->canvas_width;
-    auto canvas_height   = font_plugin->canvas_height;
-    glm::mat4 inverse_y  = glm::scale(glm::mat4(1.0f), {1.0f, -1.0f, 1.0f});
-    glm::mat4 proj =
-        inverse_y *
-        glm::ortho(0.0f, (float)extent.width, 0.0f, (float)extent.height);
-    glm::mat4 view = glm::mat4(1.0f);
-    TextUniformBuffer text_uniform_buffer;
-    text_uniform_buffer.view           = view;
-    text_uniform_buffer.proj           = proj;
-    Buffer text_uniform_buffer_staging = Buffer::create_host(
-        device, sizeof(TextUniformBuffer), vk::BufferUsageFlagBits::eTransferSrc
+    text_renderer.begin(
+        &device, &swapchain, &queue, &command_pool, ft2_library
     );
-    void* data = text_uniform_buffer_staging.map(device);
-    memcpy(data, &text_uniform_buffer, sizeof(TextUniformBuffer));
-    text_uniform_buffer_staging.unmap(device);
-    auto cmd_uniform_copy =
-        CommandBuffer::allocate_primary(device, command_pool);
-    cmd_uniform_copy->begin(vk::CommandBufferBeginInfo{});
-    vk::BufferCopy copy_region;
-    copy_region.setSize(sizeof(TextUniformBuffer));
-    cmd_uniform_copy->copyBuffer(
-        text_uniform_buffer_staging, text_renderer.text_uniform_buffer,
-        copy_region
-    );
-    vk::BufferMemoryBarrier barrier;
-    barrier.setBuffer(text_renderer.text_uniform_buffer);
-    barrier.setSize(sizeof(TextUniformBuffer));
-    barrier.setSrcAccessMask(vk::AccessFlagBits::eTransferWrite);
-    barrier.setDstAccessMask(vk::AccessFlagBits::eUniformRead);
-    barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-    barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-    cmd_uniform_copy->pipelineBarrier(
-        vk::PipelineStageFlagBits::eTransfer,
-        vk::PipelineStageFlagBits::eVertexShader, {}, {}, barrier, {}
-    );
-    cmd_uniform_copy->end();
-    auto submit_info = vk::SubmitInfo().setCommandBuffers(*cmd_uniform_copy);
-    queue->submit(submit_info, nullptr);
-    uint32_t vertex_count = 0;
-    int model_count       = 0;
-    TextVertex* vertices =
-        (TextVertex*)text_renderer.text_vertex_buffer.map(device);
-    glm::mat4* models = (glm::mat4*)text_renderer.text_model_buffer.map(device);
-    for (auto [text, pos] : text_query.iter()) {
-        auto&& tmp = ft2_library->get_font_texture(
-            text.font, device, command_pool, queue
-        );
-        float ax        = 0;
-        float ay        = 0;
-        int texture_id  = (int)ft2_library->font_index(text.font);
-        glm::mat4 model = glm::translate(glm::mat4(1.0f), {pos.x, pos.y, 0.0f});
-        models[model_count++] = model;
-        for (auto c : text.text) {
-            auto glyph_opt = ft2_library->get_glyph_add(
-                text.font, c, device, command_pool, queue
-            );
-            if (!glyph_opt.has_value()) continue;
-            auto glyph = glyph_opt.value();
-            if (glyph.size.x == 0 || glyph.size.y == 0) continue;
-            float w  = glyph.size.x;
-            float h  = glyph.size.y;
-            float x  = ax + glyph.bearing.x;
-            float y  = ay - (h - glyph.bearing.y);
-            float u  = glyph.uv_1.x;
-            float v  = glyph.uv_1.y;
-            float u2 = glyph.uv_2.x;
-            float v2 = glyph.uv_2.y;
-
-            vertices[0] = {
-                {x, y, 0.0f},
-                {u, v},
-                {text.color[0], text.color[1], text.color[2], text.color[3]},
-                glyph.image_index,
-                texture_id,
-                model_count - 1
-            };
-            vertices[1] = {
-                {x + w, y, 0.0f},
-                {u2, v},
-                {text.color[0], text.color[1], text.color[2], text.color[3]},
-                glyph.image_index,
-                texture_id,
-                model_count - 1
-            };
-            vertices[2] = {
-                {x + w, y + h, 0.0f},
-                {u2, v2},
-                {text.color[0], text.color[1], text.color[2], text.color[3]},
-                glyph.image_index,
-                texture_id,
-                model_count - 1
-            };
-            vertices[3] = {
-                {x, y, 0.0f},
-                {u, v},
-                {text.color[0], text.color[1], text.color[2], text.color[3]},
-                glyph.image_index,
-                texture_id,
-                model_count - 1
-            };
-            vertices[4] = {
-                {x + w, y + h, 0.0f},
-                {u2, v2},
-                {text.color[0], text.color[1], text.color[2], text.color[3]},
-                glyph.image_index,
-                texture_id,
-                model_count - 1
-            };
-            vertices[5] = {
-                {x, y + h, 0.0f},
-                {u, v2},
-                {text.color[0], text.color[1], text.color[2], text.color[3]},
-                glyph.image_index,
-                texture_id,
-                model_count - 1
-            };
-
-            vertices += 6;
-            vertex_count += 6;
-            ax += glyph.advance.x;
-            ay += glyph.advance.y;
-        }
+    for (auto&& [text, pos] : text_query.iter()) {
+        text_renderer.draw(text, pos);
     }
-    text_renderer.text_vertex_buffer.unmap(device);
-    text_renderer.text_model_buffer.unmap(device);
-    auto cmd_buffer = CommandBuffer::allocate_primary(device, command_pool);
-    cmd_buffer->begin(vk::CommandBufferBeginInfo{});
-    vk::RenderPassBeginInfo render_pass_info;
-    render_pass_info.setRenderPass(*text_renderer.text_render_pass);
-    auto image_view = swapchain.current_image_view();
-    vk::FramebufferCreateInfo framebuffer_info;
-    framebuffer_info.setRenderPass(*text_renderer.text_render_pass);
-    framebuffer_info.setAttachments(*image_view);
-    framebuffer_info.setWidth(extent.width);
-    framebuffer_info.setHeight(extent.height);
-    framebuffer_info.setLayers(1);
-    Framebuffer framebuffer = Framebuffer::create(device, framebuffer_info);
-    render_pass_info.setFramebuffer(*framebuffer);
-    render_pass_info.setRenderArea({{0, 0}, extent});
-    std::array<vk::ClearValue, 1> clear_values;
-    clear_values[0].setColor(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
-    render_pass_info.setClearValues(clear_values);
-    cmd_buffer->beginRenderPass(render_pass_info, vk::SubpassContents::eInline);
-    cmd_buffer->bindPipeline(
-        vk::PipelineBindPoint::eGraphics, text_renderer.text_pipeline
-    );
-    std::vector<vk::DescriptorSet> sets = {
-        *text_renderer.text_descriptor_set,
-        *ft2_library->font_texture_descriptor_set
-    };
-    cmd_buffer->bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, *text_renderer.text_pipeline_layout,
-        0, sets, {}
-    );
-    cmd_buffer->bindVertexBuffers(0, *text_renderer.text_vertex_buffer, {0});
-    cmd_buffer->setViewport(
-        0, vk::Viewport(
-               0.0f, 0.0f, (float)extent.width, (float)extent.height, 0.0f, 1.0f
-           )
-    );
-    cmd_buffer->setScissor(0, vk::Rect2D({0, 0}, extent));
-    cmd_buffer->draw(vertex_count, 1, 0, 0);
-    cmd_buffer->endRenderPass();
-    cmd_buffer->end();
-    submit_info = vk::SubmitInfo().setCommandBuffers(*cmd_buffer);
-    queue->submit(submit_info, nullptr);
-    queue->waitIdle();
-    cmd_buffer.free(device, command_pool);
-    framebuffer.destroy(device);
-    queue->waitIdle();
-    cmd_uniform_copy.free(device, command_pool);
-    text_uniform_buffer_staging.destroy(device);
+    text_renderer.end();
 }
 
 void systems::vulkan::destroy_renderer(
@@ -586,6 +639,7 @@ void systems::vulkan::destroy_renderer(
     text_renderer.text_vertex_buffer.destroy(device);
     text_renderer.text_model_buffer.destroy(device);
     text_renderer.text_texture_sampler.destroy(device);
+    if (text_renderer.framebuffer) text_renderer.framebuffer.destroy(device);
     text_renderer.fence.destroy(device);
     FT_Done_FreeType(ft2_library->library);
 }

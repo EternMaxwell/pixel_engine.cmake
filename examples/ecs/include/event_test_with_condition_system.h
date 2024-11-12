@@ -60,6 +60,7 @@ bool check_if_event_exist(EventReader<TestEvent> event) {
 class EventTestPlugin : public Plugin {
    public:
     void build(App& app) override {
+        app.add_event<TestEvent>();
         app.add_system(Startup, write_event_s)
             ->add_system(Startup, read_event_s)
             .after(write_event_s)

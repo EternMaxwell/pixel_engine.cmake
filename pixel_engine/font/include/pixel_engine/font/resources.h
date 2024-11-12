@@ -7,14 +7,21 @@
 
 #include <filesystem>
 
-#include "components.h"
-
 namespace pixel_engine {
 namespace font {
 namespace resources {
 using namespace prelude;
 using namespace render_vk::components;
-using namespace font::components;
+struct Font {
+    bool antialias = true;
+    int pixels     = 64;
+    FT_Face font_face;
+
+    bool operator==(const Font& other) const {
+        return font_face == other.font_face && pixels == other.pixels &&
+               antialias == other.antialias;
+    }
+};
 namespace tools {
 struct Glyph {
     struct ivec2 {
@@ -117,11 +124,11 @@ struct FT2Library {
     const uint32_t font_texture_height = 2048;
     const uint32_t font_texture_layers = 256;
     FT_Library library;
-    std::unordered_map<std::string, FT_Face> font_faces;
-    std::unordered_map<Font, uint32_t> font_texture_index;
-    std::unordered_map<Font, std::tuple<Image, ImageView, GlyphMap>>
+    spp::sparse_hash_map<std::string, FT_Face> font_faces;
+    spp::sparse_hash_map<Font, uint32_t> font_texture_index;
+    spp::sparse_hash_map<Font, std::tuple<Image, ImageView, GlyphMap>>
         font_textures;
-    std::unordered_map<Font, CharLoadingState> char_loading_states;
+    spp::sparse_hash_map<Font, CharLoadingState> char_loading_states;
     DescriptorSetLayout font_texture_descriptor_set_layout;
     DescriptorPool font_texture_descriptor_pool;
     DescriptorSet font_texture_descriptor_set;

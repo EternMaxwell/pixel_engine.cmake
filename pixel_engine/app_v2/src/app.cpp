@@ -10,8 +10,7 @@ App App::create() {
     app.m_runner->assign_startup_stage<MainSubApp, MainSubApp>(
         PreStartup, Startup, PostStartup
     );
-    app.m_runner->assign_state_transition_stage<MainSubApp, MainSubApp>(
-        Transit
+    app.m_runner->assign_state_transition_stage<MainSubApp, MainSubApp>(Transit
     );
     app.m_runner->assign_loop_stage<MainSubApp, MainSubApp>(
         First, PreUpdate, Update, PostUpdate, Last
@@ -43,10 +42,11 @@ void App::run() {
         m_runner->run_loop();
         tick_events();
         end_commands();
-    } while (m_loop_enabled && !m_check_exit_func->run(
-                                   m_sub_apps->at(std::type_index(typeid(MainSubApp))).get(),
-                                   m_sub_apps->at(std::type_index(typeid(MainSubApp))).get()
-                               ));
+    } while (m_loop_enabled &&
+             !m_check_exit_func->run(
+                 m_sub_apps->at(std::type_index(typeid(MainSubApp))).get(),
+                 m_sub_apps->at(std::type_index(typeid(MainSubApp))).get()
+             ));
     m_logger->debug("Transition stage");
     m_runner->run_state_transition();
     end_commands();
@@ -77,7 +77,7 @@ App::App()
               spp::sparse_hash_map<std::type_index, std::unique_ptr<SubApp>>>()
       ),
       m_runner(std::make_unique<Runner>(m_sub_apps.get())) {
-    m_logger = spdlog::default_logger()->clone("app");
+    m_logger          = spdlog::default_logger()->clone("app");
     m_check_exit_func = std::make_unique<Condition<EventReader<AppExit>>>(
         [](EventReader<AppExit> reader) {
             for (auto&& evt : reader.read()) {
@@ -87,6 +87,7 @@ App::App()
         }
     );
     add_sub_app<MainSubApp>();
+    add_event<AppExit>();
 }
 void App::build_plugins() {
     for (auto& [ptr, plugin] : m_plugins) {

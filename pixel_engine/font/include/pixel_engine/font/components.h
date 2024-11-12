@@ -7,24 +7,18 @@
 #include <pixel_engine/render_vk.h>
 
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <string>
 #include <unordered_map>
+
+#include "resources.h"
 
 namespace pixel_engine {
 namespace font {
 namespace components {
 using namespace prelude;
 using namespace render_vk::components;
-struct Font {
-    bool antialias = true;
-    int pixels     = 64;
-    FT_Face font_face;
-
-    bool operator==(const Font& other) const {
-        return font_face == other.font_face && pixels == other.pixels &&
-               antialias == other.antialias;
-    }
-};
+using Font = resources::Font;
 
 struct TextUniformBuffer {
     glm::mat4 view;
@@ -70,6 +64,35 @@ struct TextRenderer {
 
     Fence fence;
     CommandBuffer command_buffer;
+    Framebuffer framebuffer;
+
+    struct Context {
+        Device* device;
+        Queue* queue;
+        Swapchain* swapchain;
+        CommandPool* command_pool;
+        ResMut<resources::vulkan::FT2Library> ft2_library;
+        TextVertex* vertices;
+        glm::mat4* models;
+        uint32_t vertex_count = 0;
+        int model_count       = 0;
+    };
+
+    std::optional<Context> ctx;
+
+    void begin(
+        Device* device,
+        Swapchain* swapchain,
+        Queue* queue,
+        CommandPool* command_pool,
+        ResMut<resources::vulkan::FT2Library> ft2_library
+    );
+    void reset_cmd();
+    void flush();
+    void setModel(const glm::mat4& model);
+    void setModel(const TextPos& pos);
+    void draw(const Text& text, const TextPos& pos);
+    void end();
 };
 
 struct TextRendererGl {
