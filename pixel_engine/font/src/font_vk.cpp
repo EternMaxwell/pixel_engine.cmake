@@ -53,7 +53,6 @@ void TextRenderer::reset_cmd() {
     if (!ctx.has_value()) return;
     auto& device = *ctx.value().device;
     device->waitForFences(*fence, VK_TRUE, UINT64_MAX);
-    device->resetFences(*fence);
     command_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 }
 
@@ -118,6 +117,7 @@ void TextRenderer::flush() {
     command_buffer->draw(ctx.value().vertex_count, 1, 0, 0);
     command_buffer->endRenderPass();
     command_buffer->end();
+    device->resetFences(*fence);
     queue->submit(vk::SubmitInfo().setCommandBuffers(*command_buffer), *fence);
     ctx.value().vertex_count = 0;
     ctx.value().model_count  = 0;
