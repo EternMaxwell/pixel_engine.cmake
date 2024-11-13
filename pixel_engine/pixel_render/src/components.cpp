@@ -82,7 +82,6 @@ void PixelRenderer::reset_cmd() {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     (*ctx.device)->waitForFences(*fence, VK_TRUE, UINT64_MAX);
-    (*ctx.device)->resetFences(*fence);
     command_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 }
 
@@ -184,6 +183,7 @@ void PixelRenderer::flush() {
         command_buffer->end();
         vk::SubmitInfo submit_info;
         submit_info.setCommandBuffers(*command_buffer);
+        (*ctx.device)->resetFences(*fence);
         (*ctx.queue)->submit(submit_info, *fence);
         ctx.block_model_offset = 0;
         ctx.vertex_offset      = 0;
