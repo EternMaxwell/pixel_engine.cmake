@@ -56,6 +56,33 @@ struct PixelRenderer {
     Fence fence;
     CommandBuffer command_buffer;
     Framebuffer framebuffer;
+
+    struct Context {
+        Device* device;
+        Swapchain* swapchain;
+        Queue* queue;
+        uint32_t vertex_offset      = 0;
+        int block_model_offset = 0;
+        PixelBlockData* block_model_data;
+        PixelVertex* vertex_data;
+
+        Context(Device& device, Swapchain& swapchain, Queue& queue);
+    };
+    std::optional<Context> context;
+
+    void begin(
+        Device& device,
+        Swapchain& swapchain,
+        Queue& queue,
+        const PixelUniformBuffer& pixel_uniform
+    );
+    void draw(const PixelBlock& block, const BlockPos2d& pos2d);
+    void end();
+
+   private:
+    void set_block_data(const PixelBlock& block, const BlockPos2d& pos2d);
+    void reset_cmd();
+    void flush();
 };
 }  // namespace components
 }  // namespace pixel_engine::render::pixel
