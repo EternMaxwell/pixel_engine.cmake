@@ -581,6 +581,7 @@ void systems::vulkan::destroy_renderer(
     if (!query.single().has_value()) return;
     auto [device]        = query.single().value();
     auto [text_renderer] = text_renderer_query.single().value();
+    device->waitForFences(*text_renderer.fence, VK_TRUE, UINT64_MAX);
     logger->debug("destroy text renderer");
     ft2_library->clear_font_textures(device);
     ft2_library->font_texture_descriptor_set.destroy(
