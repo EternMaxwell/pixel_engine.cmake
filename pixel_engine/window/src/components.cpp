@@ -35,6 +35,10 @@ const std::optional<Window::dvec2>& Window::get_cursor_move() const {
 const Window::ivec2& Window::get_pos() const { return m_pos; }
 const Window::extent& Window::get_size() const { return m_size; }
 GLFWwindow* Window::get_handle() const { return m_handle; }
+void Window::context_current() { glfwMakeContextCurrent(m_handle); }
+void Window::detach_context() {
+    if (glfwGetCurrentContext() == m_handle) glfwMakeContextCurrent(nullptr);
+}
 void Window::show() { glfwShowWindow(m_handle); }
 void Window::hide() { glfwHideWindow(m_handle); }
 bool Window::vsync() const { return m_vsync; }

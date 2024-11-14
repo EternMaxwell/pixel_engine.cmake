@@ -12,6 +12,10 @@ void systems::init_glfw() {
     }
 }
 
+void systems::create_window_thread_pool(Command command) {
+    command.emplace_resource<resources::WindowThreadPool>();
+}
+
 void systems::insert_primary_window(
     Command command, ResMut<window::WindowPlugin> window_plugin
 ) {
@@ -23,42 +27,21 @@ static std::vector<events::MouseScroll> scroll_cache;
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     std::lock_guard<std::mutex> lock(scroll_mutex);
-    Entity* ptr =
-        static_cast<Entity*>(glfwGetWindowUserPointer(window));
+    Entity* ptr = static_cast<Entity*>(glfwGetWindowUserPointer(window));
     scroll_cache.emplace_back(xoffset, yoffset, *ptr);
 }
 
-void systems::create_window_start(
+void systems::create_window(
     Command command,
-    Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query
+    Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query,
+    ResMut<resources::WindowThreadPool> pool
 ) {
     for (auto [entity, desc] : desc_query.iter()) {
-        spdlog::debug("create window {} at startup.", desc.title);
-        auto window = components::create_window(desc);
-        command.entity(entity).erase<WindowDescription>();
-        if (window.has_value()) {
-            command.entity(entity).emplace(window.value());
-            Entity* ptr = new Entity{entity};
-            glfwSetWindowUserPointer(
-                window.value().get_handle(), static_cast<void*>(ptr)
-            );
-            glfwSetScrollCallback(window.value().get_handle(), scroll_callback);
-        } else {
-            spdlog::error(
-                "Failed to create window {} with size {}x{}", desc.title,
-                desc.width, desc.height
-            );
-        }
-    }
-}
-
-void systems::create_window_update(
-    Command command,
-    Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query
-) {
-    for (auto [entity, desc] : desc_query.iter()) {
-        spdlog::debug("create window {} at update.", desc.title);
-        auto window = components::create_window(desc);
+        spdlog::debug("create window {}.", desc.title);
+        auto window = pool->submit_task([desc]() {
+                              return components::create_window(desc);
+                          }
+        ).get();
         command.entity(entity).erase<WindowDescription>();
         if (window.has_value()) {
             command.entity(entity).emplace(window.value());
@@ -149,7 +132,22 @@ void systems::no_window_exists(
     no_window_event.write(NoWindowExists{});
 }
 
-void systems::poll_events() { glfwPollEvents(); }
+void systems::poll_events(
+    ResMut<resources::WindowThreadPool> pool,
+    Local<std::future<void>> future,
+    Query<Get<Window>, With<PrimaryWindow>> query
+) {
+    if (!query.single().has_value()) return;
+    auto [window] = query.single().value();
+    if (!future->valid() || future->wait_for(std::chrono::milliseconds(0)) ==
+                                std::future_status::ready) {
+        (*future) = pool->submit_task([]() { glfwPollEvents(); });
+    }
+    if (future->wait_for(std::chrono::nanoseconds(0)) ==
+        std::future_status::ready) {
+        future->get();
+    }
+}
 
 void systems::scroll_events(
     EventReader<MouseScroll> scroll_read, EventWriter<MouseScroll> scroll_event
