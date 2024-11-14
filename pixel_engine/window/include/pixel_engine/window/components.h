@@ -59,6 +59,8 @@ struct Window {
     const ivec2& get_pos() const;
     const extent& get_size() const;
     GLFWwindow* get_handle() const;
+    void context_current();
+    void detach_context();
     void show();
     void hide();
     bool vsync() const;

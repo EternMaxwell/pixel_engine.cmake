@@ -8,6 +8,10 @@ namespace resources {
 using namespace prelude;
 using namespace components;
 
+struct WindowThreadPool : BS::thread_pool {
+    WindowThreadPool() : BS::thread_pool(1) {}
+};
+
 struct WindowMap {
    public:
     void insert(GLFWwindow* window, Entity entity);

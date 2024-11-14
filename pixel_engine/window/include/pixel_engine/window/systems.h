@@ -8,6 +8,7 @@
 
 #include "components.h"
 #include "events.h"
+#include "resources.h"
 
 namespace pixel_engine {
 namespace window {
@@ -19,16 +20,14 @@ using namespace events;
 using namespace pixel_engine::prelude;
 
 void init_glfw();
+void create_window_thread_pool(Command command);
 void insert_primary_window(
     Command command, ResMut<window::WindowPlugin> window_plugin
 );
-void create_window_start(
+void create_window(
     Command command,
-    Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query
-);
-void create_window_update(
-    Command command,
-    Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query
+    Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query,
+    ResMut<resources::WindowThreadPool> pool
 );
 void update_window_cursor_pos(
     Query<Get<Entity, Window>> query,
@@ -55,7 +54,11 @@ void window_close(
 void no_window_exists(
     Query<Get<Window>> query, EventWriter<NoWindowExists> no_window_event
 );
-void poll_events();
+void poll_events(
+    ResMut<resources::WindowThreadPool> pool,
+    Local<std::future<void>> future,
+    Query<Get<Window>, With<PrimaryWindow>> query
+);
 void scroll_events(
     EventReader<MouseScroll> scroll_read, EventWriter<MouseScroll> scroll_event
 );

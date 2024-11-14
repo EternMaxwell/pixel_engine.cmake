@@ -7,37 +7,16 @@ using namespace pixel_engine::input;
 using namespace pixel_engine::prelude;
 using namespace pixel_engine::input::systems;
 
-void systems::create_input_for_window_start(
+void systems::create_input_for_window(
     Command command,
     Query<
         Get<Entity, const window::components::Window>,
         Without<ButtonInput<KeyCode>, ButtonInput<MouseButton>>> query
 ) {
     for (auto [entity, window] : query.iter()) {
-        spdlog::debug("create input for window {} at startup.", window.m_title);
-        command.entity(entity).emplace(
-            ButtonInput<KeyCode>(entity)
-        );
-        command.entity(entity).emplace(
-            ButtonInput<MouseButton>(entity)
-        );
-    }
-}
-
-void systems::create_input_for_window_update(
-    Command command,
-    Query<
-        Get<Entity, const window::components::Window>,
-        Without<ButtonInput<KeyCode>, ButtonInput<MouseButton>>> query
-) {
-    for (auto [entity, window] : query.iter()) {
-        spdlog::debug("create input for window {} at update.", window.m_title);
-        command.entity(entity).emplace(
-            ButtonInput<KeyCode>(entity)
-        );
-        command.entity(entity).emplace(
-            ButtonInput<MouseButton>(entity)
-        );
+        spdlog::debug("create input for window {}.", window.m_title);
+        command.entity(entity).emplace(ButtonInput<KeyCode>(entity));
+        command.entity(entity).emplace(ButtonInput<MouseButton>(entity));
     }
 }
 
