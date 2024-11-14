@@ -67,6 +67,7 @@ struct TriangleDrawer {
     struct Context {
         Device* device;
         Queue* queue;
+        vk::Extent2D extent;
         uint32_t vertex_count = 0;
         uint32_t model_count  = 0;
         DebugVertex* mapped_vertex_buffer;
@@ -105,6 +106,7 @@ struct PointDrawer {
     struct Context {
         Device* device;
         Queue* queue;
+        vk::Extent2D extent;
         uint32_t vertex_count = 0;
         uint32_t model_count  = 0;
         DebugVertex* mapped_vertex_buffer;

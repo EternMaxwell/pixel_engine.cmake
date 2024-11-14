@@ -9,7 +9,9 @@ using namespace pixel_engine::prelude;
 struct DebugRenderPlugin : Plugin {
     void build(App& app) override {
         app.add_system(Startup, systems::create_line_drawer);
+        app.add_system(Startup, systems::create_point_drawer);
         app.add_system(Exit, systems::destroy_line_drawer);
+        app.add_system(Exit, systems::destroy_point_drawer);
     }
 };
 }  // namespace vulkan
