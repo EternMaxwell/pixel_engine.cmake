@@ -52,107 +52,119 @@ struct Plugin {
 struct App {
     static App create();
     struct SystemInfo {
-        SystemNode* node;
+        std::vector<SystemNode*> nodes;
         App* app;
 
         template <typename... Ptrs>
         SystemInfo& before(Ptrs... ptrs) {
-            (node->before(ptrs), ...);
+            for (auto node : nodes) (node->before(ptrs), ...);
             return *this;
         }
         template <typename... Ptrs>
         SystemInfo& after(Ptrs... ptrs) {
-            (node->after(ptrs), ...);
+            for (auto node : nodes) (node->after(ptrs), ...);
             return *this;
         }
         template <typename... Args>
         SystemInfo& run_if(std::function<bool(Args...)> func) {
-            node->m_conditions.emplace_back(
-                std::make_unique<Condition<Args...>>(func)
-            );
+            for (auto node : nodes)
+                node->m_conditions.emplace_back(
+                    std::make_unique<Condition<Args...>>(func)
+                );
             return *this;
         }
         template <typename... Args>
         SystemInfo& use_worker(const std::string& pool_name) {
-            node->m_worker = pool_name;
+            for (auto node : nodes) node->m_worker = pool_name;
             return *this;
         }
         template <typename... Sets>
         SystemInfo& in_set(Sets... sets) {
-            (node->m_in_sets.push_back(SystemSet(sets)), ...);
+            for (auto node : nodes)
+                (node->m_in_sets.push_back(SystemSet(sets)), ...);
             return *this;
         }
         template <typename T>
         SystemInfo& on_enter(T state) {
-            if (app->m_runner->stage_state_transition(node->m_stage.m_stage)) {
-                node->m_conditions.emplace_back(
-                    std::make_unique<
-                        Condition<Res<State<T>>, Res<NextState<T>>>>(
-                        [state](Res<State<T>> s, Res<NextState<T>> ns) {
-                            return (s->is_state(state) && s->is_just_created()
-                                   ) ||
-                                   (ns->is_state(state) && !s->is_state(state));
-                        }
-                    )
-                );
+            if (app->m_runner->stage_state_transition(nodes[0]->m_stage.m_stage)) {
+                for (auto node : nodes)
+                    node->m_conditions.emplace_back(
+                        std::make_unique<
+                            Condition<Res<State<T>>, Res<NextState<T>>>>(
+                            [state](Res<State<T>> s, Res<NextState<T>> ns) {
+                                return (s->is_state(state) &&
+                                        s->is_just_created()) ||
+                                       (ns->is_state(state) &&
+                                        !s->is_state(state));
+                            }
+                        )
+                    );
             } else {
-                spdlog::warn(
-                    "adding system {:#018x} to stage {} is not allowed"
-                    "on_enter can only be used in state transition stages",
-                    (size_t)node->m_sys_addr, node->m_stage.m_stage.name()
-                );
+                for (auto node : nodes)
+                    spdlog::warn(
+                        "adding system {:#018x} to stage {} is not allowed"
+                        "on_enter can only be used in state transition stages",
+                        (size_t)node->m_sys_addr, node->m_stage.m_stage.name()
+                    );
             }
             return *this;
         }
         template <typename T>
         SystemInfo& on_exit(T state) {
-            if (app->m_runner->stage_state_transition(node->m_stage.m_stage)) {
-                node->m_conditions.emplace_back(
-                    std::make_unique<
-                        Condition<Res<State<T>>, Res<NextState<T>>>>(
-                        [state](Res<State<T>> s, Res<NextState<T>> ns) {
-                            return !ns->is_state(state) && s->is_state(state);
-                        }
-                    )
-                );
+            if (app->m_runner->stage_state_transition(nodes[0]->m_stage.m_stage)) {
+                for (auto node : nodes)
+                    node->m_conditions.emplace_back(
+                        std::make_unique<
+                            Condition<Res<State<T>>, Res<NextState<T>>>>(
+                            [state](Res<State<T>> s, Res<NextState<T>> ns) {
+                                return !ns->is_state(state) &&
+                                       s->is_state(state);
+                            }
+                        )
+                    );
             } else {
-                spdlog::warn(
-                    "adding system {:#018x} to stage {} is not allowed"
-                    "on_exit can only be used in state transition stages",
-                    (size_t)node->m_sys_addr, node->m_stage.m_stage->name()
-                );
+                for (auto node : nodes)
+                    spdlog::warn(
+                        "adding system {:#018x} to stage {} is not allowed"
+                        "on_exit can only be used in state transition stages",
+                        (size_t)node->m_sys_addr, node->m_stage.m_stage->name()
+                    );
             }
             return *this;
         }
         template <typename T>
         SystemInfo& on_change() {
-            if (app->m_runner->stage_state_transition(node->m_stage.m_stage)) {
-                node->m_conditions.emplace_back(
-                    std::make_unique<
-                        Condition<Res<State<T>>, Res<NextState<T>>>>(
-                        [](Res<State<T>> s, Res<NextState<T>> ns) {
-                            return !s->is_state(ns);
-                        }
-                    )
-                );
+            if (app->m_runner->stage_state_transition(nodes[0]->m_stage.m_stage)) {
+                for (auto node : nodes)
+                    node->m_conditions.emplace_back(
+                        std::make_unique<
+                            Condition<Res<State<T>>, Res<NextState<T>>>>(
+                            [](Res<State<T>> s, Res<NextState<T>> ns) {
+                                return !s->is_state(ns);
+                            }
+                        )
+                    );
             } else {
-                spdlog::warn(
-                    "adding system {:#018x} to stage {} is not allowed"
-                    "on_change can only be used in state transition stages",
-                    (size_t)node->m_sys_addr, node->m_stage.m_stage->name()
-                );
+                for (auto node : nodes)
+                    spdlog::warn(
+                        "adding system {:#018x} to stage {} is not allowed"
+                        "on_change can only be used in state transition stages",
+                        (size_t)node->m_sys_addr, node->m_stage.m_stage->name()
+                    );
             }
             return *this;
         }
         template <typename T>
         SystemInfo& in_state(T state) {
-            node->m_conditions.emplace_back(
-                std::make_unique<Condition<Res<State<T>>>>(
-                    [state](Res<State<T>> s) { return s.is_state(state); }
-                )
-            );
+            for (auto node : nodes)
+                node->m_conditions.emplace_back(
+                    std::make_unique<Condition<Res<State<T>>>>(
+                        [state](Res<State<T>> s) { return s.is_state(state); }
+                    )
+                );
             return *this;
         }
+        SystemInfo& chain();
 
         App* operator->();
     };
@@ -160,7 +172,13 @@ struct App {
     template <typename StageT, typename... Args>
     SystemInfo add_system(StageT stage, void (*func)(Args...)) {
         SystemNode* ptr = m_runner->add_system(stage, func);
-        return {ptr, this};
+        return {{ptr}, this};
+    }
+    template <typename StageT, typename... Funcs>
+    SystemInfo add_system(StageT stage, Funcs... funcs) {
+        std::vector<SystemNode*> nodes = {m_runner->add_system(stage, funcs)...
+        };
+        return {std::move(nodes), this};
     }
     template <typename T>
     App& add_plugin(T&& plugin) {

@@ -79,3 +79,12 @@ void systems::update_input(
         }
     }
 }
+
+void InputPlugin::build(App& app) {
+    app.add_event<events::KeyEvent>();
+    app.add_event<events::MouseButtonEvent>();
+    app.add_system(app::Startup, create_input_for_window)
+        ->add_system(app::First, create_input_for_window, update_input)
+        .after(window::systems::poll_events)
+        .use_worker("single");
+}

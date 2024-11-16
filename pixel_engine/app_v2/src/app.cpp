@@ -3,6 +3,12 @@
 using namespace pixel_engine::app;
 
 App* App::SystemInfo::operator->() { return app; }
+App::SystemInfo& App::SystemInfo::chain() {
+    for (size_t i = 0; i < nodes.size() - 1; i++) {
+        nodes[i]->before(nodes[i + 1]);
+    }
+    return *this;
+}
 
 App App::create() {
     App app;

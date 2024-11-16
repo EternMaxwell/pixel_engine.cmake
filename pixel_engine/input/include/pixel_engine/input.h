@@ -14,17 +14,7 @@ using namespace systems;
 using namespace events;
 
 struct InputPlugin : Plugin {
-    void build(App& app) override {
-        app.add_event<events::KeyEvent>();
-        app.add_event<events::MouseButtonEvent>();
-        app.add_system(app::Startup, create_input_for_window)
-            ->add_system(app::First, create_input_for_window)
-            .after(window::systems::poll_events)
-            .use_worker("single")
-            ->add_system(app::First, update_input)
-            .after(window::systems::poll_events)
-            .use_worker("single");
-    }
+    void build(App& app) override;
 };
 }  // namespace input
 }  // namespace pixel_engine
