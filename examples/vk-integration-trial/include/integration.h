@@ -1248,6 +1248,20 @@ void create_pixel_block(Command command) {
     );
 }
 
+void draw_lines(
+    Query<Get<pixel_engine::render::debug::vulkan::components::LineDrawer>>
+        query,
+    Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query
+) {
+    if (!query.single().has_value()) return;
+    if (!context_query.single().has_value()) return;
+    auto [device, swap_chain, queue] = context_query.single().value();
+    auto [line_drawer]               = query.single().value();
+    line_drawer.begin(device, queue, swap_chain);
+    line_drawer.drawLine({0, 0, 0}, {100, 100, 0}, {1.0f, 0.0f, 0.0f, 1.0f});
+    line_drawer.end();
+}
+
 struct VK_TrialPlugin : Plugin {
     void build(App &app) override {
         auto window_plugin = app.get_plugin<WindowPlugin>();
@@ -1256,105 +1270,106 @@ struct VK_TrialPlugin : Plugin {
         using namespace pixel_engine;
 
         app.enable_loop();
-        app.add_system(PreStartup, create_renderer).use_worker("single");
-        app.add_system(Startup, create_vertex_buffer).use_worker("single");
-        app.add_system(Startup, create_index_buffer).use_worker("single");
-        app.add_system(Startup, create_uniform_buffers).use_worker("single");
-        app.add_system(Exit, destroy_uniform_buffers)
-            .after(wait_for_device)
-            .use_worker("single");
-        app.add_system(Startup, create_depth_image).use_worker("single");
-        app.add_system(Exit, destroy_depth_image)
-            .after(wait_for_device)
-            .use_worker("single");
-        app.add_system(Startup, create_depth_image_view)
-            .after(create_depth_image)
-            .use_worker("single");
-        app.add_system(Exit, destroy_depth_image_view)
-            .after(wait_for_device)
-            .before(destroy_depth_image)
-            .use_worker("single");
-        app.add_system(Startup, create_texture_image).use_worker("single");
-        app.add_system(Exit, destroy_texture_image)
-            .after(wait_for_device)
-            .use_worker("single");
-        app.add_system(Startup, create_texture_image_view)
-            .after(create_texture_image)
-            .use_worker("single");
-        app.add_system(Exit, destroy_texture_image_view)
-            .after(wait_for_device)
-            .before(destroy_texture_image)
-            .use_worker("single");
-        app.add_system(Startup, create_texture_image_sampler)
-            .after(create_texture_image_view)
-            .before(create_descriptor_sets)
-            .use_worker("single");
-        app.add_system(Exit, destroy_texture_image_sampler)
-            .after(wait_for_device)
-            .before(destroy_texture_image_view)
-            .use_worker("single");
-        app.add_system(Startup, create_descriptor_set_layout)
-            .before(create_descriptor_pool)
-            .before(create_graphics_pipeline)
-            .use_worker("single");
-        app.add_system(Exit, destroy_descriptor_set_layout)
-            .after(wait_for_device)
-            .use_worker("single");
-        app.add_system(Startup, create_descriptor_pool).use_worker("single");
-        app.add_system(Exit, destroy_descriptor_pool)
-            .use_worker("single")
-            .before(destroy_descriptor_set_layout)
-            .after(wait_for_device);
-        app.add_system(Startup, create_descriptor_sets)
-            .after(create_descriptor_pool, create_uniform_buffers)
-            .use_worker("single");
-        app.add_system(Startup, create_render_pass).use_worker("single");
-        app.add_system(Startup, create_graphics_pipeline)
-            .after(create_render_pass)
-            .use_worker("single");
-        app.add_system(Render, begin_draw)
-            .use_worker("single")
-            .before(
-                pixel_engine::font::systems::vulkan::draw_text,
-                pixel_engine::sprite::systems::draw_sprite_2d_vk,
-                update_uniform_buffer
-            );
-        app.add_system(Render, update_uniform_buffer)
-            .use_worker("single")
-            .before(
-                pixel_engine::font::systems::vulkan::draw_text,
-                pixel_engine::sprite::systems::draw_sprite_2d_vk,
-                record_command_buffer
-            );
-        app.add_system(Render, record_command_buffer)
-            .use_worker("single")
-            .before(
-                pixel_engine::font::systems::vulkan::draw_text,
-                pixel_engine::sprite::systems::draw_sprite_2d_vk, end_draw
-            );
-        app.add_system(Render, end_draw)
-            .use_worker("single")
-            .before(
-                pixel_engine::font::systems::vulkan::draw_text,
-                pixel_engine::sprite::systems::draw_sprite_2d_vk
-            );
-        app.add_system(Exit, wait_for_device).use_worker("single");
-        app.add_system(Exit, free_vertex_buffer)
-            .after(wait_for_device)
-            .use_worker("single");
-        app.add_system(Exit, free_index_buffer)
-            .after(wait_for_device)
-            .use_worker("single");
-        app.add_system(Exit, destroy_pipeline)
-            .after(wait_for_device)
-            .use_worker("single");
-        app.add_system(Exit, destroy_render_pass)
-            .after(wait_for_device)
-            .use_worker("single");
+        // app.add_system(PreStartup, create_renderer).use_worker("single");
+        // app.add_system(Startup, create_vertex_buffer).use_worker("single");
+        // app.add_system(Startup, create_index_buffer).use_worker("single");
+        // app.add_system(Startup, create_uniform_buffers).use_worker("single");
+        // app.add_system(Exit, destroy_uniform_buffers)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_depth_image).use_worker("single");
+        // app.add_system(Exit, destroy_depth_image)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_depth_image_view)
+        //     .after(create_depth_image)
+        //     .use_worker("single");
+        // app.add_system(Exit, destroy_depth_image_view)
+        //     .after(wait_for_device)
+        //     .before(destroy_depth_image)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_texture_image).use_worker("single");
+        // app.add_system(Exit, destroy_texture_image)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_texture_image_view)
+        //     .after(create_texture_image)
+        //     .use_worker("single");
+        // app.add_system(Exit, destroy_texture_image_view)
+        //     .after(wait_for_device)
+        //     .before(destroy_texture_image)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_texture_image_sampler)
+        //     .after(create_texture_image_view)
+        //     .before(create_descriptor_sets)
+        //     .use_worker("single");
+        // app.add_system(Exit, destroy_texture_image_sampler)
+        //     .after(wait_for_device)
+        //     .before(destroy_texture_image_view)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_descriptor_set_layout)
+        //     .before(create_descriptor_pool)
+        //     .before(create_graphics_pipeline)
+        //     .use_worker("single");
+        // app.add_system(Exit, destroy_descriptor_set_layout)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_descriptor_pool).use_worker("single");
+        // app.add_system(Exit, destroy_descriptor_pool)
+        //     .use_worker("single")
+        //     .before(destroy_descriptor_set_layout)
+        //     .after(wait_for_device);
+        // app.add_system(Startup, create_descriptor_sets)
+        //     .after(create_descriptor_pool, create_uniform_buffers)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_render_pass).use_worker("single");
+        // app.add_system(Startup, create_graphics_pipeline)
+        //     .after(create_render_pass)
+        //     .use_worker("single");
+        // app.add_system(Render, begin_draw)
+        //     .use_worker("single")
+        //     .before(
+        //         pixel_engine::font::systems::vulkan::draw_text,
+        //         pixel_engine::sprite::systems::draw_sprite_2d_vk,
+        //         update_uniform_buffer
+        //     );
+        // app.add_system(Render, update_uniform_buffer)
+        //     .use_worker("single")
+        //     .before(
+        //         pixel_engine::font::systems::vulkan::draw_text,
+        //         pixel_engine::sprite::systems::draw_sprite_2d_vk,
+        //         record_command_buffer
+        //     );
+        // app.add_system(Render, record_command_buffer)
+        //     .use_worker("single")
+        //     .before(
+        //         pixel_engine::font::systems::vulkan::draw_text,
+        //         pixel_engine::sprite::systems::draw_sprite_2d_vk, end_draw
+        //     );
+        // app.add_system(Render, end_draw)
+        //     .use_worker("single")
+        //     .before(
+        //         pixel_engine::font::systems::vulkan::draw_text,
+        //         pixel_engine::sprite::systems::draw_sprite_2d_vk
+        //     );
+        // app.add_system(Exit, wait_for_device).use_worker("single");
+        // app.add_system(Exit, free_vertex_buffer)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Exit, free_index_buffer)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Exit, destroy_pipeline)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Exit, destroy_render_pass)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
         app.add_system(Startup, create_text);
         app.add_system(Startup, create_pixel_block);
+        app.add_system(Render, draw_lines);
         // app.add_system(Update, shuffle_text);
-        app.add_system(Update, output_event);
+        // app.add_system(Update, output_event);
     }
 };
 
@@ -1364,6 +1379,7 @@ void run() {
     app.add_plugin(pixel_engine::window::WindowPlugin{});
     app.add_plugin(pixel_engine::input::InputPlugin{});
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
+    app.add_plugin(pixel_engine::render::debug::vulkan::DebugRenderPlugin{});
     app.add_plugin(pixel_engine::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});
     // app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
