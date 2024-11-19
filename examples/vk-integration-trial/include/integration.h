@@ -1183,54 +1183,6 @@ void shuffle_text(Query<Get<pixel_engine::font::components::Text>> text_query) {
     }
 }
 
-using namespace pixel_engine::input::components;
-
-void output_event(
-    EventReader<pixel_engine::input::events::MouseScroll> scroll_events,
-    Query<Get<ButtonInput<KeyCode>, ButtonInput<MouseButton>, const Window>>
-        query,
-    EventReader<pixel_engine::input::events::CursorMove> cursor_move_events
-) {
-    for (auto event : scroll_events.read()) {
-        spdlog::info("scroll : {}", event.yoffset);
-    }
-    for (auto [key_input, mouse_input, window] : query.iter()) {
-        for (auto key : key_input.just_pressed_keys()) {
-            auto *key_name = key_input.key_name(key);
-            if (key_name == nullptr) {
-                spdlog::info("key {} just pressed", static_cast<int>(key));
-            } else {
-                spdlog::info("key {} just pressed", key_name);
-            }
-        }
-        for (auto key : key_input.just_released_keys()) {
-            auto *key_name = key_input.key_name(key);
-            if (key_name == nullptr) {
-                spdlog::info("key {} just released", static_cast<int>(key));
-            } else {
-                spdlog::info("key {} just released", key_name);
-            }
-        }
-        for (auto button : mouse_input.just_pressed_buttons()) {
-            spdlog::info(
-                "mouse button {} just pressed", static_cast<int>(button)
-            );
-        }
-        for (auto button : mouse_input.just_released_buttons()) {
-            spdlog::info(
-                "mouse button {} just released", static_cast<int>(button)
-            );
-        }
-        // if (window.get_cursor_move().has_value()) {
-        //     auto [x, y] = window.get_cursor_move().value();
-        //     spdlog::info("cursor move -from window : {}, {}", x, y);
-        // }
-    }
-    for (auto event : cursor_move_events.read()) {
-        spdlog::info("cursor move -from events : {}, {}", event.x, event.y);
-    }
-}
-
 void create_pixel_block(Command command) {
     auto block =
         pixel_engine::render::pixel::components::PixelBlock::create({512, 512});
@@ -1378,7 +1330,6 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(Render, draw_lines);
         app.add_system(Render, imgui_demo_window);
         // app.add_system(Update, shuffle_text);
-        // app.add_system(Update, output_event);
     }
 };
 
@@ -1386,7 +1337,7 @@ void run() {
     App app = App::create();
     app.enable_loop();
     app.add_plugin(pixel_engine::window::WindowPlugin{});
-    app.add_plugin(pixel_engine::input::InputPlugin{});
+    app.add_plugin(pixel_engine::input::InputPlugin{}.enable_output());
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
     app.add_plugin(pixel_engine::render::debug::vulkan::DebugRenderPlugin{});
     app.add_plugin(pixel_engine::font::FontPlugin{});

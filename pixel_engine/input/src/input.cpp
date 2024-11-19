@@ -7,6 +7,8 @@ using namespace pixel_engine::input;
 using namespace pixel_engine::prelude;
 using namespace pixel_engine::input::systems;
 
+static auto logger = spdlog::default_logger()->clone("input");
+
 void systems::create_input_for_window(
     Command command,
     Query<
@@ -80,11 +82,70 @@ void systems::update_input(
     }
 }
 
-void InputPlugin::build(App& app) {
+void systems::output_event(
+    EventReader<pixel_engine::input::events::MouseScroll> scroll_events,
+    Query<Get<ButtonInput<KeyCode>, ButtonInput<MouseButton>, const Window>>
+        query,
+    EventReader<pixel_engine::input::events::CursorMove> cursor_move_events
+) {
+    for (auto event : scroll_events.read()) {
+        logger->info("scroll : {}", event.yoffset);
+    }
+    for (auto [key_input, mouse_input, window] : query.iter()) {
+        for (auto key : key_input.just_pressed_keys()) {
+            auto *key_name = key_input.key_name(key);
+            if (key_name == nullptr) {
+                logger->info("key {} just pressed", static_cast<int>(key));
+            } else {
+                logger->info("key {} just pressed", key_name);
+            }
+        }
+        for (auto key : key_input.just_released_keys()) {
+            auto *key_name = key_input.key_name(key);
+            if (key_name == nullptr) {
+                logger->info("key {} just released", static_cast<int>(key));
+            } else {
+                logger->info("key {} just released", key_name);
+            }
+        }
+        for (auto button : mouse_input.just_pressed_buttons()) {
+            logger->info(
+                "mouse button {} just pressed", static_cast<int>(button)
+            );
+        }
+        for (auto button : mouse_input.just_released_buttons()) {
+            logger->info(
+                "mouse button {} just released", static_cast<int>(button)
+            );
+        }
+        // if (window.get_cursor_move().has_value()) {
+        //     auto [x, y] = window.get_cursor_move().value();
+        //     spdlog::info("cursor move -from window : {}, {}", x, y);
+        // }
+    }
+    for (auto event : cursor_move_events.read()) {
+        logger->info("cursor move -from events : {}, {}", event.x, event.y);
+    }
+}
+
+InputPlugin &InputPlugin::enable_output() {
+    enable_output_event = true;
+    return *this;
+}
+
+InputPlugin &InputPlugin::disable_output() {
+    enable_output_event = false;
+    return *this;
+}
+
+void InputPlugin::build(App &app) {
     app.add_event<events::KeyEvent>();
     app.add_event<events::MouseButtonEvent>();
     app.add_system(app::Startup, create_input_for_window)
         ->add_system(app::First, create_input_for_window, update_input)
         .after(window::systems::poll_events)
         .use_worker("single");
+    if (enable_output_event) {
+        app.add_system(app::PreUpdate, output_event);
+    }
 }

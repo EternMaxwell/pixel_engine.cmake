@@ -14,6 +14,9 @@ using namespace systems;
 using namespace events;
 
 struct InputPlugin : Plugin {
+    bool enable_output_event = false;
+    InputPlugin& enable_output();
+    InputPlugin& disable_output();
     void build(App& app) override;
 };
 }  // namespace input
