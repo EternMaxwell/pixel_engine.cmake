@@ -7,12 +7,14 @@
 #ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #endif
+#include <pixel_engine/imgui.h>
 #include <stb_image.h>
 
 #include <random>
 
 #include "fragment_shader.h"
 #include "vertex_shader.h"
+
 
 using namespace pixel_engine::prelude;
 using namespace pixel_engine::window;
@@ -1262,6 +1264,12 @@ void draw_lines(
     line_drawer.end();
 }
 
+void imgui_demo_window(ResMut<pixel_engine::imgui::ImGuiContext> imgui_context
+) {
+    if (!imgui_context.has_value()) return;
+    ImGui::ShowDemoWindow();
+}
+
 struct VK_TrialPlugin : Plugin {
     void build(App &app) override {
         auto window_plugin = app.get_plugin<WindowPlugin>();
@@ -1368,6 +1376,7 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(Startup, create_text);
         app.add_system(Startup, create_pixel_block);
         app.add_system(Render, draw_lines);
+        app.add_system(Render, imgui_demo_window);
         // app.add_system(Update, shuffle_text);
         // app.add_system(Update, output_event);
     }
@@ -1382,6 +1391,7 @@ void run() {
     app.add_plugin(pixel_engine::render::debug::vulkan::DebugRenderPlugin{});
     app.add_plugin(pixel_engine::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});
+    app.add_plugin(pixel_engine::imgui::ImGuiPluginVK{});
     // app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
     // app.add_plugin(pixel_engine::sprite::SpritePluginVK{});
     app.run();

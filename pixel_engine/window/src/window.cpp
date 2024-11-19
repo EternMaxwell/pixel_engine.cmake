@@ -68,5 +68,7 @@ void pixel_engine::window::WindowPlugin::build(App& app) {
         ->add_system(app::Last, no_window_exists)
         .before(exit_on_no_window)
         .use_worker("single")
-        ->add_system(app::Last, exit_on_no_window);
+        ->add_system(app::Last, exit_on_no_window)
+        ->add_system(app::PreExit, systems::close_window)
+        .use_worker("single");
 }

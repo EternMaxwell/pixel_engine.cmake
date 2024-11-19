@@ -126,7 +126,7 @@ void systems::no_window_exists(
     Query<Get<Window>> query, EventWriter<NoWindowExists> no_window_event
 ) {
     for (auto [window] : query.iter()) {
-        if (window.get_handle()) return;
+        if (!window.should_close()) return;
     }
     spdlog::info("No window exists.");
     no_window_event.write(NoWindowExists{});
