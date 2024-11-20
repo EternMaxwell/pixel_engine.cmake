@@ -9,6 +9,8 @@ file(GLOB_RECURSE SOURCES "include/*.h" "include/*.hpp" "src/*.c" "src/*.cpp")
 add_executable (${PROJNAME} ${SOURCES})
 target_include_directories(${PROJNAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+set_target_properties(${PROJNAME} PROPERTIES CXX_STANDARD 23)
+
 target_link_libraries (${PROJNAME} PUBLIC pixel_engine)
 target_link_libraries (${PROJNAME} PUBLIC VulkanMemoryAllocator)
 target_link_libraries (${PROJNAME} PUBLIC pixel_engine::imgui)

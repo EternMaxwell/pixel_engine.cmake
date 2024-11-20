@@ -12,6 +12,7 @@
 #include <stb_image.h>
 
 #include <random>
+#include <stacktrace>
 
 #include "fragment_shader.h"
 #include "vertex_shader.h"
@@ -25,7 +26,7 @@ using namespace pixel_engine::sprite::resources;
 namespace vk_trial {
 void create_b2d_world(Command command) {
     b2WorldDef def = b2DefaultWorldDef();
-    def.gravity    = {0.0f, -9.8f};
+    def.gravity    = {0.0f, -29.8f};
     auto world     = b2CreateWorld(&def);
     command.spawn(world);
 }
@@ -77,7 +78,6 @@ void render_bodies(
         auto angle      = std::atan2(rotation.s, rotation.c);
         glm::mat4 model =
             glm::translate(glm::mat4(1.0f), {position.x, position.y, 0.0f});
-        spdlog::info("position: {}, {}", position.x, position.y);
         line_drawer.setModel(model);
         line_drawer.drawLine(
             {0.0f, 0.0f, 0.0f}, {velocity.x / 2, velocity.y / 2, 0.0f},
@@ -107,10 +107,27 @@ void render_bodies(
     line_drawer.end();
 }
 
-void update_b2d_world(Query<Get<b2WorldId>> world_query) {
+void update_b2d_world(
+    Query<Get<b2WorldId>> world_query, Local<std::optional<double>> last_time
+) {
     if (!world_query.single().has_value()) return;
     auto [world] = world_query.single().value();
-    b2World_Step(world, 1.0f / 60.0f, 6);
+    if (!last_time->has_value()) {
+        *last_time = std::chrono::duration<double>(
+                         std::chrono::system_clock::now().time_since_epoch()
+        )
+                         .count();
+        return;
+    } else {
+        auto current_time =
+            std::chrono::duration<double>(
+                std::chrono::system_clock::now().time_since_epoch()
+            )
+                .count();
+        auto dt    = current_time - last_time->value();
+        *last_time = current_time;
+        b2World_Step(world, dt, 6);
+    }
 }
 
 void destroy_b2d_world(Query<Get<b2WorldId>> query) {
@@ -209,7 +226,7 @@ struct VK_TrialPlugin : Plugin {
         app.enable_loop();
         app.add_system(Startup, create_text);
         app.add_system(Startup, create_pixel_block);
-        app.add_system(Render, draw_lines);
+        // app.add_system(Render, draw_lines);
         app.add_system(Render, imgui_demo_window);
 
         app.add_system(Startup, create_b2d_world);
@@ -235,5 +252,6 @@ void run() {
     // app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
     // app.add_plugin(pixel_engine::sprite::SpritePluginVK{});
     app.run();
+    std::stacktrace::current();
 }
 }  // namespace vk_trial
