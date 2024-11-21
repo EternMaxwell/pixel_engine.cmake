@@ -63,7 +63,7 @@ struct SubApp {
     template <>
     struct value_type<Command> {
         static Command get(SubApp& app) {
-            app.m_command_cache.emplace_back(Command(&app.m_world));
+            app.m_command_cache.emplace_back(&app.m_world);
             return app.m_command_cache.back();
         }
         static Command get(SubApp& src, SubApp& dst) { return get(dst); }

@@ -7,11 +7,16 @@ using namespace pixel_engine::prelude;
 using namespace pixel_engine::render::debug::vulkan;
 using namespace pixel_engine::render::debug::vulkan::components;
 void systems::create_line_drawer(
-    Query<Get<Device, CommandPool>, With<RenderContext>> query, Command cmd
+    Query<Get<Device, CommandPool>, With<RenderContext>> query,
+    Command cmd,
+    Res<DebugRenderPlugin> plugin
 ) {
     if (!query.single().has_value()) return;
     auto [device, command_pool] = query.single().value();
-    LineDrawer drawer;
+    LineDrawer drawer{
+        .max_vertex_count = plugin->max_vertex_count,
+        .max_model_count  = plugin->max_model_count
+    };
     // RenderPass
     vk::RenderPassCreateInfo render_pass_info;
     vk::AttachmentDescription color_attachment;
@@ -76,7 +81,7 @@ void systems::create_line_drawer(
 
     // Buffers
     vk::BufferCreateInfo vertex_buffer_info;
-    vertex_buffer_info.setSize(sizeof(DebugVertex) * 2048);
+    vertex_buffer_info.setSize(sizeof(DebugVertex) * plugin->max_vertex_count);
     vertex_buffer_info.setUsage(vk::BufferUsageFlagBits::eVertexBuffer);
     vertex_buffer_info.setSharingMode(vk::SharingMode::eExclusive);
     AllocationCreateInfo vertex_alloc_info;
@@ -98,7 +103,7 @@ void systems::create_line_drawer(
     drawer.uniform_buffer =
         Buffer::create(device, uniform_buffer_info, uniform_alloc_info);
     vk::BufferCreateInfo model_buffer_info;
-    model_buffer_info.setSize(sizeof(glm::mat4) * 128);
+    model_buffer_info.setSize(sizeof(glm::mat4) * plugin->max_model_count);
     model_buffer_info.setUsage(vk::BufferUsageFlagBits::eStorageBuffer);
     model_buffer_info.setSharingMode(vk::SharingMode::eExclusive);
     AllocationCreateInfo model_alloc_info;
@@ -123,7 +128,9 @@ void systems::create_line_drawer(
     vk::DescriptorBufferInfo model_buffer_desc_info;
     model_buffer_desc_info.setBuffer(drawer.model_buffer);
     model_buffer_desc_info.setOffset(0);
-    model_buffer_desc_info.setRange(sizeof(glm::mat4) * 128);
+    model_buffer_desc_info.setRange(
+        sizeof(glm::mat4) * plugin->max_model_count
+    );
     std::vector<vk::WriteDescriptorSet> writes;
     vk::WriteDescriptorSet uniform_write;
     uniform_write.setDstSet(drawer.descriptor_set);
@@ -261,11 +268,16 @@ void systems::destroy_line_drawer(
     if (drawer.framebuffer) drawer.framebuffer.destroy(device);
 }
 void systems::create_point_drawer(
-    Query<Get<Device, CommandPool>, With<RenderContext>> query, Command cmd
+    Query<Get<Device, CommandPool>, With<RenderContext>> query,
+    Command cmd,
+    Res<DebugRenderPlugin> plugin
 ) {
     if (!query.single().has_value()) return;
     auto [device, command_pool] = query.single().value();
-    PointDrawer drawer;
+    PointDrawer drawer{
+        .max_vertex_count = plugin->max_vertex_count,
+        .max_model_count  = plugin->max_model_count
+    };
     // RenderPass
     vk::RenderPassCreateInfo render_pass_info;
     vk::AttachmentDescription color_attachment;
@@ -330,7 +342,7 @@ void systems::create_point_drawer(
 
     // Buffers
     vk::BufferCreateInfo vertex_buffer_info;
-    vertex_buffer_info.setSize(sizeof(DebugVertex) * 2048);
+    vertex_buffer_info.setSize(sizeof(DebugVertex) * plugin->max_vertex_count);
     vertex_buffer_info.setUsage(vk::BufferUsageFlagBits::eVertexBuffer);
     vertex_buffer_info.setSharingMode(vk::SharingMode::eExclusive);
     AllocationCreateInfo vertex_alloc_info;
@@ -352,7 +364,7 @@ void systems::create_point_drawer(
     drawer.uniform_buffer =
         Buffer::create(device, uniform_buffer_info, uniform_alloc_info);
     vk::BufferCreateInfo model_buffer_info;
-    model_buffer_info.setSize(sizeof(glm::mat4) * 128);
+    model_buffer_info.setSize(sizeof(glm::mat4) * plugin->max_model_count);
     model_buffer_info.setUsage(vk::BufferUsageFlagBits::eStorageBuffer);
     model_buffer_info.setSharingMode(vk::SharingMode::eExclusive);
     AllocationCreateInfo model_alloc_info;
@@ -377,7 +389,9 @@ void systems::create_point_drawer(
     vk::DescriptorBufferInfo model_buffer_desc_info;
     model_buffer_desc_info.setBuffer(drawer.model_buffer);
     model_buffer_desc_info.setOffset(0);
-    model_buffer_desc_info.setRange(sizeof(glm::mat4) * 128);
+    model_buffer_desc_info.setRange(
+        sizeof(glm::mat4) * plugin->max_model_count
+    );
     std::vector<vk::WriteDescriptorSet> writes;
     vk::WriteDescriptorSet uniform_write;
     uniform_write.setDstSet(drawer.descriptor_set);
@@ -516,11 +530,16 @@ void systems::destroy_point_drawer(
 }
 
 void systems::create_triangle_drawer(
-    Query<Get<Device, CommandPool>, With<RenderContext>> query, Command cmd
+    Query<Get<Device, CommandPool>, With<RenderContext>> query,
+    Command cmd,
+    Res<DebugRenderPlugin> plugin
 ) {
     if (!query.single().has_value()) return;
     auto [device, command_pool] = query.single().value();
-    TriangleDrawer drawer;
+    TriangleDrawer drawer{
+        .max_vertex_count = plugin->max_vertex_count,
+        .max_model_count  = plugin->max_model_count
+    };
     // RenderPass
     vk::RenderPassCreateInfo render_pass_info;
     vk::AttachmentDescription color_attachment;
@@ -585,7 +604,7 @@ void systems::create_triangle_drawer(
 
     // Buffers
     vk::BufferCreateInfo vertex_buffer_info;
-    vertex_buffer_info.setSize(sizeof(DebugVertex) * 2048);
+    vertex_buffer_info.setSize(sizeof(DebugVertex) * plugin->max_vertex_count);
     vertex_buffer_info.setUsage(vk::BufferUsageFlagBits::eVertexBuffer);
     vertex_buffer_info.setSharingMode(vk::SharingMode::eExclusive);
     AllocationCreateInfo vertex_alloc_info;
@@ -607,7 +626,7 @@ void systems::create_triangle_drawer(
     drawer.uniform_buffer =
         Buffer::create(device, uniform_buffer_info, uniform_alloc_info);
     vk::BufferCreateInfo model_buffer_info;
-    model_buffer_info.setSize(sizeof(glm::mat4) * 128);
+    model_buffer_info.setSize(sizeof(glm::mat4) * plugin->max_model_count);
     model_buffer_info.setUsage(vk::BufferUsageFlagBits::eStorageBuffer);
     model_buffer_info.setSharingMode(vk::SharingMode::eExclusive);
     AllocationCreateInfo model_alloc_info;
@@ -632,7 +651,9 @@ void systems::create_triangle_drawer(
     vk::DescriptorBufferInfo model_buffer_desc_info;
     model_buffer_desc_info.setBuffer(drawer.model_buffer);
     model_buffer_desc_info.setOffset(0);
-    model_buffer_desc_info.setRange(sizeof(glm::mat4) * 128);
+    model_buffer_desc_info.setRange(
+        sizeof(glm::mat4) * plugin->max_model_count
+    );
     std::vector<vk::WriteDescriptorSet> writes;
     vk::WriteDescriptorSet uniform_write;
     uniform_write.setDstSet(drawer.descriptor_set);

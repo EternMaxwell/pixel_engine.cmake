@@ -25,6 +25,7 @@ void LineDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
     ubo[0]         = view;
     ubo[1]         = proj;
     uniform_buffer.unmap(device);
+    context->color_image          = swapchain.current_image();
     context->mapped_model_buffer  = (glm::mat4*)model_buffer.map(device);
     context->mapped_vertex_buffer = (DebugVertex*)vertex_buffer.map(device);
     context->extent               = swapchain.extent;
@@ -35,7 +36,22 @@ void LineDrawer::flush() {
     auto& ctx    = context.value();
     auto& device = *ctx.device;
     auto& queue  = *ctx.queue;
+    reset_cmd();
+    device->resetFences(*fence);
     command_buffer->begin(vk::CommandBufferBeginInfo{});
+    vk::ImageMemoryBarrier barrier;
+    barrier.setOldLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    barrier.setNewLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    barrier.setImage(*ctx.color_image);
+    barrier.setSubresourceRange(
+        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
+    );
+    barrier.setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+    barrier.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+    command_buffer->pipelineBarrier(
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, {}, {}, barrier
+    );
     vk::ClearValue clear_color(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
     vk::RenderPassBeginInfo render_pass_info;
     render_pass_info.setRenderPass(*render_pass);
@@ -63,7 +79,6 @@ void LineDrawer::flush() {
     command_buffer->end();
     vk::SubmitInfo submit_info;
     submit_info.setCommandBuffers(*command_buffer);
-    device->resetFences(*fence);
     queue->submit(submit_info, *fence);
     ctx.vertex_count = 0;
     ctx.model_count  = 0;
@@ -79,7 +94,10 @@ void LineDrawer::end() {
 void LineDrawer::setModel(const glm::mat4& model) {
     if (!context.has_value()) return;
     auto& ctx = context.value();
-    if (ctx.model_count >= 128) flush();
+    if (ctx.model_count >= max_model_count) {
+        flush();
+        reset_cmd();
+    }
     ctx.mapped_model_buffer[ctx.model_count] = model;
     ctx.model_count++;
 }
@@ -95,7 +113,12 @@ void LineDrawer::drawLine(
     if (!context.has_value()) return;
     auto& ctx = context.value();
     if (ctx.model_count == 0) setModel(glm::mat4(1.0f));
-    if (ctx.vertex_count + 2 >= 2048) flush();
+    if (ctx.vertex_count + 2 >= max_vertex_count) {
+        glm::mat4 last = ctx.mapped_model_buffer[ctx.model_count - 1];
+        flush();
+        reset_cmd();
+        setModel(last);
+    }
     ctx.mapped_vertex_buffer[ctx.vertex_count] = {
         start, color, ctx.model_count - 1
     };
@@ -127,6 +150,7 @@ void PointDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
     ubo[0]         = view;
     ubo[1]         = proj;
     uniform_buffer.unmap(device);
+    context->color_image          = swapchain.current_image();
     context->mapped_model_buffer  = (glm::mat4*)model_buffer.map(device);
     context->mapped_vertex_buffer = (DebugVertex*)vertex_buffer.map(device);
     context->extent               = swapchain.extent;
@@ -137,7 +161,21 @@ void PointDrawer::flush() {
     auto& ctx    = context.value();
     auto& device = *ctx.device;
     auto& queue  = *ctx.queue;
+    reset_cmd();
     command_buffer->begin(vk::CommandBufferBeginInfo{});
+    vk::ImageMemoryBarrier barrier;
+    barrier.setOldLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    barrier.setNewLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    barrier.setImage(*ctx.color_image);
+    barrier.setSubresourceRange(
+        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
+    );
+    barrier.setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+    barrier.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+    command_buffer->pipelineBarrier(
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, {}, {}, barrier
+    );
     vk::ClearValue clear_color(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
     vk::RenderPassBeginInfo render_pass_info;
     render_pass_info.setRenderPass(*render_pass);
@@ -181,7 +219,12 @@ void PointDrawer::end() {
 void PointDrawer::setModel(const glm::mat4& model) {
     if (!context.has_value()) return;
     auto& ctx = context.value();
-    if (ctx.model_count >= 128) flush();
+    if (ctx.model_count >= max_model_count) {
+        glm::mat4 last = ctx.mapped_model_buffer[ctx.model_count - 1];
+        flush();
+        reset_cmd();
+        setModel(last);
+    }
     ctx.mapped_model_buffer[ctx.model_count] = model;
     ctx.model_count++;
 }
@@ -195,7 +238,12 @@ void PointDrawer::drawPoint(const glm::vec3& pos, const glm::vec4& color) {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     if (ctx.model_count == 0) setModel(glm::mat4(1.0f));
-    if (ctx.vertex_count + 1 >= 2048) flush();
+    if (ctx.vertex_count + 1 >= max_vertex_count) {
+        glm::mat4 last = ctx.mapped_model_buffer[ctx.model_count - 1];
+        flush();
+        reset_cmd();
+        setModel(last);
+    }
     ctx.mapped_vertex_buffer[ctx.vertex_count] = {
         pos, color, ctx.model_count - 1
     };
@@ -223,6 +271,7 @@ void TriangleDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
     ubo[0]         = view;
     ubo[1]         = proj;
     uniform_buffer.unmap(device);
+    context->color_image          = swapchain.current_image();
     context->mapped_model_buffer  = (glm::mat4*)model_buffer.map(device);
     context->mapped_vertex_buffer = (DebugVertex*)vertex_buffer.map(device);
     context->extent               = swapchain.extent;
@@ -233,7 +282,21 @@ void TriangleDrawer::flush() {
     auto& ctx    = context.value();
     auto& device = *ctx.device;
     auto& queue  = *ctx.queue;
+    reset_cmd();
     command_buffer->begin(vk::CommandBufferBeginInfo{});
+    vk::ImageMemoryBarrier barrier;
+    barrier.setOldLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    barrier.setNewLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    barrier.setImage(*ctx.color_image);
+    barrier.setSubresourceRange(
+        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
+    );
+    barrier.setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+    barrier.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+    command_buffer->pipelineBarrier(
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, {}, {}, barrier
+    );
     vk::ClearValue clear_color(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
     vk::RenderPassBeginInfo render_pass_info;
     render_pass_info.setRenderPass(*render_pass);
@@ -277,7 +340,10 @@ void TriangleDrawer::end() {
 void TriangleDrawer::setModel(const glm::mat4& model) {
     if (!context.has_value()) return;
     auto& ctx = context.value();
-    if (ctx.model_count >= 128) flush();
+    if (ctx.model_count >= max_model_count) {
+        flush();
+        reset_cmd();
+    }
     ctx.mapped_model_buffer[ctx.model_count] = model;
     ctx.model_count++;
 }
@@ -296,7 +362,12 @@ void TriangleDrawer::drawTriangle(
     if (!context.has_value()) return;
     auto& ctx = context.value();
     if (ctx.model_count == 0) setModel(glm::mat4(1.0f));
-    if (ctx.vertex_count + 3 >= 2048) flush();
+    if (ctx.vertex_count + 3 >= max_vertex_count) {
+        glm::mat4 last = ctx.mapped_model_buffer[ctx.model_count - 1];
+        flush();
+        reset_cmd();
+        setModel(last);
+    }
     ctx.mapped_vertex_buffer[ctx.vertex_count] = {
         v0, color, ctx.model_count - 1
     };

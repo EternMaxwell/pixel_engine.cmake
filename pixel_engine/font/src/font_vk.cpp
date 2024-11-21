@@ -125,7 +125,10 @@ void TextRenderer::flush() {
 
 void TextRenderer::setModel(const TextModelData& model) {
     if (!ctx.has_value()) return;
-    if (ctx.value().model_count >= 1024) flush();
+    if (ctx.value().model_count >= 1024) {
+        flush();
+        reset_cmd();
+    }
     ctx.value().models[ctx.value().model_count] = model;
     ctx.value().model_count++;
 }
