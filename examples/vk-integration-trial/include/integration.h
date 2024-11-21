@@ -12,7 +12,6 @@
 #include <stb_image.h>
 
 #include <random>
-#include <stacktrace>
 
 #include "fragment_shader.h"
 #include "vertex_shader.h"
@@ -252,6 +251,5 @@ void run() {
     // app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
     // app.add_plugin(pixel_engine::sprite::SpritePluginVK{});
     app.run();
-    std::stacktrace::current();
 }
 }  // namespace vk_trial
