@@ -59,6 +59,42 @@ void create_dynamic(Command command, Query<Get<b2WorldId>> world_query) {
     command.spawn(body);
 }
 
+using namespace pixel_engine::input;
+
+void create_dynamic_from_click(
+    Command command,
+    Query<Get<b2WorldId>> world_query,
+    Query<
+        Get<const Window,
+            const ButtonInput<MouseButton>,
+            const ButtonInput<KeyCode>>> window_query
+) {
+    if (!world_query.single().has_value()) return;
+    if (!window_query.single().has_value()) return;
+    auto [window, mouse_input, key_input] = window_query.single().value();
+    if (!mouse_input.just_pressed(pixel_engine::input::MouseButton1) &&
+        !key_input.just_pressed(pixel_engine::input::KeySpace))
+        return;
+    auto [world]       = world_query.single().value();
+    b2BodyDef body_def = b2DefaultBodyDef();
+    body_def.type      = b2BodyType::b2_dynamicBody;
+    body_def.position  = {
+        (float)window.get_cursor().x - (float)window.get_size().width / 2.0f,
+        -(float)window.get_cursor().y + (float)window.get_size().height / 2.0f
+    };
+    spdlog::info(
+        "Creating body at {}, {}", body_def.position.x, body_def.position.y
+    );
+    auto body             = b2CreateBody(world, &body_def);
+    b2Polygon box         = b2MakeBox(10.0f, 10.0f);
+    b2ShapeDef shape_def  = b2DefaultShapeDef();
+    shape_def.density     = 1.0f;
+    shape_def.friction    = 0.1f;
+    shape_def.restitution = 0.9f;
+    b2CreatePolygonShape(body, &shape_def, &box);
+    command.spawn(body);
+}
+
 void render_bodies(
     Query<Get<b2BodyId>> query,
     Query<Get<pixel_engine::render::debug::vulkan::components::LineDrawer>>
@@ -80,7 +116,7 @@ void render_bodies(
         line_drawer.setModel(model);
         line_drawer.drawLine(
             {0.0f, 0.0f, 0.0f}, {velocity.x / 2, velocity.y / 2, 0.0f},
-            {0.0f, 1.0f, 0.0f, 1.0f}
+            {0.0f, 0.0f, 1.0f, 1.0f}
         );
         model = glm::rotate(model, angle, {0.0f, 0.0f, 1.0f});
         line_drawer.setModel(model);
@@ -95,10 +131,11 @@ void render_bodies(
             for (size_t i = 0; i < polygon.count; i++) {
                 auto& vertex1 = polygon.vertices[i];
                 auto& vertex2 = polygon.vertices[(i + 1) % polygon.count];
+                bool awake    = b2Body_IsAwake(body);
                 line_drawer.drawLine(
                     {vertex1.x + center.x, vertex1.y + center.y, 0.0f},
                     {vertex2.x + center.x, vertex2.y + center.y, 0.0f},
-                    {1.0f, 0.0f, 0.0f, 1.0f}
+                    {awake ? 0.0f : 1.0f, awake ? 1.0f : 0.0f, 0.0f, 1.0f}
                 );
             }
         }
@@ -223,8 +260,8 @@ struct VK_TrialPlugin : Plugin {
         using namespace pixel_engine;
 
         app.enable_loop();
-        app.add_system(Startup, create_text);
-        app.add_system(Startup, create_pixel_block);
+        // app.add_system(Startup, create_text);
+        // app.add_system(Startup, create_pixel_block);
         // app.add_system(Render, draw_lines);
         app.add_system(Render, imgui_demo_window);
 
@@ -233,6 +270,7 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(Startup, create_dynamic)
             .after(create_b2d_world, create_ground);
         app.add_system(PreUpdate, update_b2d_world);
+        app.add_system(Update, create_dynamic_from_click);
         app.add_system(Render, render_bodies);
         app.add_system(Exit, destroy_b2d_world);
     }
@@ -245,7 +283,7 @@ void run() {
     app.add_plugin(pixel_engine::input::InputPlugin{});
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
     app.add_plugin(pixel_engine::render::debug::vulkan::DebugRenderPlugin{});
-    app.add_plugin(pixel_engine::font::FontPlugin{});
+    // app.add_plugin(pixel_engine::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});
     app.add_plugin(pixel_engine::imgui::ImGuiPluginVK{});
     // app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
