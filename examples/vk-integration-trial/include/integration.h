@@ -272,6 +272,33 @@ void imgui_demo_window(ResMut<pixel_engine::imgui::ImGuiContext> imgui_context
     ImGui::ShowDemoWindow();
 }
 
+void render_pixel_renderer_test(
+    Query<Get<pixel_engine::render::pixel::components::PixelRenderer>> query,
+    Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query
+) {
+    using namespace pixel_engine::render::pixel::components;
+    if (!query.single().has_value()) return;
+    if (!context_query.single().has_value()) return;
+    auto [device, swap_chain, queue] = context_query.single().value();
+    auto [renderer]                  = query.single().value();
+    PixelUniformBuffer pixel_uniform;
+    pixel_uniform.view = glm::mat4(1.0f);
+    pixel_uniform.proj = glm::ortho(
+        -static_cast<float>(swap_chain.extent.width) / 2.0f,
+        static_cast<float>(swap_chain.extent.width) / 2.0f,
+        static_cast<float>(swap_chain.extent.height) / 2.0f,
+        -static_cast<float>(swap_chain.extent.height) / 2.0f, 1000.0f, -1000.0f
+    );
+    renderer.begin(device, swap_chain, queue, pixel_uniform);
+    renderer.set_model(glm::vec2(0.0f, 0.0f), glm::vec2(4.0f), glm::radians(45.0f));
+    for (int x = -10; x < 10; x++) {
+        for (int y = -10; y < 10; y++) {
+            renderer.draw({1.0f, 0.0f, 0.0f, 1.0f}, {x, y});
+        }
+    }
+    renderer.end();
+}
+
 struct VK_TrialPlugin : Plugin {
     void build(App& app) override {
         auto window_plugin = app.get_plugin<WindowPlugin>();
@@ -293,6 +320,7 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(Update, destroy_too_far_bodies);
         app.add_system(Update, create_dynamic_from_click);
         app.add_system(Render, render_bodies);
+        app.add_system(Render, render_pixel_renderer_test);
         app.add_system(Exit, destroy_b2d_world);
     }
 };
@@ -307,7 +335,7 @@ void run() {
     // app.add_plugin(pixel_engine::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});
     app.add_plugin(pixel_engine::imgui::ImGuiPluginVK{});
-    // app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
+    app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
     // app.add_plugin(pixel_engine::sprite::SpritePluginVK{});
     app.run();
 }

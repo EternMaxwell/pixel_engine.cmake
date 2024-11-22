@@ -476,7 +476,7 @@ struct Swapchain {
     vk::SurfaceFormatKHR surface_format;
     vk::PresentModeKHR present_mode;
     vk::Extent2D extent;
-    uint32_t image_index = 0;
+    uint32_t image_index   = 0;
     uint32_t current_frame = 0;
     vk::Fence in_flight_fence[2];
 };
@@ -537,6 +537,29 @@ struct PipelineCache {
     static PipelineCache create(Device& device);
 
     vk::PipelineCache pipeline_cache;
+};
+
+struct RenderTarget {
+    std::vector<std::tuple<Image, ImageView, vk::Format>> color_attachments;
+    std::tuple<Image, ImageView, vk::Format> depth_attachment;
+    vk::Extent2D extent;
+
+    RenderTarget& set_extent(uint32_t width, uint32_t height);
+    RenderTarget& add_color_image(Image& color_image, vk::Format color_format);
+    RenderTarget& add_color_image(
+        Device& device, Image& color_image, vk::Format color_format
+    );
+    RenderTarget& add_color_image(
+        Image& color_image, ImageView& color_image_view, vk::Format color_format
+    );
+    RenderTarget& set_depth_image(Image& depth_image, vk::Format depth_format);
+    RenderTarget& set_depth_image(
+        Device& device, Image& depth_image, vk::Format depth_format
+    );
+    RenderTarget& set_depth_image(
+        Image& depth_image, ImageView& depth_image_view, vk::Format depth_format
+    );
+    RenderTarget& complete(Device& device);
 };
 }  // namespace components
 }  // namespace render_vk
