@@ -27,8 +27,11 @@ static std::vector<events::MouseScroll> scroll_cache;
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     std::lock_guard<std::mutex> lock(scroll_mutex);
-    Entity* ptr = static_cast<Entity*>(glfwGetWindowUserPointer(window));
-    scroll_cache.emplace_back(xoffset, yoffset, *ptr);
+    std::pair<Entity, resources::WindowThreadPool*>* ptr =
+        static_cast<std::pair<Entity, resources::WindowThreadPool*>*>(
+            glfwGetWindowUserPointer(window)
+        );
+    scroll_cache.emplace_back(xoffset, yoffset, ptr->first);
 }
 
 void systems::create_window(
@@ -45,7 +48,9 @@ void systems::create_window(
         command.entity(entity).erase<WindowDescription>();
         if (window.has_value()) {
             command.entity(entity).emplace(window.value());
-            Entity* ptr = new Entity{entity};
+            auto* ptr = new std::pair<Entity, resources::WindowThreadPool*>{
+                entity, &(*pool)
+            };
             glfwSetWindowUserPointer(
                 window.value().get_handle(), static_cast<void*>(ptr)
             );

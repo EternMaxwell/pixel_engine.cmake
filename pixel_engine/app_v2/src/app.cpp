@@ -5,7 +5,7 @@ using namespace pixel_engine::app;
 App* App::SystemInfo::operator->() { return app; }
 App::SystemInfo& App::SystemInfo::chain() {
     for (size_t i = 0; i < nodes.size() - 1; i++) {
-        nodes[i]->before(nodes[i + 1]);
+        nodes[i]->before(nodes[i + 1]->m_sys_addr);
     }
     return *this;
 }
