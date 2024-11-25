@@ -105,7 +105,7 @@ Instance Instance::create(
 ) {
     Instance instance;
     instance.logger = logger;
-    auto app_info = vk::ApplicationInfo()
+    auto app_info   = vk::ApplicationInfo()
                         .setPApplicationName(app_name)
                         .setApplicationVersion(app_version)
                         .setPEngineName("Pixel Engine")
@@ -237,7 +237,7 @@ Device Device::create(
     vk::QueueFlags queue_flags
 ) {
     Device device;
-    float queue_priority = 1.0f;
+    float queue_priority        = 1.0f;
     uint32_t queue_family_index = 0;
     for (auto& queue_family_property :
          physical_device->getQueueFamilyProperties()) {
@@ -252,7 +252,7 @@ Device Device::create(
         throw std::runtime_error("No queue family with graphics support");
     }
     device.queue_family_index = queue_family_index;
-    auto queue_create_info = vk::DeviceQueueCreateInfo()
+    auto queue_create_info    = vk::DeviceQueueCreateInfo()
                                  .setQueueFamilyIndex(queue_family_index)
                                  .setQueueCount(1)
                                  .setPQueuePriorities(&queue_priority);
@@ -308,17 +308,17 @@ Device Device::create(
             .setDescriptorBindingSampledImageUpdateAfterBind(true)
             .setDescriptorBindingStorageImageUpdateAfterBind(true);
     dynamic_rendering_features.setPNext(&descriptor_indexing_features);
-    auto device_feature2 = physical_device->getFeatures2();
+    auto device_feature2  = physical_device->getFeatures2();
     device_feature2.pNext = &dynamic_rendering_features;
-    auto device_info = vk::DeviceCreateInfo()
+    auto device_info      = vk::DeviceCreateInfo()
                            .setQueueCreateInfos(queue_create_info)
                            .setPNext(&device_feature2)
                            .setPEnabledExtensionNames(device_extensions);
     device.device = physical_device->createDevice(device_info);
     VmaAllocatorCreateInfo allocator_info = {};
-    allocator_info.physicalDevice = physical_device;
-    allocator_info.device = device.device;
-    allocator_info.instance = instance.instance;
+    allocator_info.physicalDevice         = physical_device;
+    allocator_info.device                 = device.device;
+    allocator_info.instance               = instance.instance;
     vmaCreateAllocator(&allocator_info, &device.allocator);
     return device;
 }
@@ -1032,8 +1032,8 @@ Swapchain Swapchain::create(
     auto surface_capabilities =
         physical_device->getSurfaceCapabilitiesKHR(surface);
     auto surface_formats = physical_device->getSurfaceFormatsKHR(surface);
-    auto present_modes = physical_device->getSurfacePresentModesKHR(surface);
-    auto format_iter = std::find_if(
+    auto present_modes   = physical_device->getSurfacePresentModesKHR(surface);
+    auto format_iter     = std::find_if(
         surface_formats.begin(), surface_formats.end(),
         [](const vk::SurfaceFormatKHR& format) {
             return format.format == vk::Format::eB8G8R8A8Srgb &&
@@ -1047,12 +1047,12 @@ Swapchain Swapchain::create(
         throw std::runtime_error("No suitable surface format");
     }
     swapchain.surface_format = *format_iter;
-    swapchain.present_mode = mode_iter == present_modes.end() || vsync
-                                 ? vk::PresentModeKHR::eFifo
-                                 : *mode_iter;
-    swapchain.extent = surface_capabilities.currentExtent;
-    uint32_t image_count = surface_capabilities.minImageCount + 1;
-    image_count = std::clamp(
+    swapchain.present_mode   = mode_iter == present_modes.end() || vsync
+                                   ? vk::PresentModeKHR::eFifo
+                                   : *mode_iter;
+    swapchain.extent         = surface_capabilities.currentExtent;
+    uint32_t image_count     = surface_capabilities.minImageCount + 1;
+    image_count              = std::clamp(
         image_count, surface_capabilities.minImageCount,
         surface_capabilities.maxImageCount
     );
@@ -1079,7 +1079,7 @@ Swapchain Swapchain::create(
         .setPresentMode(swapchain.present_mode)
         .setClipped(VK_TRUE);
     swapchain.swapchain = device->createSwapchainKHR(create_info);
-    swapchain.images = device->getSwapchainImagesKHR(swapchain.swapchain);
+    swapchain.images    = device->getSwapchainImagesKHR(swapchain.swapchain);
     spdlog::info("Swapchain Image Count: {}", swapchain.images.size());
     swapchain.image_views.resize(swapchain.images.size());
     for (int i = 0; i < swapchain.images.size(); i++) {
@@ -1125,9 +1125,9 @@ void Swapchain::recreate(
     device->destroySwapchainKHR(swapchain);
     auto surface_capabilities =
         physical_device->getSurfaceCapabilitiesKHR(surface);
-    extent = surface_capabilities.currentExtent;
+    extent               = surface_capabilities.currentExtent;
     uint32_t image_count = surface_capabilities.minImageCount + 1;
-    image_count = std::clamp(
+    image_count          = std::clamp(
         image_count, surface_capabilities.minImageCount,
         surface_capabilities.maxImageCount
     );
@@ -1154,7 +1154,7 @@ void Swapchain::recreate(
         .setPresentMode(present_mode)
         .setClipped(VK_TRUE);
     swapchain = device->createSwapchainKHR(create_info);
-    images = device->getSwapchainImagesKHR(swapchain);
+    images    = device->getSwapchainImagesKHR(swapchain);
     image_views.resize(images.size());
     for (int i = 0; i < images.size(); i += 1) {
         image_views[i] = ImageView::create(
@@ -1277,3 +1277,135 @@ PipelineCache::operator VkPipelineCache() const { return pipeline_cache; }
 bool PipelineCache::operator!() const { return !pipeline_cache; }
 vk::PipelineCache* PipelineCache::operator->() { return &pipeline_cache; }
 vk::PipelineCache& PipelineCache::operator*() { return pipeline_cache; }
+
+RenderTarget& RenderTarget::set_extent(uint32_t width, uint32_t height) {
+    extent = vk::Extent2D(width, height);
+    return *this;
+}
+
+RenderTarget& RenderTarget::add_color_image(Image& image, vk::Format format) {
+    color_attachments.emplace_back(image, ImageView{}, format);
+    return *this;
+}
+
+RenderTarget& RenderTarget::add_color_image(
+    Image& image, ImageView& image_view, vk::Format format
+) {
+    color_attachments.emplace_back(image, image_view, format);
+    return *this;
+}
+
+RenderTarget& RenderTarget::add_color_image(
+    Device& device, Image& image, vk::Format format
+) {
+    auto image_view = ImageView::create(
+        device, vk::ImageViewCreateInfo()
+                    .setImage(image)
+                    .setViewType(vk::ImageViewType::e2D)
+                    .setFormat(format)
+                    .setComponents(vk::ComponentMapping()
+                                       .setR(vk::ComponentSwizzle::eIdentity)
+                                       .setG(vk::ComponentSwizzle::eIdentity)
+                                       .setB(vk::ComponentSwizzle::eIdentity)
+                                       .setA(vk::ComponentSwizzle::eIdentity))
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setBaseMipLevel(0)
+                            .setLevelCount(1)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1)
+                    )
+    );
+    color_attachments.emplace_back(image, image_view, format);
+    return *this;
+}
+
+RenderTarget& RenderTarget::set_depth_image(Image& image, vk::Format format) {
+    depth_attachment = {image, ImageView{}, format};
+    return *this;
+}
+
+RenderTarget& RenderTarget::set_depth_image(
+    Image& image, ImageView& image_view, vk::Format format
+) {
+    depth_attachment = {image, image_view, format};
+    return *this;
+}
+
+RenderTarget& RenderTarget::set_depth_image(
+    Device& device, Image& image, vk::Format format
+) {
+    auto image_view = ImageView::create(
+        device, vk::ImageViewCreateInfo()
+                    .setImage(image)
+                    .setViewType(vk::ImageViewType::e2D)
+                    .setFormat(format)
+                    .setComponents(vk::ComponentMapping()
+                                       .setR(vk::ComponentSwizzle::eIdentity)
+                                       .setG(vk::ComponentSwizzle::eIdentity)
+                                       .setB(vk::ComponentSwizzle::eIdentity)
+                                       .setA(vk::ComponentSwizzle::eIdentity))
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                            .setBaseMipLevel(0)
+                            .setLevelCount(1)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1)
+                    )
+    );
+    depth_attachment = {image, image_view, format};
+    return *this;
+}
+
+RenderTarget& RenderTarget::complete(Device& device) {
+    for (auto&& [image, view, format] : color_attachments) {
+        if (!view) {
+            view = ImageView::create(
+                device,
+                vk::ImageViewCreateInfo()
+                    .setImage(image)
+                    .setViewType(vk::ImageViewType::e2D)
+                    .setFormat(format)
+                    .setComponents(vk::ComponentMapping()
+                                       .setR(vk::ComponentSwizzle::eIdentity)
+                                       .setG(vk::ComponentSwizzle::eIdentity)
+                                       .setB(vk::ComponentSwizzle::eIdentity)
+                                       .setA(vk::ComponentSwizzle::eIdentity))
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setBaseMipLevel(0)
+                            .setLevelCount(1)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1)
+                    )
+            );
+        }
+    }
+    auto&& [image, view, format] = depth_attachment;
+    if (!view) {
+        view = ImageView::create(
+            device,
+            vk::ImageViewCreateInfo()
+                .setImage(image)
+                .setViewType(vk::ImageViewType::e2D)
+                .setFormat(format)
+                .setComponents(vk::ComponentMapping()
+                                   .setR(vk::ComponentSwizzle::eIdentity)
+                                   .setG(vk::ComponentSwizzle::eIdentity)
+                                   .setB(vk::ComponentSwizzle::eIdentity)
+                                   .setA(vk::ComponentSwizzle::eIdentity))
+                .setSubresourceRange(
+                    vk::ImageSubresourceRange()
+                        .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                        .setBaseMipLevel(0)
+                        .setLevelCount(1)
+                        .setBaseArrayLayer(0)
+                        .setLayerCount(1)
+                )
+        );
+    }
+    return *this;
+}

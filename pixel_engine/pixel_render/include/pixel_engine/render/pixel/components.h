@@ -9,8 +9,14 @@ namespace pixel_engine::render::pixel {
 namespace components {
 using namespace pixel_engine::prelude;
 
+struct PixelBlockVertex {
+    glm::vec4 color;
+    int model_index;
+};
+
 struct PixelVertex {
     glm::vec4 color;
+    glm::vec2 pos;
     int model_index;
 };
 
@@ -42,6 +48,63 @@ struct BlockPos2d {
 };
 
 using namespace pixel_engine::render_vk::components;
+struct PixelBlockRenderer {
+    RenderPass render_pass;
+    Pipeline graphics_pipeline;
+    PipelineLayout pipeline_layout;
+    Buffer vertex_buffer;
+    Buffer vertex_staging_buffer;
+    Buffer uniform_buffer;
+    Buffer block_model_buffer;
+    DescriptorSetLayout descriptor_set_layout;
+    DescriptorPool descriptor_pool;
+    DescriptorSet descriptor_set;
+    Fence fence;
+    CommandBuffer command_buffer;
+    Framebuffer framebuffer;
+
+    struct Context {
+        Device* device;
+        Queue* queue;
+        vk::Extent2D extent;
+        uint32_t vertex_offset = 0;
+        int block_model_offset = 0;
+        PixelBlockData* block_model_data;
+        PixelBlockVertex* vertex_data;
+
+        Context(Device& device, Queue& queue);
+    };
+    std::optional<Context> context;
+
+    void begin(
+        Device& device,
+        Swapchain& swapchain,
+        Queue& queue,
+        const PixelUniformBuffer& pixel_uniform
+    );
+    void begin(
+        Device& device,
+        Queue& queue,
+        ImageView& render_target,
+        vk::Extent2D extent,
+        const PixelUniformBuffer& pixel_uniform
+    );
+    void begin(
+        Device& device,
+        Queue& queue,
+        Framebuffer& framebuffer,
+        vk::Extent2D extent,
+        const PixelUniformBuffer& pixel_uniform
+    );
+    void draw(const PixelBlock& block, const BlockPos2d& pos2d);
+    void end();
+
+   private:
+    void set_block_data(const PixelBlock& block, const BlockPos2d& pos2d);
+    void reset_cmd();
+    void flush();
+};
+
 struct PixelRenderer {
     RenderPass render_pass;
     Pipeline graphics_pipeline;
@@ -59,15 +122,16 @@ struct PixelRenderer {
 
     struct Context {
         Device* device;
-        Swapchain* swapchain;
         Queue* queue;
-        uint32_t vertex_offset      = 0;
-        int block_model_offset = 0;
-        PixelBlockData* block_model_data;
+        vk::Extent2D extent;
+        uint32_t vertex_offset = 0;
+        int model_offset       = 0;
+        glm::mat4* model_data;
         PixelVertex* vertex_data;
 
-        Context(Device& device, Swapchain& swapchain, Queue& queue);
+        Context(Device& device, Queue& queue);
     };
+
     std::optional<Context> context;
 
     void begin(
@@ -76,11 +140,28 @@ struct PixelRenderer {
         Queue& queue,
         const PixelUniformBuffer& pixel_uniform
     );
-    void draw(const PixelBlock& block, const BlockPos2d& pos2d);
+    void begin(
+        Device& device,
+        Queue& queue,
+        ImageView& render_target,
+        vk::Extent2D extent,
+        const PixelUniformBuffer& pixel_uniform
+    );
+    void begin(
+        Device& device,
+        Queue& queue,
+        Framebuffer& framebuffer,
+        vk::Extent2D extent,
+        const PixelUniformBuffer& pixel_uniform
+    );
+    void draw(const glm::vec4& color, const glm::vec2& pos);
     void end();
+    void set_model(const glm::mat4& model);
+    void set_model(
+        const glm::vec2& pos, const glm::vec2& scale, float rotation
+    );
 
    private:
-    void set_block_data(const PixelBlock& block, const BlockPos2d& pos2d);
     void reset_cmd();
     void flush();
 };

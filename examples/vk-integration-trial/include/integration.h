@@ -37,7 +37,7 @@ void create_ground(Command command, Query<Get<b2WorldId>> world_query) {
     body_def.type        = b2BodyType::b2_staticBody;
     body_def.position    = {0.0f, -100.0f};
     auto ground          = b2CreateBody(world, &body_def);
-    b2Polygon ground_box = b2MakeBox(500.0f, 10.0f);
+    b2Polygon ground_box = b2MakeBox(1000.0f, 10.0f);
     b2ShapeDef shape_def = b2DefaultShapeDef();
     b2CreatePolygonShape(ground, &shape_def, &ground_box);
     command.spawn(ground);
@@ -50,7 +50,7 @@ void create_dynamic(Command command, Query<Get<b2WorldId>> world_query) {
     body_def.type         = b2BodyType::b2_dynamicBody;
     body_def.position     = {0.0f, 100.0f};
     auto body             = b2CreateBody(world, &body_def);
-    b2Polygon box         = b2MakeBox(10.0f, 10.0f);
+    b2Polygon box         = b2MakeBox(4.0f, 4.0f);
     b2ShapeDef shape_def  = b2DefaultShapeDef();
     shape_def.density     = 1.0f;
     shape_def.friction    = 0.1f;
@@ -73,7 +73,7 @@ void create_dynamic_from_click(
     if (!window_query.single().has_value()) return;
     auto [window, mouse_input, key_input] = window_query.single().value();
     if (ImGui::GetIO().WantCaptureMouse) return;
-    if (!mouse_input.just_pressed(pixel_engine::input::MouseButton1) &&
+    if (!mouse_input.pressed(pixel_engine::input::MouseButton1) &&
         !key_input.just_pressed(pixel_engine::input::KeySpace))
         return;
     auto [world]       = world_query.single().value();
@@ -87,13 +87,21 @@ void create_dynamic_from_click(
         "Creating body at {}, {}", body_def.position.x, body_def.position.y
     );
     auto body             = b2CreateBody(world, &body_def);
-    b2Polygon box         = b2MakeBox(10.0f, 10.0f);
+    b2Polygon box         = b2MakeBox(4.0f, 4.0f);
     b2ShapeDef shape_def  = b2DefaultShapeDef();
     shape_def.density     = 1.0f;
     shape_def.friction    = 0.6f;
     shape_def.restitution = 0.1f;
     b2CreatePolygonShape(body, &shape_def, &box);
     command.spawn(body);
+}
+
+void toggle_full_screen(Query<Get<Window, ButtonInput<KeyCode>>> query) {
+    if (!query.single().has_value()) return;
+    auto [window, key_input] = query.single().value();
+    if (key_input.just_pressed(pixel_engine::input::KeyF11)) {
+        window.toggle_fullscreen();
+    }
 }
 
 void render_bodies(
@@ -163,6 +171,7 @@ void update_b2d_world(
             )
                 .count();
         auto dt    = current_time - last_time->value();
+        dt         = std::min(dt, 0.1);
         *last_time = current_time;
         b2World_Step(world, dt, 6);
     }
@@ -272,6 +281,54 @@ void imgui_demo_window(ResMut<pixel_engine::imgui::ImGuiContext> imgui_context
     ImGui::ShowDemoWindow();
 }
 
+void render_pixel_renderer_test(
+    Query<Get<pixel_engine::render::pixel::components::PixelRenderer>> query,
+    Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query
+) {
+    using namespace pixel_engine::render::pixel::components;
+    if (!query.single().has_value()) return;
+    if (!context_query.single().has_value()) return;
+    auto [device, swap_chain, queue] = context_query.single().value();
+    auto [renderer]                  = query.single().value();
+    PixelUniformBuffer pixel_uniform;
+    pixel_uniform.view = glm::mat4(1.0f);
+    pixel_uniform.proj = glm::ortho(
+        -static_cast<float>(swap_chain.extent.width) / 2.0f,
+        static_cast<float>(swap_chain.extent.width) / 2.0f,
+        static_cast<float>(swap_chain.extent.height) / 2.0f,
+        -static_cast<float>(swap_chain.extent.height) / 2.0f, 1000.0f, -1000.0f
+    );
+    renderer.begin(device, swap_chain, queue, pixel_uniform);
+    renderer.set_model(
+        glm::vec2(0.0f, 0.0f), glm::vec2(4.0f), glm::radians(45.0f)
+    );
+    for (int x = -10; x < 10; x++) {
+        for (int y = -10; y < 10; y++) {
+            renderer.draw({1.0f, 0.0f, 0.0f, 1.0f}, {x, y});
+        }
+    }
+    renderer.end();
+}
+
+enum class SimulateState { Running, Paused };
+
+void toggle_simulation(
+    ResMut<NextState<SimulateState>> next_state,
+    Query<Get<ButtonInput<KeyCode>>, With<PrimaryWindow>> query
+) {
+    if (!query.single().has_value()) return;
+    auto [key_input] = query.single().value();
+    if (key_input.just_pressed(pixel_engine::input::KeyEscape)) {
+        if (next_state.has_value()) {
+            next_state->set_state(
+                next_state->is_state(SimulateState::Running)
+                    ? SimulateState::Paused
+                    : SimulateState::Running
+            );
+        }
+    }
+}
+
 struct VK_TrialPlugin : Plugin {
     void build(App& app) override {
         auto window_plugin = app.get_plugin<WindowPlugin>();
@@ -283,16 +340,20 @@ struct VK_TrialPlugin : Plugin {
         // app.add_system(Startup, create_text);
         // app.add_system(Startup, create_pixel_block);
         // app.add_system(Render, draw_lines);
-        app.add_system(Render, imgui_demo_window);
-
-        app.add_system(Startup, create_b2d_world);
-        app.add_system(Startup, create_ground).after(create_b2d_world);
-        app.add_system(Startup, create_dynamic)
-            .after(create_b2d_world, create_ground);
-        app.add_system(PreUpdate, update_b2d_world);
-        app.add_system(Update, destroy_too_far_bodies);
-        app.add_system(Update, create_dynamic_from_click);
-        app.add_system(Render, render_bodies);
+        app.insert_state(SimulateState::Running);
+        app.add_system(Startup, create_b2d_world, create_ground, create_dynamic)
+            .chain();
+        app.add_system(PreUpdate, update_b2d_world)
+            .in_state(SimulateState::Running);
+        app.add_system(PreUpdate, toggle_full_screen).use_worker("single");
+        app.add_system(
+            Update, destroy_too_far_bodies, create_dynamic_from_click,
+            toggle_simulation
+        );
+        app.add_system(
+            Render, render_bodies
+            /*, imgui_demo_window, render_pixel_renderer_test */
+        );
         app.add_system(Exit, destroy_b2d_world);
     }
 };
@@ -377,7 +438,7 @@ void run() {
     // app.add_plugin(pixel_engine::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});
     app.add_plugin(pixel_engine::imgui::ImGuiPluginVK{});
-    // app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
+    app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
     // app.add_plugin(pixel_engine::sprite::SpritePluginVK{});
     // app.run();
 

@@ -50,6 +50,8 @@ struct Window {
     bool m_vsync;
     extent m_size;
     ivec2 m_pos;
+    extent m_size_cache;
+    ivec2 m_pos_cache;
     dvec2 m_cursor_pos;
     std::optional<dvec2> m_cursor_move;
 

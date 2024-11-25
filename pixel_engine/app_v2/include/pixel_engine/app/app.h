@@ -159,7 +159,7 @@ struct App {
             for (auto node : nodes)
                 node->m_conditions.emplace_back(
                     std::make_unique<Condition<Res<State<T>>>>(
-                        [state](Res<State<T>> s) { return s.is_state(state); }
+                        [state](Res<State<T>> s) { return s->is_state(state); }
                     )
                 );
             return *this;

@@ -1,8 +1,10 @@
 #include "pixel_engine/window/components.h"
+#include "pixel_engine/window/resources.h"
 
 using namespace pixel_engine::prelude;
 using namespace pixel_engine::window;
 using namespace pixel_engine::window::components;
+using namespace pixel_engine::window::resources;
 
 WindowDescription& WindowDescription::set_title(std::string title) {
     this->title = title;
@@ -32,8 +34,12 @@ const Window::dvec2& Window::get_cursor() const { return m_cursor_pos; }
 const std::optional<Window::dvec2>& Window::get_cursor_move() const {
     return m_cursor_move;
 }
-const Window::ivec2& Window::get_pos() const { return m_pos; }
-const Window::extent& Window::get_size() const { return m_size; }
+const Window::ivec2& Window::get_pos() const {
+    return m_pos;
+}
+const Window::extent& Window::get_size() const {
+    return m_size;
+}
 GLFWwindow* Window::get_handle() const { return m_handle; }
 void Window::context_current() { glfwMakeContextCurrent(m_handle); }
 void Window::detach_context() {
@@ -61,18 +67,38 @@ bool Window::is_fullscreen() const {
     return glfwGetWindowMonitor(m_handle) != nullptr;
 }
 void Window::set_fullscreen() {
-    auto monitor = glfwGetPrimaryMonitor();
-    auto mode    = glfwGetVideoMode(monitor);
-    glfwSetWindowMonitor(
-        m_handle, monitor, 0, 0, mode->width, mode->height, mode->refreshRate
+    auto monitor   = glfwGetPrimaryMonitor();
+    auto mode      = glfwGetVideoMode(monitor);
+    auto* user_ptr = static_cast<std::pair<Entity, WindowThreadPool*>*>(
+        glfwGetWindowUserPointer(m_handle)
     );
+    auto&& [entity, pool] = *user_ptr;
+    auto ftr              = pool->submit_task([=]() {
+        glfwSetWindowMonitor(
+            m_handle, monitor, 0, 0, mode->width, mode->height,
+            mode->refreshRate
+        );
+    });
+    ftr.wait();
+    m_size_cache = m_size;
+    m_pos_cache  = m_pos;
+    m_size       = {mode->width, mode->height};
+    m_pos        = {0, 0};
 }
 void Window::fullscreen_off() {
-    auto mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-    glfwSetWindowMonitor(
-        m_handle, nullptr, m_pos.x, m_pos.y, m_size.width, m_size.height,
-        mode->refreshRate
+    auto mode      = glfwGetVideoMode(glfwGetPrimaryMonitor());
+    auto* user_ptr = static_cast<std::pair<Entity, WindowThreadPool*>*>(
+        glfwGetWindowUserPointer(m_handle)
     );
+    auto&& [entity, pool] = *user_ptr;
+    m_size = m_size_cache;
+    m_pos  = m_pos_cache;
+    auto ftr              = pool->submit_task([=]() {
+        glfwSetWindowMonitor(
+            m_handle, nullptr, m_pos.x, m_pos.y, m_size.width, m_size.height, 0
+        );
+    });
+    ftr.wait();
 }
 void Window::toggle_fullscreen() {
     if (is_fullscreen()) {
