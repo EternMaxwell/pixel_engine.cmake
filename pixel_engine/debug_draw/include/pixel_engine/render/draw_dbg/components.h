@@ -13,6 +13,8 @@ struct DebugVertex {
     uint32_t model_index;
 };
 struct LineDrawer {
+    const size_t max_vertex_count;
+    const size_t max_model_count;
     RenderPass render_pass;
     Pipeline pipeline;
     PipelineLayout pipeline_layout;
@@ -34,6 +36,7 @@ struct LineDrawer {
         uint32_t model_count  = 0;
         DebugVertex* mapped_vertex_buffer;
         glm::mat4* mapped_model_buffer;
+        Image color_image;
 
         Context(Device& device, Queue& queue)
             : device(&device), queue(&queue) {}
@@ -51,6 +54,8 @@ struct LineDrawer {
     );
 };
 struct TriangleDrawer {
+    const size_t max_vertex_count;
+    const size_t max_model_count;
     RenderPass render_pass;
     Pipeline pipeline;
     PipelineLayout pipeline_layout;
@@ -72,6 +77,7 @@ struct TriangleDrawer {
         uint32_t model_count  = 0;
         DebugVertex* mapped_vertex_buffer;
         glm::mat4* mapped_model_buffer;
+        Image color_image;
 
         Context(Device& device, Queue& queue)
             : device(&device), queue(&queue) {}
@@ -90,6 +96,8 @@ struct TriangleDrawer {
     );
 };
 struct PointDrawer {
+    const size_t max_vertex_count;
+    const size_t max_model_count;
     RenderPass render_pass;
     Pipeline pipeline;
     PipelineLayout pipeline_layout;
@@ -111,6 +119,7 @@ struct PointDrawer {
         uint32_t model_count  = 0;
         DebugVertex* mapped_vertex_buffer;
         glm::mat4* mapped_model_buffer;
+        Image color_image;
 
         Context(Device& device, Queue& queue)
             : device(&device), queue(&queue) {}

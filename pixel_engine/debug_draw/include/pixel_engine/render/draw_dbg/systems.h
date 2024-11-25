@@ -4,18 +4,28 @@
 
 #include "components.h"
 
+namespace pixel_engine::render::debug::vulkan {
+struct DebugRenderPlugin;
+}  // namespace pixel_engine::render::debug::vulkan
+
 namespace pixel_engine::render::debug::vulkan::systems {
 using namespace pixel_engine::prelude;
 using namespace pixel_engine::render_vk::components;
 using namespace pixel_engine::render::debug::vulkan::components;
 void create_line_drawer(
-    Query<Get<Device, CommandPool>, With<RenderContext>> query, Command cmd
+    Query<Get<Device, CommandPool>, With<RenderContext>> query,
+    Command cmd,
+    Res<DebugRenderPlugin> plugin
 );
 void create_point_drawer(
-    Query<Get<Device, CommandPool>, With<RenderContext>> query, Command cmd
+    Query<Get<Device, CommandPool>, With<RenderContext>> query,
+    Command cmd,
+    Res<DebugRenderPlugin> plugin
 );
 void create_triangle_drawer(
-    Query<Get<Device, CommandPool>, With<RenderContext>> query, Command cmd
+    Query<Get<Device, CommandPool>, With<RenderContext>> query,
+    Command cmd,
+    Res<DebugRenderPlugin> plugin
 );
 void destroy_line_drawer(
     Query<Get<Device>, With<RenderContext>> device_query,

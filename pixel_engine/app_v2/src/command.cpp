@@ -5,24 +5,24 @@ using namespace pixel_engine::app;
 EntityCommand::EntityCommand(
     World* world,
     Entity entity,
-    std::shared_ptr<std::vector<Entity>> despawns,
-    std::shared_ptr<std::vector<Entity>> recursive_despawns
+    std::shared_ptr<spp::sparse_hash_set<Entity>> despawns,
+    std::shared_ptr<spp::sparse_hash_set<Entity>> recursive_despawns
 )
     : m_registry(&world->m_registry),
       m_entity(entity),
       m_despawns(despawns),
       m_recursive_despawns(recursive_despawns) {}
 
-void EntityCommand::despawn() { m_despawns->push_back(m_entity); }
+void EntityCommand::despawn() { m_despawns->emplace(m_entity); }
 
 void EntityCommand::despawn_recurse() {
-    m_recursive_despawns->push_back(m_entity);
+    m_recursive_despawns->emplace(m_entity);
 }
 
 Command::Command(World* world)
     : m_world(world),
-      m_despawns(std::make_shared<std::vector<Entity>>()),
-      m_recursive_despawns(std::make_shared<std::vector<Entity>>()) {}
+      m_despawns(std::make_shared<spp::sparse_hash_set<Entity>>()),
+      m_recursive_despawns(std::make_shared<spp::sparse_hash_set<Entity>>()) {}
 
 EntityCommand Command::entity(Entity entity) {
     return EntityCommand(m_world, entity, m_despawns, m_recursive_despawns);

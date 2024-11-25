@@ -11,19 +11,21 @@ namespace pixel_engine {
 namespace app {
 using namespace internal_components;
 
+struct SubApp;
+
 struct EntityCommand {
    private:
     entt::registry* const m_registry;
     const Entity m_entity;
-    std::shared_ptr<std::vector<Entity>> m_despawns;
-    std::shared_ptr<std::vector<Entity>> m_recursive_despawns;
+    std::shared_ptr<spp::sparse_hash_set<Entity>> m_despawns;
+    std::shared_ptr<spp::sparse_hash_set<Entity>> m_recursive_despawns;
 
    public:
     EntityCommand(
         World* world,
         Entity entity,
-        std::shared_ptr<std::vector<Entity>> despawns,
-        std::shared_ptr<std::vector<Entity>> recursive_despawns
+        std::shared_ptr<spp::sparse_hash_set<Entity>> despawns,
+        std::shared_ptr<spp::sparse_hash_set<Entity>> recursive_despawns
     );
 
     /*! @brief Spawn an entity.
@@ -77,8 +79,8 @@ struct EntityCommand {
 struct Command {
    private:
     World* const m_world;
-    std::shared_ptr<std::vector<Entity>> m_despawns;
-    std::shared_ptr<std::vector<Entity>> m_recursive_despawns;
+    std::shared_ptr<spp::sparse_hash_set<Entity>> m_despawns;
+    std::shared_ptr<spp::sparse_hash_set<Entity>> m_recursive_despawns;
 
    public:
     Command(World* world);
@@ -178,7 +180,10 @@ struct Command {
         }
     }
 
+   private:
     void end();
+
+    friend struct SubApp;
 };
 }  // namespace app
 }  // namespace pixel_engine

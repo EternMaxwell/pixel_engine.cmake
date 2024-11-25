@@ -72,6 +72,7 @@ void create_dynamic_from_click(
     if (!world_query.single().has_value()) return;
     if (!window_query.single().has_value()) return;
     auto [window, mouse_input, key_input] = window_query.single().value();
+    if (ImGui::GetIO().WantCaptureMouse) return;
     if (!mouse_input.just_pressed(pixel_engine::input::MouseButton1) &&
         !key_input.just_pressed(pixel_engine::input::KeySpace))
         return;
@@ -89,8 +90,8 @@ void create_dynamic_from_click(
     b2Polygon box         = b2MakeBox(10.0f, 10.0f);
     b2ShapeDef shape_def  = b2DefaultShapeDef();
     shape_def.density     = 1.0f;
-    shape_def.friction    = 0.1f;
-    shape_def.restitution = 0.9f;
+    shape_def.friction    = 0.6f;
+    shape_def.restitution = 0.1f;
     b2CreatePolygonShape(body, &shape_def, &box);
     command.spawn(body);
 }
@@ -107,6 +108,7 @@ void render_bodies(
     auto [line_drawer]               = line_drawer_query.single().value();
     line_drawer.begin(device, queue, swap_chain);
     for (auto [body] : query.iter()) {
+        if (!b2Body_IsValid(body)) continue;
         b2Vec2 position = b2Body_GetPosition(body);
         b2Vec2 velocity = b2Body_GetLinearVelocity(body);
         auto rotation   = b2Body_GetRotation(body);  // a cosine / sine pair
@@ -163,6 +165,24 @@ void update_b2d_world(
         auto dt    = current_time - last_time->value();
         *last_time = current_time;
         b2World_Step(world, dt, 6);
+    }
+}
+
+void destroy_too_far_bodies(
+    Query<Get<Entity, b2BodyId>> query,
+    Query<Get<b2WorldId>> world_query,
+    Command command
+) {
+    if (!world_query.single().has_value()) return;
+    auto [world] = world_query.single().value();
+    for (auto [entity, body] : query.iter()) {
+        auto position = b2Body_GetPosition(body);
+        if (position.y < -1000.0f || position.y > 1000.0f ||
+            position.x < -2000.0f || position.x > 2000.0f) {
+            spdlog::info("Destroying body at {}, {}", position.x, position.y);
+            b2DestroyBody(body);
+            command.entity(entity).despawn();
+        }
     }
 }
 
@@ -270,6 +290,7 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(Startup, create_dynamic)
             .after(create_b2d_world, create_ground);
         app.add_system(PreUpdate, update_b2d_world);
+        app.add_system(Update, destroy_too_far_bodies);
         app.add_system(Update, create_dynamic_from_click);
         app.add_system(Render, render_bodies);
         app.add_system(Exit, destroy_b2d_world);
