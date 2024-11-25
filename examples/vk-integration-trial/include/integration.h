@@ -23,11 +23,159 @@ using namespace pixel_engine::sprite::components;
 using namespace pixel_engine::sprite::resources;
 
 namespace vk_trial {
+
+template <typename T>
+concept HasOutline = requires(T t) {
+    { t.size() } -> std::same_as<glm::ivec2>;
+    { t.contains(0i32, 0i32) } -> std::same_as<bool>;
+};
+
+template <HasOutline T>
+std::vector<glm::ivec2> find_outline(const T& pixelbin) {
+    std::vector<glm::ivec2> outline;
+    std::vector<glm::ivec2> move    = {{-1, 0}, {0, 1}, {1, 0}, {0, -1}};
+    std::vector<glm::ivec2> offsets = {
+        {-1, -1}, {-1, 0}, {0, 0}, {0, -1}
+    };  // if dir is i then in ccw order, i+1 is the right pixel coord, i is
+        // the left pixel coord, i = 0 means left.
+    glm::ivec2 start(-1, -1);
+    for (int i = 0; i < pixelbin.size().x; i++) {
+        for (int j = 0; j < pixelbin.size().y; j++) {
+            if (pixelbin.contains(i, j)) {
+                start = {i, j};
+                break;
+            }
+        }
+        if (start.x != -1) break;
+    }
+    if (start.x == -1) return outline;
+    glm::ivec2 current = start;
+    int dir            = 0;
+    do {
+        outline.push_back(current);
+        for (int ndir = (dir + 3) % 4; ndir != (dir + 2) % 4;
+             ndir     = (ndir + 1) % 4) {
+            auto outside = current + offsets[ndir];
+            auto inside  = current + offsets[(ndir + 1) % 4];
+            if (!pixelbin.contains(outside.x, outside.y) &&
+                pixelbin.contains(inside.x, inside.y)) {
+                current = current + move[ndir];
+                dir     = ndir;
+                break;
+            }
+        }
+    } while (current != start);
+    return outline;
+}
+
+struct pixelbin {
+    int width, height;
+    std::vector<uint32_t> pixels;
+    int column;
+
+    pixelbin(int width, int height) : width(width), height(height) {
+        column = width / 32 + (width % 32 ? 1 : 0);
+        pixels.resize(column * height);
+    }
+    void set(int x, int y, bool value) {
+        if (x < 0 || x >= width || y < 0 || y >= height) return;
+        int index = x / 32 + y * column;
+        int bit   = x % 32;
+        if (value)
+            pixels[index] |= 1 << bit;
+        else
+            pixels[index] &= ~(1 << bit);
+    }
+    bool operator[](glm::ivec2 pos) const {
+        if (pos.x < 0 || pos.x >= width || pos.y < 0 || pos.y >= height)
+            return false;
+        int index = pos.x / 32 + pos.y * column;
+        int bit   = pos.x % 32;
+        return pixels[index] & (1 << bit);
+    }
+    bool contains(int x, int y) const {
+        if (x < 0 || x >= width || y < 0 || y >= height) return false;
+        int index = x / 32 + y * column;
+        int bit   = x % 32;
+        return pixels[index] & (1 << bit);
+    }
+    glm::ivec2 size() const { return {width, height}; }
+};
+
+using PixelBlock = pixel_engine::render::pixel::components::PixelBlock;
+struct PixelBlockWrapper {
+    PixelBlock block;
+    bool contains(int x, int y) const { return block[{x, y}].a > 0.1f; }
+    glm::ivec2 size() const { return block.size; }
+    PixelBlockWrapper(int width, int height)
+        : block(PixelBlock::create({width, height})) {}
+};
+
 void create_b2d_world(Command command) {
     b2WorldDef def = b2DefaultWorldDef();
     def.gravity    = {0.0f, -29.8f};
     auto world     = b2CreateWorld(&def);
     command.spawn(world);
+}
+
+std::vector<glm::ivec2> douglas_peucker(
+    const std::vector<glm::ivec2>& points, float epsilon
+) {
+    if (points.size() < 3) return points;
+    float dmax         = 0.0f;
+    int index          = 0;
+    int end            = points.size() - 1;
+    auto distance_from_line = [](glm::ivec2 l1, glm::ivec2 l2, glm::ivec2 p) {
+        float x1 = l1.x, y1 = l1.y, x2 = l2.x, y2 = l2.y, x = p.x, y = p.y;
+        return std::abs((y2 - y1) * x - (x2 - x1) * y + x2 * y1 - y2 * x1) /
+               glm::distance(glm::vec2(x1, y1), glm::vec2(x2, y2));
+    };
+    for (int i = 1; i < end; i++) {
+        float d = distance_from_line(points[0], points[end], points[i]);
+        if (d > dmax) {
+            index = i;
+            dmax  = d;
+        }
+    }
+    std::vector<glm::ivec2> results;
+    if (dmax > epsilon) {
+        auto rec_results1 = douglas_peucker(
+            std::vector<glm::ivec2>(points.begin(), points.begin() + index),
+            epsilon
+        );
+        auto rec_results2 = douglas_peucker(
+            std::vector<glm::ivec2>(points.begin() + index, points.end()),
+            epsilon
+        );
+        results.insert(
+            results.end(), rec_results1.begin(), rec_results1.end()
+        );
+        results.insert(results.end(), rec_results2.begin(), rec_results2.end());
+    } else {
+        results.push_back(points[0]);
+        results.push_back(points[end]);
+    }
+    return results;
+}
+
+void create_pixel_block_with_collision(
+    Command command, Query<Get<b2WorldId>> world_query
+) {
+    if (!world_query.single().has_value()) return;
+    auto [world] = world_query.single().value();
+    auto block   = PixelBlockWrapper(64, 64);
+    for (int i = 0; i < 64; i++) {
+        block.block[{i, 0}]  = {1.0f, 1.0f, 1.0f, 1.0f};
+        block.block[{i, 63}] = {1.0f, 1.0f, 1.0f, 1.0f};
+        block.block[{0, i}]  = {1.0f, 1.0f, 1.0f, 1.0f};
+        block.block[{63, i}] = {1.0f, 1.0f, 1.0f, 1.0f};
+    }
+    auto outline       = find_outline(block);
+    b2BodyDef body_def = b2DefaultBodyDef();
+    body_def.type      = b2BodyType::b2_dynamicBody;
+    body_def.position  = {0.0f, 200.0f};
+
+    command.spawn(block);
 }
 
 void create_ground(Command command, Query<Get<b2WorldId>> world_query) {
@@ -270,8 +418,47 @@ void draw_lines(
     if (!context_query.single().has_value()) return;
     auto [device, swap_chain, queue] = context_query.single().value();
     auto [line_drawer]               = query.single().value();
+    pixelbin bin(5, 5);
+    bin.set(1, 1, true);
+    bin.set(2, 1, true);
+    bin.set(3, 1, true);
+    bin.set(3, 2, true);
+    // bin.set(3, 3, true);
+    bin.set(2, 3, true);
+    bin.set(1, 3, true);
+    bin.set(1, 2, true);
+    // for (int i = bin.size().x - 1; i >= 0; i--) {
+    //     for (int j = 0; j < bin.size().y; j++) {
+    //         std::cout << (bin.contains(i, j) ? "#" : "-");
+    //     }
+    //     std::cout << std::endl;
+    // }
+    auto outline = find_outline(bin);
+    auto simplified =
+        douglas_peucker(outline, 0.1f);
+    glm::mat4 model = glm::mat4(1.0f);
+    model           = glm::translate(model, {0.0f, 0.0f, 0.0f});
+    model           = glm::scale(model, {10.0f, 10.0f, 1.0f});
     line_drawer.begin(device, queue, swap_chain);
-    line_drawer.drawLine({0, 0, 0}, {100, 100, 0}, {1.0f, 0.0f, 0.0f, 1.0f});
+    line_drawer.setModel(model);
+    // raw, green
+    for (size_t i = 0; i < outline.size(); i++) {
+        auto start = outline[i];
+        auto end   = outline[(i + 1) % outline.size()];
+        line_drawer.drawLine(
+            {start.x, start.y, 0.0f}, {end.x, end.y, 0.0f},
+            {0.0f, 1.0f, 0.0f, 1.0f}
+        );
+    }
+    // simplified, red
+    for (size_t i = 0; i < simplified.size(); i++) {
+        auto start = simplified[i];
+        auto end   = simplified[(i + 1) % simplified.size()];
+        line_drawer.drawLine(
+            {start.x, start.y, 0.0f}, {end.x, end.y, 0.0f},
+            {1.0f, 0.0f, 0.0f, 1.0f}
+        );
+    }
     line_drawer.end();
 }
 
@@ -339,7 +526,7 @@ struct VK_TrialPlugin : Plugin {
         app.enable_loop();
         // app.add_system(Startup, create_text);
         // app.add_system(Startup, create_pixel_block);
-        // app.add_system(Render, draw_lines);
+        app.add_system(Render, draw_lines);
         app.insert_state(SimulateState::Running);
         app.add_system(Startup, create_b2d_world, create_ground, create_dynamic)
             .chain();
@@ -358,76 +545,6 @@ struct VK_TrialPlugin : Plugin {
     }
 };
 
-struct pixelbin {
-    int width, height;
-    std::vector<uint32_t> pixels;
-    int column;
-
-    pixelbin(int width, int height) : width(width), height(height) {
-        column = width / 32 + (width % 32 ? 1 : 0);
-        pixels.resize(column * height);
-    }
-    void set(int x, int y, bool value) {
-        if (x < 0 || x >= width || y < 0 || y >= height) return;
-        int index = x / 32 + y * column;
-        int bit   = x % 32;
-        if (value)
-            pixels[index] |= 1 << bit;
-        else
-            pixels[index] &= ~(1 << bit);
-    }
-    bool operator[](glm::ivec2 pos) const {
-        if (pos.x < 0 || pos.x >= width || pos.y < 0 || pos.y >= height)
-            return false;
-        int index = pos.x / 32 + pos.y * column;
-        int bit   = pos.x % 32;
-        return pixels[index] & (1 << bit);
-    }
-    bool at(int x, int y) const {
-        if (x < 0 || x >= width || y < 0 || y >= height) return false;
-        int index = x / 32 + y * column;
-        int bit   = x % 32;
-        return pixels[index] & (1 << bit);
-    }
-    glm::ivec2 size() const { return {width, height}; }
-};
-
-std::vector<glm::ivec2> find_outline(const pixelbin& pixelbin) {
-    std::vector<glm::ivec2> outline;
-    std::vector<glm::ivec2> move    = {{-1, 0}, {0, 1}, {1, 0}, {0, -1}};
-    std::vector<glm::ivec2> offsets = {
-        {-1, -1}, {-1, 0}, {0, 0}, {0, -1}
-    };  // if dir is i then in ccw order, i+1 is the right pixel coord, i is
-        // the left pixel coord, i = 0 means left.
-    glm::ivec2 start(-1, -1);
-    for (int i = 0; i < pixelbin.size().x; i++) {
-        for (int j = 0; j < pixelbin.size().y; j++) {
-            if (pixelbin.at(i, j)) {
-                start = {i, j};
-                break;
-            }
-        }
-        if (start.x != -1) break;
-    }
-    if (start.x == -1) return outline;
-    glm::ivec2 current = start;
-    int dir            = 0;
-    do {
-        outline.push_back(current);
-        for (int ndir = (dir + 3) % 4; ndir != (dir + 2) % 4;
-             ndir     = (ndir + 1) % 4) {
-            auto outside = current + offsets[ndir];
-            auto inside  = current + offsets[(ndir + 1) % 4];
-            if (!pixelbin[outside] && pixelbin[inside]) {
-                current = current + move[ndir];
-                dir     = ndir;
-                break;
-            }
-        }
-    } while (current != start);
-    return outline;
-}
-
 void run() {
     App app = App::create();
     app.enable_loop();
@@ -440,26 +557,6 @@ void run() {
     app.add_plugin(pixel_engine::imgui::ImGuiPluginVK{});
     app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
     // app.add_plugin(pixel_engine::sprite::SpritePluginVK{});
-    // app.run();
-
-    pixelbin bin(5, 5);
-    bin.set(1, 1, true);
-    bin.set(2, 1, true);
-    bin.set(3, 1, true);
-    bin.set(3, 2, true);
-    // bin.set(3, 3, true);
-    bin.set(2, 3, true);
-    bin.set(1, 3, true);
-    bin.set(1, 2, true);
-    for (int i = bin.size().x - 1; i >= 0; i--) {
-        for (int j = 0; j < bin.size().y; j++) {
-            std::cout << (bin.at(i, j) ? "#" : "-");
-        }
-        std::cout << std::endl;
-    }
-    auto outline = find_outline(bin);
-    for (auto pos : outline) {
-        std::cout << std::format("({}, {}) ", pos.x, pos.y);
-    }
+    app.run();
 }
 }  // namespace vk_trial
