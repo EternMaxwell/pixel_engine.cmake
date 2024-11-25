@@ -276,6 +276,76 @@ struct VK_TrialPlugin : Plugin {
     }
 };
 
+struct pixelbin {
+    int width, height;
+    std::vector<uint32_t> pixels;
+    int column;
+
+    pixelbin(int width, int height) : width(width), height(height) {
+        column = width / 32 + (width % 32 ? 1 : 0);
+        pixels.resize(column * height);
+    }
+    void set(int x, int y, bool value) {
+        if (x < 0 || x >= width || y < 0 || y >= height) return;
+        int index = x / 32 + y * column;
+        int bit   = x % 32;
+        if (value)
+            pixels[index] |= 1 << bit;
+        else
+            pixels[index] &= ~(1 << bit);
+    }
+    bool operator[](glm::ivec2 pos) const {
+        if (pos.x < 0 || pos.x >= width || pos.y < 0 || pos.y >= height)
+            return false;
+        int index = pos.x / 32 + pos.y * column;
+        int bit   = pos.x % 32;
+        return pixels[index] & (1 << bit);
+    }
+    bool at(int x, int y) const {
+        if (x < 0 || x >= width || y < 0 || y >= height) return false;
+        int index = x / 32 + y * column;
+        int bit   = x % 32;
+        return pixels[index] & (1 << bit);
+    }
+    glm::ivec2 size() const { return {width, height}; }
+};
+
+std::vector<glm::ivec2> find_outline(const pixelbin& pixelbin) {
+    std::vector<glm::ivec2> outline;
+    std::vector<glm::ivec2> move    = {{-1, 0}, {0, 1}, {1, 0}, {0, -1}};
+    std::vector<glm::ivec2> offsets = {
+        {-1, -1}, {-1, 0}, {0, 0}, {0, -1}
+    };  // if dir is i then in ccw order, i+1 is the right pixel coord, i is
+        // the left pixel coord, i = 0 means left.
+    glm::ivec2 start(-1, -1);
+    for (int i = 0; i < pixelbin.size().x; i++) {
+        for (int j = 0; j < pixelbin.size().y; j++) {
+            if (pixelbin.at(i, j)) {
+                start = {i, j};
+                break;
+            }
+        }
+        if (start.x != -1) break;
+    }
+    if (start.x == -1) return outline;
+    glm::ivec2 current = start;
+    int dir            = 0;
+    do {
+        outline.push_back(current);
+        for (int ndir = (dir + 3) % 4; ndir != (dir + 2) % 4;
+             ndir     = (ndir + 1) % 4) {
+            auto outside = current + offsets[ndir];
+            auto inside  = current + offsets[(ndir + 1) % 4];
+            if (!pixelbin[outside] && pixelbin[inside]) {
+                current = current + move[ndir];
+                dir     = ndir;
+                break;
+            }
+        }
+    } while (current != start);
+    return outline;
+}
+
 void run() {
     App app = App::create();
     app.enable_loop();
@@ -288,6 +358,26 @@ void run() {
     app.add_plugin(pixel_engine::imgui::ImGuiPluginVK{});
     // app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
     // app.add_plugin(pixel_engine::sprite::SpritePluginVK{});
-    app.run();
+    // app.run();
+
+    pixelbin bin(5, 5);
+    bin.set(1, 1, true);
+    bin.set(2, 1, true);
+    bin.set(3, 1, true);
+    bin.set(3, 2, true);
+    // bin.set(3, 3, true);
+    bin.set(2, 3, true);
+    bin.set(1, 3, true);
+    bin.set(1, 2, true);
+    for (int i = bin.size().x - 1; i >= 0; i--) {
+        for (int j = 0; j < bin.size().y; j++) {
+            std::cout << (bin.at(i, j) ? "#" : "-");
+        }
+        std::cout << std::endl;
+    }
+    auto outline = find_outline(bin);
+    for (auto pos : outline) {
+        std::cout << std::format("({}, {}) ", pos.x, pos.y);
+    }
 }
 }  // namespace vk_trial
