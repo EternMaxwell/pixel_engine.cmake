@@ -919,17 +919,18 @@ struct MouseJoint {
 };
 
 bool overlap_callback(b2ShapeId shapeId, void* context) {
-    auto&& [world, mouse_joint] =
-        *static_cast<std::pair<b2WorldId, MouseJoint>*>(context);
+    auto&& [world, mouse_joint, cursor] =
+        *static_cast<std::tuple<b2WorldId, MouseJoint, b2Vec2>*>(context);
     auto body = b2Shape_GetBody(shapeId);
     if (b2Body_GetType(body) != b2BodyType::b2_dynamicBody) return true;
     spdlog::info("Overlap with dynamic");
     b2MouseJointDef def = b2DefaultMouseJointDef();
-    def.bodyIdA         = b2_nullBodyId;
+    def.bodyIdA         = body;
     def.bodyIdB         = body;
-    def.target          = b2Body_GetPosition(body);
-    def.maxForce        = 1000.0f * b2Body_GetMass(body);
+    def.target          = cursor;
+    def.maxForce        = 100000.0f * b2Body_GetMass(body);
     def.dampingRatio    = 0.7f;
+    def.hertz           = 5.0f;
     mouse_joint.joint   = b2CreateMouseJoint(world, &def);
     mouse_joint.body    = body;
     return false;
@@ -946,32 +947,35 @@ void update_mouse_joint(
     auto [window, mouse_input] = input_query.single().value();
     if (mouse_joint_query.single().has_value()) {
         auto [entity, joint] = mouse_joint_query.single().value();
-        b2MouseJoint_SetTarget(
-            joint.joint, b2Vec2(window.get_cursor().x, window.get_cursor().y)
+        b2Vec2 cursor        = b2Vec2(
+            window.get_cursor().x - window.get_size().width / 2,
+            window.get_size().height / 2 - window.get_cursor().y
         );
+        b2MouseJoint_SetTarget(joint.joint, cursor);
         if (!mouse_input.pressed(pixel_engine::input::MouseButton2)) {
+            spdlog::info("Destroy Mouse Joint");
             b2DestroyJoint(joint.joint);
+            command.entity(entity).despawn();
         }
-        command.entity(entity).despawn();
-    } else if (mouse_input.pressed(pixel_engine::input::MouseButton2) &&
+    } else if (mouse_input.just_pressed(pixel_engine::input::MouseButton2) &&
                !ImGui::GetIO().WantCaptureMouse) {
         if (mouse_joint_query.single().has_value()) return;
-        std::pair<b2WorldId, MouseJoint> context = {world, {}};
-
         b2AABB aabb   = b2AABB();
         b2Vec2 cursor = b2Vec2(
-            window.get_cursor().x - window.get_size().width,
-            window.get_size().height - window.get_cursor().y
+            window.get_cursor().x - window.get_size().width / 2,
+            window.get_size().height / 2 - window.get_cursor().y
         );
-        aabb.lowerBound      = cursor - b2Vec2(0.001f, 0.001f);
-        aabb.upperBound      = cursor + b2Vec2(0.001f, 0.001f);
+        std::tuple<b2WorldId, MouseJoint, b2Vec2> context = {world, {}, cursor};
+        spdlog::info("Cursor at {}, {}", cursor.x, cursor.y);
+        aabb.lowerBound      = cursor - b2Vec2(0.1f, 0.1f);
+        aabb.upperBound      = cursor + b2Vec2(0.1f, 0.1f);
         b2QueryFilter filter = b2DefaultQueryFilter();
         b2World_OverlapAABB(world, aabb, filter, overlap_callback, &context);
-        if (b2Joint_IsValid(context.second.joint) &&
-            b2Body_IsValid(context.second.body)) {
+        if (b2Joint_IsValid(std::get<1>(context).joint) &&
+            b2Body_IsValid(std::get<1>(context).body)) {
             spdlog::info("Create Mouse Joint");
-            command.spawn(context.second);
-            b2MouseJoint_SetTarget(context.second.joint, cursor);
+            command.spawn(std::get<1>(context));
+            b2MouseJoint_SetTarget(std::get<1>(context).joint, cursor);
         }
     }
 }
