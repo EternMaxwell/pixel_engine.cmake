@@ -988,29 +988,107 @@ struct VK_TrialPlugin : Plugin {
         using namespace pixel_engine;
 
         app.enable_loop();
-        // app.add_system(Startup, create_text);
-        // app.add_system(Startup, create_pixel_block);
-        // app.add_system(Render, draw_lines);
-        app.insert_state(SimulateState::Running);
-        app.add_system(
-               Startup, create_b2d_world, create_ground, create_dynamic,
-               create_pixel_block_with_collision
-        )
-            .chain();
-        app.add_system(PreUpdate, update_b2d_world)
-            .in_state(SimulateState::Running);
-        app.add_system(PreUpdate, toggle_full_screen).use_worker("single");
-        app.add_system(
-            Update, destroy_too_far_bodies, create_dynamic_from_click,
-            toggle_simulation, update_mouse_joint
-        );
-        app.add_system(Render, render_pixel_block);
-        app.add_system(
-               PostRender, render_bodies
-               /*, imgui_demo_window, render_pixel_renderer_test */
-        )
-            .before(pixel_engine::render_vk::systems::present_frame);
-        app.add_system(Exit, destroy_b2d_world);
+        // app.add_system(PreStartup, create_renderer).use_worker("single");
+        // app.add_system(Startup, create_vertex_buffer).use_worker("single");
+        // app.add_system(Startup, create_index_buffer).use_worker("single");
+        // app.add_system(Startup, create_uniform_buffers).use_worker("single");
+        // app.add_system(Exit, destroy_uniform_buffers)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_depth_image).use_worker("single");
+        // app.add_system(Exit, destroy_depth_image)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_depth_image_view)
+        //     .after(create_depth_image)
+        //     .use_worker("single");
+        // app.add_system(Exit, destroy_depth_image_view)
+        //     .after(wait_for_device)
+        //     .before(destroy_depth_image)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_texture_image).use_worker("single");
+        // app.add_system(Exit, destroy_texture_image)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_texture_image_view)
+        //     .after(create_texture_image)
+        //     .use_worker("single");
+        // app.add_system(Exit, destroy_texture_image_view)
+        //     .after(wait_for_device)
+        //     .before(destroy_texture_image)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_texture_image_sampler)
+        //     .after(create_texture_image_view)
+        //     .before(create_descriptor_sets)
+        //     .use_worker("single");
+        // app.add_system(Exit, destroy_texture_image_sampler)
+        //     .after(wait_for_device)
+        //     .before(destroy_texture_image_view)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_descriptor_set_layout)
+        //     .before(create_descriptor_pool)
+        //     .before(create_graphics_pipeline)
+        //     .use_worker("single");
+        // app.add_system(Exit, destroy_descriptor_set_layout)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_descriptor_pool).use_worker("single");
+        // app.add_system(Exit, destroy_descriptor_pool)
+        //     .use_worker("single")
+        //     .before(destroy_descriptor_set_layout)
+        //     .after(wait_for_device);
+        // app.add_system(Startup, create_descriptor_sets)
+        //     .after(create_descriptor_pool, create_uniform_buffers)
+        //     .use_worker("single");
+        // app.add_system(Startup, create_render_pass).use_worker("single");
+        // app.add_system(Startup, create_graphics_pipeline)
+        //     .after(create_render_pass)
+        //     .use_worker("single");
+        // app.add_system(Render, begin_draw)
+        //     .use_worker("single")
+        //     .before(
+        //         pixel_engine::font::systems::vulkan::draw_text,
+        //         pixel_engine::sprite::systems::draw_sprite_2d_vk,
+        //         update_uniform_buffer
+        //     );
+        // app.add_system(Render, update_uniform_buffer)
+        //     .use_worker("single")
+        //     .before(
+        //         pixel_engine::font::systems::vulkan::draw_text,
+        //         pixel_engine::sprite::systems::draw_sprite_2d_vk,
+        //         record_command_buffer
+        //     );
+        // app.add_system(Render, record_command_buffer)
+        //     .use_worker("single")
+        //     .before(
+        //         pixel_engine::font::systems::vulkan::draw_text,
+        //         pixel_engine::sprite::systems::draw_sprite_2d_vk, end_draw
+        //     );
+        // app.add_system(Render, end_draw)
+        //     .use_worker("single")
+        //     .before(
+        //         pixel_engine::font::systems::vulkan::draw_text,
+        //         pixel_engine::sprite::systems::draw_sprite_2d_vk
+        //     );
+        // app.add_system(Exit, wait_for_device).use_worker("single");
+        // app.add_system(Exit, free_vertex_buffer)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Exit, free_index_buffer)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Exit, destroy_pipeline)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        // app.add_system(Exit, destroy_render_pass)
+        //     .after(wait_for_device)
+        //     .use_worker("single");
+        app.add_system(Startup, create_text);
+        app.add_system(Startup, create_pixel_block);
+        app.add_system(Render, draw_lines);
+        app.add_system(Render, imgui_demo_window);
+        // app.add_system(Update, shuffle_text);
+        // app.add_system(Update, output_event);
     }
 };
 
@@ -1018,7 +1096,7 @@ void run() {
     App app = App::create();
     app.enable_loop();
     app.add_plugin(pixel_engine::window::WindowPlugin{});
-    app.add_plugin(pixel_engine::input::InputPlugin{});
+    app.add_plugin(pixel_engine::input::InputPlugin{}.enable_output());
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
     app.add_plugin(pixel_engine::render::debug::vulkan::DebugRenderPlugin{});
     // app.add_plugin(pixel_engine::font::FontPlugin{});

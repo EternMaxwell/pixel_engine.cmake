@@ -125,10 +125,10 @@ struct Command {
     template <typename T, typename... Args>
     void emplace_resource(Args&&... args) {
         auto m_resources = &m_world->m_resources;
-        if (m_resources->find(std::type_index(typeid(T))) ==
-            m_resources->end()) {
+        if (m_resources->find(std::type_index(typeid(std::remove_reference_t<T>)
+            )) == m_resources->end()) {
             m_resources->emplace(
-                std::type_index(typeid(T)),
+                std::type_index(typeid(std::remove_reference_t<T>)),
                 std::static_pointer_cast<void>(
                     std::make_shared<std::remove_reference_t<T>>(
                         std::forward<Args>(args)...
@@ -141,10 +141,10 @@ struct Command {
     template <typename T>
     void insert_resource(T&& res) {
         auto m_resources = &m_world->m_resources;
-        if (m_resources->find(std::type_index(typeid(T))) ==
-            m_resources->end()) {
+        if (m_resources->find(std::type_index(typeid(std::remove_reference_t<T>)
+            )) == m_resources->end()) {
             m_resources->emplace(
-                std::type_index(typeid(T)),
+                std::type_index(typeid(std::remove_reference_t<T>)),
                 std::static_pointer_cast<void>(
                     std::make_shared<std::remove_reference_t<T>>(
                         std::forward<T>(res)
@@ -161,7 +161,7 @@ struct Command {
     template <typename T>
     void remove_resource() {
         auto m_resources = &m_world->m_resources;
-        m_resources->erase(std::type_index(typeid(T)));
+        m_resources->erase(std::type_index(typeid(std::remove_reference_t<T>)));
     }
 
     /*! @brief Insert Resource using default values.
@@ -171,12 +171,14 @@ struct Command {
     template <typename T>
     void init_resource() {
         auto m_resources = &m_world->m_resources;
-        if (m_resources->find(std::type_index(typeid(T))) ==
-            m_resources->end()) {
+        if (m_resources->find(std::type_index(typeid(std::remove_reference_t<T>)
+            )) == m_resources->end()) {
             auto res = std::static_pointer_cast<void>(
                 std::make_shared<std::remove_reference_t<T>>()
             );
-            m_resources->emplace(std::type_index(typeid(T)), res);
+            m_resources->emplace(
+                std::type_index(typeid(std::remove_reference_t<T>)), res
+            );
         }
     }
 

@@ -184,7 +184,7 @@ struct App {
     App& add_plugin(T&& plugin) {
         m_plugins.emplace(
             std::type_index(typeid(std::remove_reference_t<T>)),
-            std::make_shared<T>(std::forward<T>(plugin))
+            std::make_shared<std::remove_reference_t<T>>(std::forward<T>(plugin))
         );
         return *this;
     }
