@@ -11,7 +11,9 @@
 #include <pixel_engine/imgui.h>
 #include <stb_image.h>
 
+#include <earcut.hpp>
 #include <random>
+#include <stack>
 
 #include "fragment_shader.h"
 #include "vertex_shader.h"
@@ -22,16 +24,292 @@ using namespace pixel_engine::render_vk::components;
 using namespace pixel_engine::sprite::components;
 using namespace pixel_engine::sprite::resources;
 
-namespace vk_trial {
+namespace mapbox {
+namespace util {
+template <>
+struct nth<0, glm::vec2> {
+    static float get(const glm::dvec2& t) { return t.x; }
+};
+template <>
+struct nth<1, glm::vec2> {
+    static float get(const glm::dvec2& t) { return t.y; }
+};
 
+template <>
+struct nth<0, glm::ivec2> {
+    static int get(const glm::dvec2& t) { return t.x; }
+};
+template <>
+struct nth<1, glm::ivec2> {
+    static int get(const glm::dvec2& t) { return t.y; }
+};
+}  // namespace util
+}  // namespace mapbox
+
+namespace vk_trial {
 template <typename T>
 concept HasOutline = requires(T t) {
     { t.size() } -> std::same_as<glm::ivec2>;
     { t.contains(0i32, 0i32) } -> std::same_as<bool>;
 };
 
+struct binary_grid {
+    std::vector<uint32_t> pixels;
+    int width, height;
+    int column;
+
+    binary_grid(int width, int height) : width(width), height(height) {
+        column = width / 32 + (width % 32 ? 1 : 0);
+        pixels.resize(column * height);
+    }
+    template <HasOutline T>
+    binary_grid(const T& pixelbin)
+        : width(pixelbin.size().x), height(pixelbin.size().y) {
+        column = width / 32 + (width % 32 ? 1 : 0);
+        pixels.resize(column * height);
+        for (int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
+                set(i, j, pixelbin.contains(i, j));
+            }
+        }
+    }
+    void set(int x, int y, bool value) {
+        if (x < 0 || x >= width || y < 0 || y >= height) return;
+        int index = x / 32 + y * column;
+        int bit   = x % 32;
+        if (value)
+            pixels[index] |= 1 << bit;
+        else
+            pixels[index] &= ~(1 << bit);
+    }
+    bool contains(int x, int y) const {
+        if (x < 0 || x >= width || y < 0 || y >= height) return false;
+        int index = x / 32 + y * column;
+        int bit   = x % 32;
+        return pixels[index] & (1 << bit);
+    }
+    glm::ivec2 size() const { return {width, height}; }
+    void print() const {
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                std::cout << (contains(j, i) ? "#" : "-");
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    auto& operator&=(const binary_grid& rhs) {
+        for (int i = 0; i < pixels.size(); i++) {
+            pixels[i] &= rhs.pixels[i];
+        }
+        return *this;
+    }
+    auto& operator|=(const binary_grid& rhs) {
+        for (int i = 0; i < pixels.size(); i++) {
+            pixels[i] |= rhs.pixels[i];
+        }
+        return *this;
+    }
+    auto& operator^=(const binary_grid& rhs) {
+        for (int i = 0; i < pixels.size(); i++) {
+            pixels[i] ^= rhs.pixels[i];
+        }
+        return *this;
+    }
+};
+
+binary_grid operator&(const binary_grid& lhs, const binary_grid& rhs) {
+    binary_grid result(lhs.width, lhs.height);
+    for (int i = 0; i < lhs.pixels.size(); i++) {
+        result.pixels[i] = lhs.pixels[i] & rhs.pixels[i];
+    }
+    return result;
+}
+
+binary_grid operator|(const binary_grid& lhs, const binary_grid& rhs) {
+    binary_grid result(lhs.width, lhs.height);
+    for (int i = 0; i < lhs.pixels.size(); i++) {
+        result.pixels[i] = lhs.pixels[i] | rhs.pixels[i];
+    }
+    return result;
+}
+
+binary_grid operator^(const binary_grid& lhs, const binary_grid& rhs) {
+    binary_grid result(lhs.width, lhs.height);
+    for (int i = 0; i < lhs.pixels.size(); i++) {
+        result.pixels[i] = lhs.pixels[i] ^ rhs.pixels[i];
+    }
+    return result;
+}
+
+binary_grid operator~(const binary_grid& lhs) {
+    binary_grid result(lhs.width, lhs.height);
+    for (int i = 0; i < lhs.pixels.size(); i++) {
+        result.pixels[i] = ~lhs.pixels[i];
+    }
+    return result;
+}
+
+/**
+ * @brief Get the outland of a binary grid
+ *
+ * @param grid The binary grid
+ * @param include_diagonal Whether to include diagonal pixels connected to the
+ * outland as part of the outland
+ *
+ * @return binary_grid The outland of the binary grid
+ */
+binary_grid get_outland(
+    const binary_grid& grid, bool include_diagonal = false
+) {
+    binary_grid outland(grid.width, grid.height);
+    // use dimension first search
+    std::stack<std::pair<int, int>> stack;
+    for (int i = 0; i < grid.width; i++) {
+        if (!grid.contains(i, 0)) stack.push({i, 0});
+        if (!grid.contains(i, grid.height - 1))
+            stack.push({i, grid.height - 1});
+    }
+    for (int i = 0; i < grid.height; i++) {
+        if (!grid.contains(0, i)) stack.push({0, i});
+        if (!grid.contains(grid.width - 1, i)) stack.push({grid.width - 1, i});
+    }
+    while (!stack.empty()) {
+        auto [x, y] = stack.top();
+        stack.pop();
+        if (outland.contains(x, y)) continue;
+        outland.set(x, y, true);
+        if (x > 0 && !grid.contains(x - 1, y) && !outland.contains(x - 1, y))
+            stack.push({x - 1, y});
+        if (x < grid.width - 1 && !grid.contains(x + 1, y) &&
+            !outland.contains(x + 1, y))
+            stack.push({x + 1, y});
+        if (y > 0 && !grid.contains(x, y - 1) && !outland.contains(x, y - 1))
+            stack.push({x, y - 1});
+        if (y < grid.height - 1 && !grid.contains(x, y + 1) &&
+            !outland.contains(x, y + 1))
+            stack.push({x, y + 1});
+        if (include_diagonal) {
+            if (x > 0 && y > 0 && !grid.contains(x - 1, y - 1) &&
+                !outland.contains(x - 1, y - 1))
+                stack.push({x - 1, y - 1});
+            if (x < grid.width - 1 && y > 0 && !grid.contains(x + 1, y - 1) &&
+                !outland.contains(x + 1, y - 1))
+                stack.push({x + 1, y - 1});
+            if (x > 0 && y < grid.height - 1 && !grid.contains(x - 1, y + 1) &&
+                !outland.contains(x - 1, y + 1))
+                stack.push({x - 1, y + 1});
+            if (x < grid.width - 1 && y < grid.height - 1 &&
+                !grid.contains(x + 1, y + 1) && !outland.contains(x + 1, y + 1))
+                stack.push({x + 1, y + 1});
+        }
+    }
+    return outland;
+}
+
+/**
+ * @brief Shrink a binary grid to the smallest size that contains all the
+ * pixels
+ *
+ * @param grid The binary grid
+ * @param offset The offset of the new grid from the original grid
+ *
+ * @return binary_grid The shrunken grid
+ */
+binary_grid shrink(const binary_grid& grid, glm::ivec2* offset = nullptr) {
+    glm::ivec2 min(grid.width, grid.height), max(-1, -1);
+    for (int i = 0; i < grid.width; i++) {
+        for (int j = 0; j < grid.height; j++) {
+            if (grid.contains(i, j)) {
+                min.x = std::min(min.x, i);
+                min.y = std::min(min.y, j);
+                max.x = std::max(max.x, i);
+                max.y = std::max(max.y, j);
+            }
+        }
+    }
+    if (offset) *offset = min;
+    binary_grid result(max.x - min.x + 1, max.y - min.y + 1);
+    for (int i = 0; i < result.width; i++) {
+        for (int j = 0; j < result.height; j++) {
+            result.set(i, j, grid.contains(i + min.x, j + min.y));
+        }
+    }
+    return result;
+}
+
+/**
+ * @brief Split a binary grid into multiple binary grids if there are multiple
+ *
+ * @param grid The binary grid
+ * @param include_diagonal Whether to include diagonal pixels connected to a
+ * subset as part of the subset
+ *
+ * @return `std::vector<binary_grid>` The splitted binary grids
+ */
+std::vector<binary_grid> split_if_multiple(
+    const binary_grid& grid, bool include_diagonal = false
+) {
+    std::vector<binary_grid> result;
+    binary_grid visited = get_outland(grid);
+    while (true) {
+        glm::ivec2 current(-1, -1);
+        for (int i = 0; i < visited.size().x; i++) {
+            for (int j = 0; j < visited.size().y; j++) {
+                if (!visited.contains(i, j) && grid.contains(i, j)) {
+                    current = {i, j};
+                    break;
+                }
+            }
+            if (current.x != -1) break;
+        }
+        if (current.x == -1) break;
+        result.push_back(binary_grid(grid.width, grid.height));
+        auto& current_grid = result.back();
+        std::stack<std::pair<int, int>> stack;
+        stack.push({current.x, current.y});
+        while (!stack.empty()) {
+            auto [x, y] = stack.top();
+            stack.pop();
+            if (current_grid.contains(x, y)) continue;
+            current_grid.set(x, y, true);
+            visited.set(x, y, true);
+            if (x > 0 && !visited.contains(x - 1, y) && grid.contains(x - 1, y))
+                stack.push({x - 1, y});
+            if (x < grid.width - 1 && !visited.contains(x + 1, y) &&
+                grid.contains(x + 1, y))
+                stack.push({x + 1, y});
+            if (y > 0 && !visited.contains(x, y - 1) && grid.contains(x, y - 1))
+                stack.push({x, y - 1});
+            if (y < grid.height - 1 && !visited.contains(x, y + 1) &&
+                grid.contains(x, y + 1))
+                stack.push({x, y + 1});
+            if (include_diagonal) {
+                if (x > 0 && y > 0 && !visited.contains(x - 1, y - 1) &&
+                    grid.contains(x - 1, y - 1))
+                    stack.push({x - 1, y - 1});
+                if (x < grid.width - 1 && y > 0 &&
+                    !visited.contains(x + 1, y - 1) &&
+                    grid.contains(x + 1, y - 1))
+                    stack.push({x + 1, y - 1});
+                if (x > 0 && y < grid.height - 1 &&
+                    !visited.contains(x - 1, y + 1) &&
+                    grid.contains(x - 1, y + 1))
+                    stack.push({x - 1, y + 1});
+                if (x < grid.width - 1 && y < grid.height - 1 &&
+                    !visited.contains(x + 1, y + 1) &&
+                    grid.contains(x + 1, y + 1))
+                    stack.push({x + 1, y + 1});
+            }
+        }
+    }
+    return result;
+}
+
 template <HasOutline T>
-std::vector<glm::ivec2> find_outline(const T& pixelbin) {
+std::vector<glm::ivec2> find_outline(
+    const T& pixelbin, bool include_diagonal = false
+) {
     std::vector<glm::ivec2> outline;
     std::vector<glm::ivec2> move    = {{-1, 0}, {0, 1}, {1, 0}, {0, -1}};
     std::vector<glm::ivec2> offsets = {
@@ -53,8 +331,9 @@ std::vector<glm::ivec2> find_outline(const T& pixelbin) {
     int dir            = 0;
     do {
         outline.push_back(current);
-        for (int ndir = (dir + 3) % 4; ndir != (dir + 2) % 4;
-             ndir     = (ndir + 1) % 4) {
+        for (int ndir = (include_diagonal ? dir + 3 : dir + 1) % 4;
+             ndir != (dir + 2) % 4;
+             ndir = (include_diagonal ? ndir + 1 : ndir + 3) % 4) {
             auto outside = current + offsets[ndir];
             auto inside  = current + offsets[(ndir + 1) % 4];
             if (!pixelbin.contains(outside.x, outside.y) &&
@@ -66,6 +345,33 @@ std::vector<glm::ivec2> find_outline(const T& pixelbin) {
         }
     } while (current != start);
     return outline;
+}
+
+template <HasOutline T>
+std::vector<std::vector<glm::ivec2>> find_holes(
+    const T& pixelbin, bool include_diagonal = false
+) {
+    binary_grid binary_grid(pixelbin);
+    auto outland = get_outland(binary_grid, !include_diagonal);
+    auto holes_solid =
+        split_if_multiple(~(outland | binary_grid), include_diagonal);
+    std::vector<std::vector<glm::ivec2>> holes;
+    for (auto& hole : holes_solid) {
+        holes.emplace_back(find_outline(hole, include_diagonal));
+    }
+    return holes;
+}
+
+template <typename T>
+T& value_at(std::vector<std::vector<T>>& vec, size_t index) {
+    if (!vec.size()) throw std::out_of_range("vector is empty");
+    auto cur = vec.begin();
+    while (cur != vec.end()) {
+        if (index < (*cur).size()) return (*cur)[index];
+        index -= cur->size();
+        cur++;
+    }
+    throw std::out_of_range("index out of range");
 }
 
 struct pixelbin {
@@ -105,7 +411,11 @@ struct pixelbin {
 using PixelBlock = pixel_engine::render::pixel::components::PixelBlock;
 struct PixelBlockWrapper {
     PixelBlock block;
-    bool contains(int x, int y) const { return block[{x, y}].a > 0.1f; }
+    bool contains(int x, int y) const {
+        if (x < 0 || x >= block.size.x || y < 0 || y >= block.size.y)
+            return false;
+        return block[{x, y}].a > 0.1f;
+    }
     glm::ivec2 size() const { return block.size; }
     PixelBlockWrapper(int width, int height)
         : block(PixelBlock::create({width, height})) {}
@@ -122,10 +432,11 @@ std::vector<glm::ivec2> douglas_peucker(
     const std::vector<glm::ivec2>& points, float epsilon
 ) {
     if (points.size() < 3) return points;
-    float dmax         = 0.0f;
-    int index          = 0;
-    int end            = points.size() - 1;
+    float dmax              = 0.0f;
+    int index               = 0;
+    int end                 = points.size() - 1;
     auto distance_from_line = [](glm::ivec2 l1, glm::ivec2 l2, glm::ivec2 p) {
+        if (l1 == l2) return glm::distance(glm::vec2(l1), glm::vec2(p));
         float x1 = l1.x, y1 = l1.y, x2 = l2.x, y2 = l2.y, x = p.x, y = p.y;
         return std::abs((y2 - y1) * x - (x2 - x1) * y + x2 * y1 - y2 * x1) /
                glm::distance(glm::vec2(x1, y1), glm::vec2(x2, y2));
@@ -140,7 +451,7 @@ std::vector<glm::ivec2> douglas_peucker(
     std::vector<glm::ivec2> results;
     if (dmax > epsilon) {
         auto rec_results1 = douglas_peucker(
-            std::vector<glm::ivec2>(points.begin(), points.begin() + index),
+            std::vector<glm::ivec2>(points.begin(), points.begin() + index + 1),
             epsilon
         );
         auto rec_results2 = douglas_peucker(
@@ -148,7 +459,7 @@ std::vector<glm::ivec2> douglas_peucker(
             epsilon
         );
         results.insert(
-            results.end(), rec_results1.begin(), rec_results1.end()
+            results.end(), rec_results1.begin(), rec_results1.end() - 1
         );
         results.insert(results.end(), rec_results2.begin(), rec_results2.end());
     } else {
@@ -164,18 +475,104 @@ void create_pixel_block_with_collision(
     if (!world_query.single().has_value()) return;
     auto [world] = world_query.single().value();
     auto block   = PixelBlockWrapper(64, 64);
-    for (int i = 0; i < 64; i++) {
-        block.block[{i, 0}]  = {1.0f, 1.0f, 1.0f, 1.0f};
-        block.block[{i, 63}] = {1.0f, 1.0f, 1.0f, 1.0f};
-        block.block[{0, i}]  = {1.0f, 1.0f, 1.0f, 1.0f};
-        block.block[{63, i}] = {1.0f, 1.0f, 1.0f, 1.0f};
+    for (int i = 1; i < 63; i++) {
+        for (int j = 1; j < 5; j++) {
+            block.block[{i, j}]      = {1.0f, 1.0f, 1.0f, 0.2f};
+            block.block[{i, 64 - j}] = {1.0f, 1.0f, 1.0f, 0.2f};
+            block.block[{j, i}]      = {1.0f, 1.0f, 1.0f, 0.2f};
+            block.block[{64 - j, i}] = {1.0f, 1.0f, 1.0f, 0.2f};
+        }
     }
-    auto outline       = find_outline(block);
+    auto outline = find_outline(block);
+    outline.push_back(outline[0]);
+    auto simplified = douglas_peucker(outline, 0.5f);
+    simplified.pop_back();
+    auto holes          = find_holes(block);
+    auto earcut_polygon = std::vector<std::vector<glm::ivec2>>();
+    earcut_polygon.emplace_back(std::move(simplified));
+    for (auto& hole : holes) {
+        hole.push_back(hole[0]);
+        auto hole_simplified = douglas_peucker(hole, 0.5f);
+        hole_simplified.pop_back();
+        earcut_polygon.emplace_back(std::move(hole_simplified));
+    }
+    auto triangle_list = mapbox::earcut(earcut_polygon);
+    std::cout << "triangle amount: " << triangle_list.size() / 3 << std::endl;
+    for (size_t i = 0; i < triangle_list.size(); i += 3) {
+        for (int j = 2; j >= 0; j--) {
+            std::cout << std::format(
+                "({},{}) ", value_at(earcut_polygon, triangle_list[i + j]).x,
+                value_at(earcut_polygon, triangle_list[i + j]).y
+            );
+        }
+        std::cout << std::endl;
+    }
     b2BodyDef body_def = b2DefaultBodyDef();
     body_def.type      = b2BodyType::b2_dynamicBody;
     body_def.position  = {0.0f, 200.0f};
+    auto body          = b2CreateBody(world, &body_def);
+    for (size_t i = 0; i < triangle_list.size(); i += 3) {
+        b2Vec2 points[3];
+        for (int j = 2; j >= 0; j--) {
+            points[j] = {
+                (float)value_at(earcut_polygon, triangle_list[i + j]).x * 2,
+                (float)value_at(earcut_polygon, triangle_list[i + j]).y * 2
+            };
+        }
+        b2Hull hull           = b2ComputeHull(points, 3);
+        b2Polygon polygon     = b2MakePolygon(&hull, 0.0f);
+        b2ShapeDef shape_def  = b2DefaultShapeDef();
+        shape_def.density     = 1.0f;
+        shape_def.friction    = 0.6f;
+        shape_def.restitution = 0.1f;
+        b2CreatePolygonShape(body, &shape_def, &polygon);
+    }
+    command.spawn(body, block);
+}
 
-    command.spawn(block);
+void render_pixel_block(
+    Query<Get<PixelBlockWrapper, b2BodyId>> query,
+    Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
+    Query<Get<pixel_engine::render::pixel::components::PixelRenderer>>
+        pixel_renderer_query,
+    Query<Get<b2WorldId>> world_query
+) {
+    if (!context_query.single().has_value()) return;
+    if (!pixel_renderer_query.single().has_value()) return;
+    if (!world_query.single().has_value()) return;
+    auto [b2_world]                  = world_query.single().value();
+    auto [device, swap_chain, queue] = context_query.single().value();
+    auto [pixel_renderer]            = pixel_renderer_query.single().value();
+    pixel_engine::render::pixel::components::PixelUniformBuffer uniform_buffer;
+    uniform_buffer.proj = glm::ortho(
+        -(float)swap_chain.extent.width / 2.0f,
+        (float)swap_chain.extent.width / 2.0f,
+        (float)swap_chain.extent.height / 2.0f,
+        -(float)swap_chain.extent.height / 2.0f, -1000.0f, 1000.0f
+    );
+    uniform_buffer.view = glm::mat4(1.0f);
+    pixel_renderer.begin(device, swap_chain, queue, uniform_buffer);
+    for (auto [block, body] : query.iter()) {
+        if (!b2Body_IsValid(body)) continue;
+        auto position = b2Body_GetPosition(body);
+        auto rotation = b2Body_GetRotation(body);
+        auto angle    = std::atan2(rotation.s, rotation.c);
+        glm::mat4 model =
+            glm::translate(glm::mat4(1.0f), {position.x, position.y, 0.0f});
+        model = glm::rotate(model, angle, {0.0f, 0.0f, 1.0f});
+        model = glm::scale(model, {2.0f, 2.0f, 1.0f});
+        pixel_renderer.set_model(model);
+        for (int i = 0; i < block.size().x; i++) {
+            for (int j = 0; j < block.size().y; j++) {
+                auto& color = block.block[{i, j}];
+                if (color.a < 0.1f) continue;
+                pixel_renderer.draw(
+                    {color.r, color.g, color.b, color.a}, {(float)i, (float)j}
+                );
+            }
+        }
+    }
+    pixel_renderer.end();
 }
 
 void create_ground(Command command, Query<Get<b2WorldId>> world_query) {
@@ -265,34 +662,35 @@ void render_bodies(
     line_drawer.begin(device, queue, swap_chain);
     for (auto [body] : query.iter()) {
         if (!b2Body_IsValid(body)) continue;
-        b2Vec2 position = b2Body_GetPosition(body);
-        b2Vec2 velocity = b2Body_GetLinearVelocity(body);
-        auto rotation   = b2Body_GetRotation(body);  // a cosine / sine pair
-        auto angle      = std::atan2(rotation.s, rotation.c);
-        glm::mat4 model =
-            glm::translate(glm::mat4(1.0f), {position.x, position.y, 0.0f});
+        b2Vec2 position  = b2Body_GetPosition(body);
+        b2Vec2 velocity  = b2Body_GetLinearVelocity(body);
+        auto mass_center = b2Body_GetWorldCenterOfMass(body);
+        auto rotation    = b2Body_GetRotation(body);  // a cosine / sine pair
+        auto angle       = std::atan2(rotation.s, rotation.c);
+        glm::mat4 model  = glm::translate(
+            glm::mat4(1.0f), {mass_center.x, mass_center.y, 0.0f}
+        );
         line_drawer.setModel(model);
         line_drawer.drawLine(
             {0.0f, 0.0f, 0.0f}, {velocity.x / 2, velocity.y / 2, 0.0f},
             {0.0f, 0.0f, 1.0f, 1.0f}
         );
+        model = glm::translate(glm::mat4(1.0f), {position.x, position.y, 0.0f});
         model = glm::rotate(model, angle, {0.0f, 0.0f, 1.0f});
         line_drawer.setModel(model);
         auto shape_count = b2Body_GetShapeCount(body);
         std::vector<b2ShapeId> shapes(shape_count);
         b2Body_GetShapes(body, shapes.data(), shape_count);
-        for (auto shape : shapes) {
+        for (auto&& shape : shapes) {
             if (b2Shape_GetType(shape) != b2ShapeType::b2_polygonShape)
                 continue;
             auto polygon = b2Shape_GetPolygon(shape);
-            auto center  = polygon.centroid;
             for (size_t i = 0; i < polygon.count; i++) {
                 auto& vertex1 = polygon.vertices[i];
                 auto& vertex2 = polygon.vertices[(i + 1) % polygon.count];
                 bool awake    = b2Body_IsAwake(body);
                 line_drawer.drawLine(
-                    {vertex1.x + center.x, vertex1.y + center.y, 0.0f},
-                    {vertex2.x + center.x, vertex2.y + center.y, 0.0f},
+                    {vertex1.x, vertex1.y, 0.0f}, {vertex2.x, vertex2.y, 0.0f},
                     {awake ? 0.0f : 1.0f, awake ? 1.0f : 0.0f, 0.0f, 1.0f}
                 );
             }
@@ -433,9 +831,8 @@ void draw_lines(
     //     }
     //     std::cout << std::endl;
     // }
-    auto outline = find_outline(bin);
-    auto simplified =
-        douglas_peucker(outline, 0.1f);
+    auto outline    = find_outline(bin);
+    auto simplified = douglas_peucker(outline, 0.1f);
     glm::mat4 model = glm::mat4(1.0f);
     model           = glm::translate(model, {0.0f, 0.0f, 0.0f});
     model           = glm::scale(model, {10.0f, 10.0f, 1.0f});
@@ -516,6 +913,69 @@ void toggle_simulation(
     }
 }
 
+struct MouseJoint {
+    b2BodyId body   = b2_nullBodyId;
+    b2JointId joint = b2_nullJointId;
+};
+
+bool overlap_callback(b2ShapeId shapeId, void* context) {
+    auto&& [world, mouse_joint] =
+        *static_cast<std::pair<b2WorldId, MouseJoint>*>(context);
+    auto body = b2Shape_GetBody(shapeId);
+    if (b2Body_GetType(body) != b2BodyType::b2_dynamicBody) return true;
+    spdlog::info("Overlap with dynamic");
+    b2MouseJointDef def = b2DefaultMouseJointDef();
+    def.bodyIdA         = b2_nullBodyId;
+    def.bodyIdB         = body;
+    def.target          = b2Body_GetPosition(body);
+    def.maxForce        = 1000.0f * b2Body_GetMass(body);
+    def.dampingRatio    = 0.7f;
+    mouse_joint.joint   = b2CreateMouseJoint(world, &def);
+    mouse_joint.body    = body;
+    return false;
+}
+void update_mouse_joint(
+    Command command,
+    Query<Get<b2WorldId>> world_query,
+    Query<Get<Entity, MouseJoint>> mouse_joint_query,
+    Query<Get<const Window, const ButtonInput<MouseButton>>> input_query
+) {
+    if (!world_query.single().has_value()) return;
+    if (!input_query.single().has_value()) return;
+    auto [world]               = world_query.single().value();
+    auto [window, mouse_input] = input_query.single().value();
+    if (mouse_joint_query.single().has_value()) {
+        auto [entity, joint] = mouse_joint_query.single().value();
+        b2MouseJoint_SetTarget(
+            joint.joint, b2Vec2(window.get_cursor().x, window.get_cursor().y)
+        );
+        if (!mouse_input.pressed(pixel_engine::input::MouseButton2)) {
+            b2DestroyJoint(joint.joint);
+        }
+        command.entity(entity).despawn();
+    } else if (mouse_input.pressed(pixel_engine::input::MouseButton2) &&
+               !ImGui::GetIO().WantCaptureMouse) {
+        if (mouse_joint_query.single().has_value()) return;
+        std::pair<b2WorldId, MouseJoint> context = {world, {}};
+
+        b2AABB aabb   = b2AABB();
+        b2Vec2 cursor = b2Vec2(
+            window.get_cursor().x - window.get_size().width,
+            window.get_size().height - window.get_cursor().y
+        );
+        aabb.lowerBound      = cursor - b2Vec2(0.001f, 0.001f);
+        aabb.upperBound      = cursor + b2Vec2(0.001f, 0.001f);
+        b2QueryFilter filter = b2DefaultQueryFilter();
+        b2World_OverlapAABB(world, aabb, filter, overlap_callback, &context);
+        if (b2Joint_IsValid(context.second.joint) &&
+            b2Body_IsValid(context.second.body)) {
+            spdlog::info("Create Mouse Joint");
+            command.spawn(context.second);
+            b2MouseJoint_SetTarget(context.second.joint, cursor);
+        }
+    }
+}
+
 struct VK_TrialPlugin : Plugin {
     void build(App& app) override {
         auto window_plugin = app.get_plugin<WindowPlugin>();
@@ -526,21 +986,26 @@ struct VK_TrialPlugin : Plugin {
         app.enable_loop();
         // app.add_system(Startup, create_text);
         // app.add_system(Startup, create_pixel_block);
-        app.add_system(Render, draw_lines);
+        // app.add_system(Render, draw_lines);
         app.insert_state(SimulateState::Running);
-        app.add_system(Startup, create_b2d_world, create_ground, create_dynamic)
+        app.add_system(
+               Startup, create_b2d_world, create_ground, create_dynamic,
+               create_pixel_block_with_collision
+        )
             .chain();
         app.add_system(PreUpdate, update_b2d_world)
             .in_state(SimulateState::Running);
         app.add_system(PreUpdate, toggle_full_screen).use_worker("single");
         app.add_system(
             Update, destroy_too_far_bodies, create_dynamic_from_click,
-            toggle_simulation
+            toggle_simulation, update_mouse_joint
         );
+        app.add_system(Render, render_pixel_block);
         app.add_system(
-            Render, render_bodies
-            /*, imgui_demo_window, render_pixel_renderer_test */
-        );
+               PostRender, render_bodies
+               /*, imgui_demo_window, render_pixel_renderer_test */
+        )
+            .before(pixel_engine::render_vk::systems::present_frame);
         app.add_system(Exit, destroy_b2d_world);
     }
 };
@@ -558,5 +1023,21 @@ void run() {
     app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
     // app.add_plugin(pixel_engine::sprite::SpritePluginVK{});
     app.run();
+
+    binary_grid grid(5, 5);
+    grid.set(1, 1, true);
+    grid.set(2, 1, true);
+    grid.set(3, 1, true);
+    grid.set(3, 2, true);
+    grid.set(2, 3, true);
+    grid.set(1, 3, true);
+    grid.set(1, 2, true);
+    auto outland = get_outland(grid);
+    grid.print();
+    outland.print();
+    auto _and = grid & outland;
+    auto _or  = grid | outland;
+    _and.print();
+    _or.print();
 }
 }  // namespace vk_trial

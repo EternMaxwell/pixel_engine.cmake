@@ -83,6 +83,9 @@ endif()
 
 set(COMMON_SOURCE_FILES ${LIBTESS2_SOURCE_FILES} ${FIXTURE_SOURCE_FILES} ${COMPARISON_SOURCE_FILES})
 
+add_library(earcut.hpp INTERFACE)
+target_include_directories(earcut.hpp INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include/mapbox)
+
 # set(TESTS_SOURCE_FILES ${COMMON_SOURCE_FILES} test/tap.cpp test/tap.hpp test/test.cpp)
 # set(BENCH_SOURCE_FILES ${COMMON_SOURCE_FILES} test/bench.cpp)
 # set(VIZ_SOURCE_FILES ${COMMON_SOURCE_FILES} test/viz.cpp)

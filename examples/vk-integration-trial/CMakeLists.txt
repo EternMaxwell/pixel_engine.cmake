@@ -15,5 +15,6 @@ target_link_libraries (${PROJNAME} PUBLIC pixel_engine)
 target_link_libraries (${PROJNAME} PUBLIC VulkanMemoryAllocator)
 target_link_libraries (${PROJNAME} PUBLIC pixel_engine::imgui)
 target_link_libraries (${PROJNAME} PUBLIC box2d)
+target_link_libraries (${PROJNAME} PUBLIC earcut.hpp)
 
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)

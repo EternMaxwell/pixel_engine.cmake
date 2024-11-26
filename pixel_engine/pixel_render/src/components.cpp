@@ -7,7 +7,7 @@ namespace components {
 PixelBlock PixelBlock::create(glm::uvec2 size) {
     PixelBlock block;
     block.size = size;
-    block.pixels.resize(size.x * size.y);
+    block.pixels.resize(size.x * size.y, glm::vec4(0.0f));
     return block;
 }
 glm::vec4& PixelBlock::operator[](glm::uvec2 pos) {
