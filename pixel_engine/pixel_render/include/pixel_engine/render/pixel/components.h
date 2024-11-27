@@ -110,7 +110,6 @@ struct PixelRenderer {
     Pipeline graphics_pipeline;
     PipelineLayout pipeline_layout;
     Buffer vertex_buffer;
-    Buffer vertex_staging_buffer;
     Buffer uniform_buffer;
     Buffer block_model_buffer;
     DescriptorSetLayout descriptor_set_layout;

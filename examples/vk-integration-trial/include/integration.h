@@ -474,60 +474,84 @@ void create_pixel_block_with_collision(
 ) {
     if (!world_query.single().has_value()) return;
     auto [world] = world_query.single().value();
-    auto block   = PixelBlockWrapper(64, 64);
-    for (int i = 1; i < 63; i++) {
-        for (int j = 1; j < 5; j++) {
-            block.block[{i, j}]      = {1.0f, 1.0f, 1.0f, 0.2f};
-            block.block[{i, 64 - j}] = {1.0f, 1.0f, 1.0f, 0.2f};
-            block.block[{j, i}]      = {1.0f, 1.0f, 1.0f, 0.2f};
-            block.block[{64 - j, i}] = {1.0f, 1.0f, 1.0f, 0.2f};
-        }
-    }
-    auto outline = find_outline(block);
-    outline.push_back(outline[0]);
-    auto simplified = douglas_peucker(outline, 0.5f);
-    simplified.pop_back();
-    auto holes          = find_holes(block);
-    auto earcut_polygon = std::vector<std::vector<glm::ivec2>>();
-    earcut_polygon.emplace_back(std::move(simplified));
-    for (auto& hole : holes) {
-        hole.push_back(hole[0]);
-        auto hole_simplified = douglas_peucker(hole, 0.5f);
-        hole_simplified.pop_back();
-        earcut_polygon.emplace_back(std::move(hole_simplified));
-    }
-    auto triangle_list = mapbox::earcut(earcut_polygon);
-    std::cout << "triangle amount: " << triangle_list.size() / 3 << std::endl;
-    for (size_t i = 0; i < triangle_list.size(); i += 3) {
-        for (int j = 2; j >= 0; j--) {
-            std::cout << std::format(
-                "({},{}) ", value_at(earcut_polygon, triangle_list[i + j]).x,
-                value_at(earcut_polygon, triangle_list[i + j]).y
-            );
-        }
-        std::cout << std::endl;
-    }
-    b2BodyDef body_def = b2DefaultBodyDef();
-    body_def.type      = b2BodyType::b2_dynamicBody;
-    body_def.position  = {0.0f, 200.0f};
-    auto body          = b2CreateBody(world, &body_def);
-    for (size_t i = 0; i < triangle_list.size(); i += 3) {
-        b2Vec2 points[3];
-        for (int j = 2; j >= 0; j--) {
-            points[j] = {
-                (float)value_at(earcut_polygon, triangle_list[i + j]).x * 2,
-                (float)value_at(earcut_polygon, triangle_list[i + j]).y * 2
+    auto m_block = PixelBlockWrapper(64, 64);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 255);
+    for (int i = 0; i < m_block.size().x; i++) {
+        for (int j = 0; j < m_block.size().y; j++) {
+            m_block.block[{i, j}] = {
+                (float)(dis(gen) / 255.0f), (float)(dis(gen) / 255.0f),
+                (float)(dis(gen) / 255.0f), dis(gen) > 127 ? 0.2f : 0.0f
             };
         }
-        b2Hull hull           = b2ComputeHull(points, 3);
-        b2Polygon polygon     = b2MakePolygon(&hull, 0.0f);
-        b2ShapeDef shape_def  = b2DefaultShapeDef();
-        shape_def.density     = 1.0f;
-        shape_def.friction    = 0.6f;
-        shape_def.restitution = 0.1f;
-        b2CreatePolygonShape(body, &shape_def, &polygon);
     }
-    command.spawn(body, block);
+    auto blocks_bin = split_if_multiple(binary_grid(m_block));
+    std::vector<std::pair<PixelBlockWrapper, glm::ivec2>> blocks;
+    for (auto& block : blocks_bin) {
+        glm::ivec2 offset;
+        auto shrinked = shrink(block, &offset);
+        blocks.emplace_back(
+            PixelBlockWrapper(shrinked.width, shrinked.height), offset
+        );
+        for (int i = 0; i < shrinked.width; i++) {
+            for (int j = 0; j < shrinked.height; j++) {
+                if (shrinked.contains(i, j)) {
+                    blocks.back().first.block[{i, j}] =
+                        m_block.block[offset + glm::ivec2(i, j)];
+                }
+            }
+        }
+    }
+    for (auto&& [block, offset] : blocks) {
+        auto outline = find_outline(block);
+        outline.push_back(outline[0]);
+        auto simplified = douglas_peucker(outline, 0.5f);
+        simplified.pop_back();
+        auto holes          = find_holes(block);
+        auto earcut_polygon = std::vector<std::vector<glm::ivec2>>();
+        earcut_polygon.emplace_back(std::move(simplified));
+        for (auto& hole : holes) {
+            hole.push_back(hole[0]);
+            auto hole_simplified = douglas_peucker(hole, 0.8f);
+            hole_simplified.pop_back();
+            earcut_polygon.emplace_back(std::move(hole_simplified));
+        }
+        auto triangle_list = mapbox::earcut(earcut_polygon);
+        // std::cout << "triangle amount: " << triangle_list.size() / 3
+        //           << std::endl;
+        // for (size_t i = 0; i < triangle_list.size(); i += 3) {
+        //     for (int j = 2; j >= 0; j--) {
+        //         std::cout << std::format(
+        //             "({},{}) ",
+        //             value_at(earcut_polygon, triangle_list[i + j]).x,
+        //             value_at(earcut_polygon, triangle_list[i + j]).y
+        //         );
+        //     }
+        //     std::cout << std::endl;
+        // }
+        b2BodyDef body_def = b2DefaultBodyDef();
+        body_def.type      = b2BodyType::b2_dynamicBody;
+        body_def.position  = b2Vec2(offset.x, offset.y) * 5 + b2Vec2(-m_block.size().x / 2, 40) * 5;
+        auto body          = b2CreateBody(world, &body_def);
+        for (size_t i = 0; i < triangle_list.size(); i += 3) {
+            b2Vec2 points[3];
+            for (int j = 2; j >= 0; j--) {
+                points[j] = {
+                    (float)value_at(earcut_polygon, triangle_list[i + j]).x * 5,
+                    (float)value_at(earcut_polygon, triangle_list[i + j]).y * 5
+                };
+            }
+            b2Hull hull           = b2ComputeHull(points, 3);
+            b2Polygon polygon     = b2MakePolygon(&hull, 0.0f);
+            b2ShapeDef shape_def  = b2DefaultShapeDef();
+            shape_def.density     = 1.0f;
+            shape_def.friction    = 0.6f;
+            shape_def.restitution = 0.1f;
+            b2CreatePolygonShape(body, &shape_def, &polygon);
+        }
+        command.spawn(body, block);
+    }
 }
 
 void render_pixel_block(
@@ -560,15 +584,13 @@ void render_pixel_block(
         glm::mat4 model =
             glm::translate(glm::mat4(1.0f), {position.x, position.y, 0.0f});
         model = glm::rotate(model, angle, {0.0f, 0.0f, 1.0f});
-        model = glm::scale(model, {2.0f, 2.0f, 1.0f});
+        model = glm::scale(model, {5.0f, 5.0f, 1.0f});
         pixel_renderer.set_model(model);
         for (int i = 0; i < block.size().x; i++) {
             for (int j = 0; j < block.size().y; j++) {
                 auto& color = block.block[{i, j}];
-                if (color.a < 0.1f) continue;
-                pixel_renderer.draw(
-                    {color.r, color.g, color.b, color.a}, {(float)i, (float)j}
-                );
+                if (color.a == 0.0f) continue;
+                pixel_renderer.draw(color, {i, j});
             }
         }
     }
@@ -691,7 +713,7 @@ void render_bodies(
                 bool awake    = b2Body_IsAwake(body);
                 line_drawer.drawLine(
                     {vertex1.x, vertex1.y, 0.0f}, {vertex2.x, vertex2.y, 0.0f},
-                    {awake ? 0.0f : 1.0f, awake ? 1.0f : 0.0f, 0.0f, 1.0f}
+                    {awake ? 0.0f : 1.0f, awake ? 1.0f : 0.0f, 0.0f, 0.3f}
                 );
             }
         }
@@ -759,8 +781,10 @@ void create_text(
     text.font.pixels = 32;
     text.text =
         L"Hello, "
-        L"Worldajthgreawiohguhiuwearjhoiughjoaewrughiowahioulgerjioweahjgiuawhi"
-        L"ohiouaewhoiughjwaoigoiehafgioerhiiUWEGHNVIOAHJEDSKGBHJIUAERWHJIUGOHoa"
+        L"Worldajthgreawiohguhiuwearjhoiughjoaewrughiowahioulgerjioweahjgiu"
+        L"awhi"
+        L"ohiouaewhoiughjwaoigoiehafgioerhiiUWEGHNVIOAHJEDSKGBHJIUAERWHJIUG"
+        L"OHoa"
         L"ghweiuo ioweafgioewajiojoiatg huihkljh";
     command.spawn(text, pixel_engine::font::components::TextPos{100, 500});
     pixel_engine::font::components::Text text2;
@@ -772,7 +796,8 @@ void create_text(
     text2.text =
         L"Hello, "
         L"Worldoawgheruiahjgijanglkjwaehjgo;"
-        L"ierwhjgiohnweaioulgfhjewjfweg3ioioiwefiowejhoiewfgjoiweaghioweahioawe"
+        L"ierwhjgiohnweaioulgfhjewjfweg3ioioiwefiowejhoiewfgjoiweaghioweahi"
+        L"oawe"
         L"gHJWEAIOUHAWEFGIOULHJEAWio;hWE$gowaejgio";
     command.spawn(text2, pixel_engine::font::components::TextPos{100, 200});
 }
@@ -988,107 +1013,29 @@ struct VK_TrialPlugin : Plugin {
         using namespace pixel_engine;
 
         app.enable_loop();
-        // app.add_system(PreStartup, create_renderer).use_worker("single");
-        // app.add_system(Startup, create_vertex_buffer).use_worker("single");
-        // app.add_system(Startup, create_index_buffer).use_worker("single");
-        // app.add_system(Startup, create_uniform_buffers).use_worker("single");
-        // app.add_system(Exit, destroy_uniform_buffers)
-        //     .after(wait_for_device)
-        //     .use_worker("single");
-        // app.add_system(Startup, create_depth_image).use_worker("single");
-        // app.add_system(Exit, destroy_depth_image)
-        //     .after(wait_for_device)
-        //     .use_worker("single");
-        // app.add_system(Startup, create_depth_image_view)
-        //     .after(create_depth_image)
-        //     .use_worker("single");
-        // app.add_system(Exit, destroy_depth_image_view)
-        //     .after(wait_for_device)
-        //     .before(destroy_depth_image)
-        //     .use_worker("single");
-        // app.add_system(Startup, create_texture_image).use_worker("single");
-        // app.add_system(Exit, destroy_texture_image)
-        //     .after(wait_for_device)
-        //     .use_worker("single");
-        // app.add_system(Startup, create_texture_image_view)
-        //     .after(create_texture_image)
-        //     .use_worker("single");
-        // app.add_system(Exit, destroy_texture_image_view)
-        //     .after(wait_for_device)
-        //     .before(destroy_texture_image)
-        //     .use_worker("single");
-        // app.add_system(Startup, create_texture_image_sampler)
-        //     .after(create_texture_image_view)
-        //     .before(create_descriptor_sets)
-        //     .use_worker("single");
-        // app.add_system(Exit, destroy_texture_image_sampler)
-        //     .after(wait_for_device)
-        //     .before(destroy_texture_image_view)
-        //     .use_worker("single");
-        // app.add_system(Startup, create_descriptor_set_layout)
-        //     .before(create_descriptor_pool)
-        //     .before(create_graphics_pipeline)
-        //     .use_worker("single");
-        // app.add_system(Exit, destroy_descriptor_set_layout)
-        //     .after(wait_for_device)
-        //     .use_worker("single");
-        // app.add_system(Startup, create_descriptor_pool).use_worker("single");
-        // app.add_system(Exit, destroy_descriptor_pool)
-        //     .use_worker("single")
-        //     .before(destroy_descriptor_set_layout)
-        //     .after(wait_for_device);
-        // app.add_system(Startup, create_descriptor_sets)
-        //     .after(create_descriptor_pool, create_uniform_buffers)
-        //     .use_worker("single");
-        // app.add_system(Startup, create_render_pass).use_worker("single");
-        // app.add_system(Startup, create_graphics_pipeline)
-        //     .after(create_render_pass)
-        //     .use_worker("single");
-        // app.add_system(Render, begin_draw)
-        //     .use_worker("single")
-        //     .before(
-        //         pixel_engine::font::systems::vulkan::draw_text,
-        //         pixel_engine::sprite::systems::draw_sprite_2d_vk,
-        //         update_uniform_buffer
-        //     );
-        // app.add_system(Render, update_uniform_buffer)
-        //     .use_worker("single")
-        //     .before(
-        //         pixel_engine::font::systems::vulkan::draw_text,
-        //         pixel_engine::sprite::systems::draw_sprite_2d_vk,
-        //         record_command_buffer
-        //     );
-        // app.add_system(Render, record_command_buffer)
-        //     .use_worker("single")
-        //     .before(
-        //         pixel_engine::font::systems::vulkan::draw_text,
-        //         pixel_engine::sprite::systems::draw_sprite_2d_vk, end_draw
-        //     );
-        // app.add_system(Render, end_draw)
-        //     .use_worker("single")
-        //     .before(
-        //         pixel_engine::font::systems::vulkan::draw_text,
-        //         pixel_engine::sprite::systems::draw_sprite_2d_vk
-        //     );
-        // app.add_system(Exit, wait_for_device).use_worker("single");
-        // app.add_system(Exit, free_vertex_buffer)
-        //     .after(wait_for_device)
-        //     .use_worker("single");
-        // app.add_system(Exit, free_index_buffer)
-        //     .after(wait_for_device)
-        //     .use_worker("single");
-        // app.add_system(Exit, destroy_pipeline)
-        //     .after(wait_for_device)
-        //     .use_worker("single");
-        // app.add_system(Exit, destroy_render_pass)
-        //     .after(wait_for_device)
-        //     .use_worker("single");
-        app.add_system(Startup, create_text);
-        app.add_system(Startup, create_pixel_block);
-        app.add_system(Render, draw_lines);
-        app.add_system(Render, imgui_demo_window);
-        // app.add_system(Update, shuffle_text);
-        // app.add_system(Update, output_event);
+        // app.add_system(Startup, create_text);
+        // app.add_system(Startup, create_pixel_block);
+        // app.add_system(Render, draw_lines);
+        app.insert_state(SimulateState::Running);
+        app.add_system(
+               Startup, create_b2d_world, create_ground, create_dynamic,
+               create_pixel_block_with_collision
+        )
+            .chain();
+        app.add_system(PreUpdate, update_b2d_world)
+            .in_state(SimulateState::Running);
+        app.add_system(PreUpdate, toggle_full_screen).use_worker("single");
+        app.add_system(
+            Update, destroy_too_far_bodies, create_dynamic_from_click,
+            toggle_simulation, update_mouse_joint
+        );
+        app.add_system(Render, render_pixel_block);
+        app.add_system(
+               PostRender, render_bodies
+               /*, imgui_demo_window, render_pixel_renderer_test */
+        )
+            .before(pixel_engine::render_vk::systems::present_frame);
+        app.add_system(Exit, destroy_b2d_world);
     }
 };
 
@@ -1105,21 +1052,5 @@ void run() {
     app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
     // app.add_plugin(pixel_engine::sprite::SpritePluginVK{});
     app.run();
-
-    binary_grid grid(5, 5);
-    grid.set(1, 1, true);
-    grid.set(2, 1, true);
-    grid.set(3, 1, true);
-    grid.set(3, 2, true);
-    grid.set(2, 3, true);
-    grid.set(1, 3, true);
-    grid.set(1, 2, true);
-    auto outland = get_outland(grid);
-    grid.print();
-    outland.print();
-    auto _and = grid & outland;
-    auto _or  = grid | outland;
-    _and.print();
-    _or.print();
 }
 }  // namespace vk_trial

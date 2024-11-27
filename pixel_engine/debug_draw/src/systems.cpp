@@ -176,7 +176,7 @@ void systems::create_line_drawer(
         vk::VertexInputAttributeDescription()
             .setBinding(0)
             .setLocation(1)
-            .setFormat(vk::Format::eR32G32B32Sfloat)
+            .setFormat(vk::Format::eR32G32B32A32Sfloat)
             .setOffset(offsetof(DebugVertex, color)),
         vk::VertexInputAttributeDescription()
             .setBinding(0)
@@ -204,13 +204,22 @@ void systems::create_line_drawer(
     vk::PipelineMultisampleStateCreateInfo multisample_info;
     multisample_info.setRasterizationSamples(vk::SampleCountFlagBits::e1);
     vk::PipelineColorBlendAttachmentState color_blend_attachment;
-    color_blend_attachment.setBlendEnable(VK_FALSE);
+    color_blend_attachment.setBlendEnable(VK_TRUE);
     color_blend_attachment.setColorWriteMask(
         vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
         vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
     );
+    color_blend_attachment.setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha);
+    color_blend_attachment.setDstColorBlendFactor(
+        vk::BlendFactor::eOneMinusSrcAlpha
+    );
+    color_blend_attachment.setColorBlendOp(vk::BlendOp::eAdd);
+    color_blend_attachment.setSrcAlphaBlendFactor(vk::BlendFactor::eOne);
+    color_blend_attachment.setDstAlphaBlendFactor(vk::BlendFactor::eZero);
     vk::PipelineColorBlendStateCreateInfo color_blend_info;
     color_blend_info.setAttachments(color_blend_attachment);
+    color_blend_info.setLogicOpEnable(VK_FALSE);
+    color_blend_info.setLogicOp(vk::LogicOp::eCopy);
     vk::PipelineDepthStencilStateCreateInfo depth_stencil_info;
     depth_stencil_info.setDepthTestEnable(VK_FALSE);
     depth_stencil_info.setDepthWriteEnable(VK_FALSE);
@@ -437,7 +446,7 @@ void systems::create_point_drawer(
         vk::VertexInputAttributeDescription()
             .setBinding(0)
             .setLocation(1)
-            .setFormat(vk::Format::eR32G32B32Sfloat)
+            .setFormat(vk::Format::eR32G32B32A32Sfloat)
             .setOffset(offsetof(DebugVertex, color)),
         vk::VertexInputAttributeDescription()
             .setBinding(0)
@@ -465,11 +474,18 @@ void systems::create_point_drawer(
     vk::PipelineMultisampleStateCreateInfo multisample_info;
     multisample_info.setRasterizationSamples(vk::SampleCountFlagBits::e1);
     vk::PipelineColorBlendAttachmentState color_blend_attachment;
-    color_blend_attachment.setBlendEnable(VK_FALSE);
+    color_blend_attachment.setBlendEnable(VK_TRUE);
     color_blend_attachment.setColorWriteMask(
         vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
         vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
     );
+    color_blend_attachment.setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha);
+    color_blend_attachment.setDstColorBlendFactor(
+        vk::BlendFactor::eOneMinusSrcAlpha
+    );
+    color_blend_attachment.setColorBlendOp(vk::BlendOp::eAdd);
+    color_blend_attachment.setSrcAlphaBlendFactor(vk::BlendFactor::eOne);
+    color_blend_attachment.setDstAlphaBlendFactor(vk::BlendFactor::eZero);
     vk::PipelineColorBlendStateCreateInfo color_blend_info;
     color_blend_info.setAttachments(color_blend_attachment);
     vk::PipelineDepthStencilStateCreateInfo depth_stencil_info;
@@ -699,7 +715,7 @@ void systems::create_triangle_drawer(
         vk::VertexInputAttributeDescription()
             .setBinding(0)
             .setLocation(1)
-            .setFormat(vk::Format::eR32G32B32Sfloat)
+            .setFormat(vk::Format::eR32G32B32A32Sfloat)
             .setOffset(offsetof(DebugVertex, color)),
         vk::VertexInputAttributeDescription()
             .setBinding(0)
@@ -727,11 +743,18 @@ void systems::create_triangle_drawer(
     vk::PipelineMultisampleStateCreateInfo multisample_info;
     multisample_info.setRasterizationSamples(vk::SampleCountFlagBits::e1);
     vk::PipelineColorBlendAttachmentState color_blend_attachment;
-    color_blend_attachment.setBlendEnable(VK_FALSE);
+    color_blend_attachment.setBlendEnable(VK_TRUE);
     color_blend_attachment.setColorWriteMask(
         vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
         vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
     );
+    color_blend_attachment.setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha);
+    color_blend_attachment.setDstColorBlendFactor(
+        vk::BlendFactor::eOneMinusSrcAlpha
+    );
+    color_blend_attachment.setColorBlendOp(vk::BlendOp::eAdd);
+    color_blend_attachment.setSrcAlphaBlendFactor(vk::BlendFactor::eOne);
+    color_blend_attachment.setDstAlphaBlendFactor(vk::BlendFactor::eZero);
     vk::PipelineColorBlendStateCreateInfo color_blend_info;
     color_blend_info.setAttachments(color_blend_attachment);
     vk::PipelineDepthStencilStateCreateInfo depth_stencil_info;

@@ -265,7 +265,7 @@ void PixelRenderer::begin(
     );
     ctx.model_data = static_cast<glm::mat4*>(block_model_buffer.map(device));
     ctx.vertex_data =
-        static_cast<PixelVertex*>(vertex_staging_buffer.map(device));
+        static_cast<PixelVertex*>(vertex_buffer.map(device));
     *static_cast<PixelUniformBuffer*>(uniform_buffer.map(device)) =
         pixel_uniform;
     uniform_buffer.unmap(device);
@@ -293,7 +293,7 @@ void PixelRenderer::begin(
     );
     ctx.model_data = static_cast<glm::mat4*>(block_model_buffer.map(device));
     ctx.vertex_data =
-        static_cast<PixelVertex*>(vertex_staging_buffer.map(device));
+        static_cast<PixelVertex*>(vertex_buffer.map(device));
     *static_cast<PixelUniformBuffer*>(uniform_buffer.map(device)) =
         pixel_uniform;
     uniform_buffer.unmap(device);
@@ -314,7 +314,7 @@ void PixelRenderer::begin(
     this->framebuffer = framebuffer;
     ctx.model_data    = static_cast<glm::mat4*>(block_model_buffer.map(device));
     ctx.vertex_data =
-        static_cast<PixelVertex*>(vertex_staging_buffer.map(device));
+        static_cast<PixelVertex*>(vertex_buffer.map(device));
     *static_cast<PixelUniformBuffer*>(uniform_buffer.map(device)) =
         pixel_uniform;
     uniform_buffer.unmap(device);
@@ -324,7 +324,7 @@ void PixelRenderer::end() {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     flush();
-    vertex_staging_buffer.unmap(*ctx.device);
+    vertex_buffer.unmap(*ctx.device);
     block_model_buffer.unmap(*ctx.device);
     context.reset();
 }
@@ -337,9 +337,10 @@ void PixelRenderer::draw(const glm::vec4& color, const glm::vec2& pos) {
         reset_cmd();
     }
     if (!ctx.model_offset) return;
-    ctx.vertex_data[ctx.vertex_offset++] = PixelVertex{
-        .color = color, .pos = pos, .model_index = ctx.model_offset - 1
-    };
+    ctx.vertex_data[ctx.vertex_offset].color       = color;
+    ctx.vertex_data[ctx.vertex_offset].pos         = pos;
+    ctx.vertex_data[ctx.vertex_offset].model_index = ctx.model_offset - 1;
+    ctx.vertex_offset++;
 }
 
 void PixelRenderer::reset_cmd() {
@@ -401,26 +402,26 @@ void PixelRenderer::flush() {
         //     {}, {}, {}, barrier
         // );
         // copy vertex data and index data
-        vk::BufferCopy copy_region;
-        copy_region.setSrcOffset(0);
-        copy_region.setDstOffset(0);
-        copy_region.setSize(ctx.vertex_offset * sizeof(PixelVertex));
-        command_buffer->copyBuffer(
-            *vertex_staging_buffer, *vertex_buffer, copy_region
-        );
-        vk::BufferMemoryBarrier buffer_barrier;
-        buffer_barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-        buffer_barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-        buffer_barrier.setBuffer(*vertex_buffer);
-        buffer_barrier.setOffset(0);
-        buffer_barrier.setSize(VK_WHOLE_SIZE);
-        buffer_barrier.setSrcAccessMask(vk::AccessFlagBits::eTransferWrite);
-        buffer_barrier.setDstAccessMask(vk::AccessFlagBits::eVertexAttributeRead
-        );
-        command_buffer->pipelineBarrier(
-            vk::PipelineStageFlagBits::eTransfer,
-            vk::PipelineStageFlagBits::eVertexInput, {}, {}, buffer_barrier, {}
-        );
+        // vk::BufferCopy copy_region;
+        // copy_region.setSrcOffset(0);
+        // copy_region.setDstOffset(0);
+        // copy_region.setSize(ctx.vertex_offset * sizeof(PixelVertex));
+        // command_buffer->copyBuffer(
+        //     *vertex_staging_buffer, *vertex_buffer, copy_region
+        // );
+        // vk::BufferMemoryBarrier buffer_barrier;
+        // buffer_barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+        // buffer_barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+        // buffer_barrier.setBuffer(*vertex_buffer);
+        // buffer_barrier.setOffset(0);
+        // buffer_barrier.setSize(VK_WHOLE_SIZE);
+        // buffer_barrier.setSrcAccessMask(vk::AccessFlagBits::eTransferWrite);
+        // buffer_barrier.setDstAccessMask(vk::AccessFlagBits::eVertexAttributeRead
+        // );
+        // command_buffer->pipelineBarrier(
+        //     vk::PipelineStageFlagBits::eTransfer,
+        //     vk::PipelineStageFlagBits::eVertexInput, {}, {}, buffer_barrier, {}
+        // );
         vk::RenderPassBeginInfo render_pass_info;
         render_pass_info.setRenderPass(*render_pass);
         render_pass_info.setFramebuffer(*framebuffer);

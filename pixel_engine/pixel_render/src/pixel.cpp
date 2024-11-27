@@ -308,21 +308,9 @@ void systems::create_pixel_pipeline(
     vertex_buffer_info.setSize(sizeof(PixelVertex) * 4 * 1024 * 1024);
     AllocationCreateInfo vertex_alloc_info;
     vertex_alloc_info.setUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
-    vertex_alloc_info.setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
+    vertex_alloc_info.setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
     Buffer vertex_buffer =
         Buffer::create(device, vertex_buffer_info, vertex_alloc_info);
-    vk::BufferCreateInfo vertex_staging_buffer_info;
-    vertex_staging_buffer_info.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
-    vertex_staging_buffer_info.setSize(sizeof(PixelVertex) * 4 * 1024 * 1024);
-    AllocationCreateInfo vertex_staging_alloc_info;
-    vertex_staging_alloc_info.setUsage(VMA_MEMORY_USAGE_AUTO_PREFER_HOST);
-    vertex_staging_alloc_info.setFlags(
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-        VMA_ALLOCATION_CREATE_MAPPED_BIT
-    );
-    Buffer vertex_staging_buffer = Buffer::create(
-        device, vertex_staging_buffer_info, vertex_staging_alloc_info
-    );
     vk::BufferCreateInfo uniform_buffer_info;
     uniform_buffer_info.setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
     uniform_buffer_info.setSize(sizeof(PixelUniformBuffer));
@@ -556,7 +544,6 @@ void systems::create_pixel_pipeline(
     renderer.graphics_pipeline     = graphics_pipeline;
     renderer.pipeline_layout       = pipeline_layout;
     renderer.vertex_buffer         = vertex_buffer;
-    renderer.vertex_staging_buffer = vertex_staging_buffer;
     renderer.uniform_buffer        = uniform_buffer;
     renderer.block_model_buffer    = block_model_buffer;
     renderer.descriptor_set_layout = descriptor_set_layout;
@@ -632,7 +619,6 @@ void systems::destroy_pixel_pipeline(
     renderer.graphics_pipeline.destroy(device);
     renderer.pipeline_layout.destroy(device);
     renderer.vertex_buffer.destroy(device);
-    renderer.vertex_staging_buffer.destroy(device);
     renderer.uniform_buffer.destroy(device);
     renderer.block_model_buffer.destroy(device);
     renderer.descriptor_set_layout.destroy(device);
