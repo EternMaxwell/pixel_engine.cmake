@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 
 file(GLOB_RECURSE ENGINE_HEADERS "include/*.h" "include/*.hpp")
 file(GLOB_RECURSE ENGINE_SOURCES "src/*.c" "src/*.cpp")
-add_library(epix_app SHARED ${ENGINE_SOURCES})
+add_library(epix_app STATIC ${ENGINE_SOURCES})
 target_include_directories(epix_app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(epix_app EnTT::EnTT)

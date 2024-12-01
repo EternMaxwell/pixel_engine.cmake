@@ -1,6 +1,6 @@
 ﻿cmake_minimum_required (VERSION 3.21)
 
-add_compile_definitions(EPIX_BUILD_DLL)
+# add_compile_definitions(EPIX_BUILD_DLL)
 
 add_subdirectory(app)
 add_subdirectory(window)
@@ -17,7 +17,7 @@ add_subdirectory(sand)
 
 file(GLOB_RECURSE ENGINE_HEADERS "include/*.h" "include/*.hpp")
 file(GLOB_RECURSE ENGINE_SOURCES "src/*.c" "src/*.cpp")
-add_library(pixel_engine SHARED ${ENGINE_SOURCES})
+add_library(pixel_engine STATIC ${ENGINE_SOURCES})
 target_include_directories(pixel_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 #set_target_properties(pixel_engine PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR} PUBLIC_HEADER ${ENGINE_HEADERS})
@@ -47,4 +47,4 @@ target_link_libraries (pixel_engine PUBLIC pixel_engine::render::font)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::render::sprite)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::render::pixel)
 
-remove_definitions(-DEPIX_BUILD_DLL)
+# remove_definitions(-DEPIX_BUILD_DLL)

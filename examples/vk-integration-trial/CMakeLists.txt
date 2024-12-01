@@ -17,7 +17,7 @@ target_link_libraries (${PROJNAME} PRIVATE pixel_engine::imgui)
 target_link_libraries (${PROJNAME} PRIVATE box2d)
 target_link_libraries (${PROJNAME} PRIVATE earcut.hpp)
 
-add_custom_command(TARGET ${PROJNAME} POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:${PROJNAME}> $<TARGET_FILE_DIR:${PROJNAME}>
-  COMMAND_EXPAND_LISTS
-  )
+# add_custom_command(TARGET ${PROJNAME} POST_BUILD
+#   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:${PROJNAME}> $<TARGET_FILE_DIR:${PROJNAME}>
+#   COMMAND_EXPAND_LISTS
+#   )
