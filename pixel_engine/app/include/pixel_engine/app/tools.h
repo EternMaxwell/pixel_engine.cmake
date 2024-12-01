@@ -1,48 +1,48 @@
 #pragma once
 
+#include <sparsepp/spp.h>
+
 #include <entt/entity/registry.hpp>
 #include <tuple>
 
+#include "common.h"
+
 namespace pixel_engine {
 namespace app {
-struct Entity {
-    entt::entity id = entt::null;
-    Entity operator=(entt::entity id) {
-        this->id = id;
-        return *this;
-    }
-    operator entt::entity() { return id; }
-    operator bool() { return id != entt::null; }
-    bool operator!() { return id == entt::null; }
-    bool operator==(const Entity& other) { return id == other.id; }
-    bool operator!=(const Entity& other) { return id != other.id; }
-    bool operator==(const entt::entity& other) { return id == other; }
-    bool operator!=(const entt::entity& other) { return id != other; }
-};
 struct App;
 struct SubApp;
+struct Entity {
+    entt::entity id = entt::null;
+    EPIX_API Entity& operator=(entt::entity id);
+    EPIX_API operator entt::entity();
+    EPIX_API operator bool();
+    EPIX_API bool operator!();
+    EPIX_API bool operator==(const Entity& other);
+    EPIX_API bool operator!=(const Entity& other);
+    EPIX_API bool operator==(const entt::entity& other);
+    EPIX_API bool operator!=(const entt::entity& other);
+};
 }  // namespace app
+}  // namespace pixel_engine
+template <>
+struct std::hash<pixel_engine::app::Entity> {
+    EPIX_API size_t operator()(const pixel_engine::app::Entity& entity) const;
+};
+template <>
+struct std::equal_to<pixel_engine::app::Entity> {
+    EPIX_API bool operator()(
+        const pixel_engine::app::Entity& a, const pixel_engine::app::Entity& b
+    ) const;
+};
+namespace pixel_engine {
 namespace internal_components {
 using Entity = app::Entity;
 struct Bundle {};
 struct Parent {
     Entity id;
 };
-template <typename T>
-struct Handle {
-    Entity id;
-    void operator=(entt::entity id) { this->id = id; }
-    void operator=(Entity id) { this->id = id; }
-    operator entt::entity() { return id; }
-    operator Entity() { return id; }
-    operator bool() { return id.operator bool(); }
-    bool operator!() { return !id; }
-    bool operator==(const Handle<T>& other) { return id == other.id; }
-    bool operator!=(const Handle<T>& other) { return id != other.id; }
-    bool operator==(const entt::entity& other) { return id == other; }
-    bool operator!=(const entt::entity& other) { return id != other; }
-    bool operator==(const Entity& other) { return id == other.id; }
-    bool operator!=(const Entity& other) { return id != other.id; }
+struct Children {
+    spp::sparse_hash_set<Entity> children;
 };
 template <typename T>
 struct NextState;
@@ -58,10 +58,10 @@ struct State {
    public:
     State() : m_state() {}
     State(const T& state) : m_state(state) {}
-    bool is_just_created() { return just_created; }
+    bool is_just_created() const { return just_created; }
 
-    bool is_state(const T& state) { return m_state == state; }
-    bool is_state(const NextState<T>& state) {
+    bool is_state(const T& state) const { return m_state == state; }
+    bool is_state(const NextState<T>& state) const {
         return m_state == state.m_state;
     }
 };
@@ -102,7 +102,9 @@ void registry_emplace_single(
                   std::is_base_of_v<Bundle, std::remove_reference_t<T>>) {
         registry_emplace_tuple(registry, entity, std::forward<T>(arg).unpack());
     } else if constexpr (!std::is_same_v<Bundle, std::remove_reference_t<T>>) {
-        registry->emplace<std::remove_reference_t<T>>(entity, std::move(arg));
+        registry->emplace<std::remove_reference_t<T>>(
+            entity, std::forward<T>(arg)
+        );
     }
 }
 
@@ -124,7 +126,10 @@ void registry_emplace_tuple(
 ) {
     registry_emplace(
         registry, entity,
-        std::forward<decltype(std::get<I>(tuple))>(std::get<I>(tuple))...
+        std::forward<
+            decltype(std::get<I>(std::forward<std::tuple<Args...>&&>(tuple)))>(
+            std::get<I>(std::forward<std::tuple<Args...>&&>(tuple))
+        )...
     );
 }
 
@@ -227,24 +232,6 @@ struct std::equal_to<std::weak_ptr<T>> {
         pixel_engine::app_tools::t_weak_ptr<T> aptr(a);
         pixel_engine::app_tools::t_weak_ptr<T> bptr(b);
         return aptr.get_p() == bptr.get_p();
-    }
-};
-
-template <typename T>
-struct std::hash<pixel_engine::internal_components::Handle<T>> {
-    size_t operator()(const pixel_engine::internal_components::Handle<T>& handle
-    ) const {
-        return std::hash<entt::entity>()(handle.id);
-    }
-};
-
-template <typename T>
-struct std::equal_to<pixel_engine::internal_components::Handle<T>> {
-    bool operator()(
-        const pixel_engine::internal_components::Handle<T>& a,
-        const pixel_engine::internal_components::Handle<T>& b
-    ) const {
-        return a.id == b.id;
     }
 };
 }  // namespace app_tools

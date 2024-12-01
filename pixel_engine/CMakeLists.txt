@@ -3,7 +3,6 @@
 add_compile_definitions(EPIX_BUILD_DLL)
 
 add_subdirectory(app)
-add_subdirectory(app_v2)
 add_subdirectory(window)
 add_subdirectory(input)
 add_subdirectory(render_ogl)

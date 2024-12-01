@@ -1,80 +1,45 @@
 #pragma once
 
-#include <any>
-#include <deque>
-#include <memory>
+#include "event_queue.h"
 
-namespace pixel_engine {
-namespace app {
-struct Event {
-    uint32_t ticks = 0;
-    std::any event;
-};
-
-template <typename Evt>
-struct EventWriter {
-   private:
-    std::shared_ptr<std::deque<Event>> const m_events;
-
-   public:
-    EventWriter(std::shared_ptr<std::deque<Event>> events) : m_events(events) {}
-
-    /*! @brief Write an event.
-     * @param evt The event to be written.
-     */
-    auto& write(Evt evt) {
-        m_events->push_back(Event{.event = evt});
-        return *this;
-    }
-};
-
-template <typename Evt>
+namespace pixel_engine::app {
+template <typename T>
 struct EventReader {
-   private:
-    std::shared_ptr<std::deque<Event>> const m_events;
+    EventReader(EventQueueBase* queue)
+        : m_queue(dynamic_cast<EventQueue<T>*>(queue)) {}
 
-   public:
-    EventReader(std::shared_ptr<std::deque<Event>> events) : m_events(events) {}
+    struct iter {
+        iter(EventQueue<T>* queue) : m_queue(queue) {}
+        auto begin() { return m_queue->begin(); }
+        auto end() { return m_queue->end(); }
 
-    class event_iter : public std::iterator<std::input_iterator_tag, Evt> {
        private:
-        std::shared_ptr<std::deque<Event>> m_events;
-        std::deque<Event>::iterator m_iter;
-
-       public:
-        event_iter(
-            std::shared_ptr<std::deque<Event>> events,
-            std::deque<Event>::iterator iter
-        )
-            : m_events(events), m_iter(iter) {}
-        event_iter& operator++() {
-            m_iter++;
-            return *this;
-        }
-        event_iter operator++(int) {
-            event_iter tmp = *this;
-            ++(*this);
-            return tmp;
-        }
-        bool operator==(const event_iter& rhs) const {
-            return m_iter == rhs.m_iter;
-        }
-        bool operator!=(const event_iter& rhs) const {
-            return m_iter != rhs.m_iter;
-        }
-        const Evt& operator*() { return std::any_cast<Evt&>((*m_iter).event); }
-        event_iter begin() { return event_iter(m_events, m_events->begin()); }
-        event_iter end() { return event_iter(m_events, m_events->end()); }
+        EventQueue<T>* m_queue;
     };
 
-    /*! @brief Get the iterator for the events.
-     * @return The iterator for the events.
-     */
-    event_iter read() { return event_iter(m_events, m_events->begin()); }
+    iter read() { return iter(m_queue); }
+    void clear() { m_queue->clear(); }
+    bool empty() { return m_queue->empty(); }
 
-    bool empty() { return m_events->empty(); }
-
-    void clear() { m_events->clear(); }
+   private:
+    EventQueue<T>* m_queue;
 };
-}  // namespace app
-}  // namespace pixel_engine
+
+template <typename T>
+struct EventWriter {
+    EventWriter(EventQueueBase* queue)
+        : m_queue(dynamic_cast<EventQueue<T>*>(queue)) {}
+
+    EventWriter& write(const T& event) {
+        m_queue->push(event);
+        return *this;
+    }
+    EventWriter& write(T&& event) {
+        m_queue->push(std::forward<T>(event));
+        return *this;
+    }
+
+   private:
+    EventQueue<T>* m_queue;
+};
+}  // namespace pixel_engine::app

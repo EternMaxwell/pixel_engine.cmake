@@ -1,31 +1,32 @@
 #pragma once
 
-#include <unordered_map>
-#include <unordered_set>
+#include <sparsepp/spp.h>
 
+#include <entt/entity/registry.hpp>
+
+#include "common.h"
 #include "tools.h"
+#include "world.h"
 
 namespace pixel_engine {
 namespace app {
 using namespace internal_components;
 
+struct SubApp;
+
 struct EntityCommand {
    private:
     entt::registry* const m_registry;
-    const entt::entity m_entity;
-    std::unordered_map<entt::entity, std::unordered_set<entt::entity>>*
-        m_entity_tree;
-    std::shared_ptr<std::vector<entt::entity>> m_despawns;
-    std::shared_ptr<std::vector<entt::entity>> m_recursive_despawns;
+    const Entity m_entity;
+    std::shared_ptr<spp::sparse_hash_set<Entity>> m_despawns;
+    std::shared_ptr<spp::sparse_hash_set<Entity>> m_recursive_despawns;
 
    public:
-    EntityCommand(
-        entt::registry* registry,
-        entt::entity entity,
-        std::unordered_map<entt::entity, std::unordered_set<entt::entity>>*
-            entity_tree,
-        std::shared_ptr<std::vector<entt::entity>> despawns,
-        std::shared_ptr<std::vector<entt::entity>> recursive_despawns
+    EPIX_API EntityCommand(
+        World* world,
+        Entity entity,
+        std::shared_ptr<spp::sparse_hash_set<Entity>> despawns,
+        std::shared_ptr<spp::sparse_hash_set<Entity>> recursive_despawns
     );
 
     /*! @brief Spawn an entity.
@@ -42,13 +43,14 @@ struct EntityCommand {
      * @return The child entity id.
      */
     template <typename... Args>
-    entt::entity spawn(Args&&... args) {
+    Entity spawn(Args&&... args) {
         auto child = m_registry->create();
         app_tools::registry_emplace(
             m_registry, child, Parent{.id = m_entity}, args...
         );
-        (*m_entity_tree)[m_entity].insert(child);
-        return child;
+        auto& children = m_registry->get_or_emplace<Children>(m_entity.id);
+        children.children.insert(child);
+        return {child};
     }
 
     /*! @brief Emplace new components to the entity.
@@ -58,39 +60,31 @@ struct EntityCommand {
      */
     template <typename... Args>
     void emplace(Args&&... args) {
-        app_tools::registry_emplace(m_registry, m_entity, args...);
+        app_tools::registry_emplace(m_registry, m_entity.id, args...);
     }
 
     template <typename... Args>
     void erase() {
-        app_tools::registry_erase<Args...>(m_registry, m_entity);
+        app_tools::registry_erase<Args...>(m_registry, m_entity.id);
     }
 
     /*! @brief Despawn an entity.
      */
-    void despawn();
+    EPIX_API void despawn();
 
     /*! @brief Despawn an entity and all its children.
      */
-    void despawn_recurse();
+    EPIX_API void despawn_recurse();
 };
 
 struct Command {
    private:
-    entt::registry* const m_registry;
-    std::unordered_map<const type_info*, std::shared_ptr<void>>* m_resources;
-    std::unordered_map<entt::entity, std::unordered_set<entt::entity>>*
-        m_entity_tree;
-    std::shared_ptr<std::vector<entt::entity>> m_despawns;
-    std::shared_ptr<std::vector<entt::entity>> m_recursive_despawns;
+    World* const m_world;
+    std::shared_ptr<spp::sparse_hash_set<Entity>> m_despawns;
+    std::shared_ptr<spp::sparse_hash_set<Entity>> m_recursive_despawns;
 
    public:
-    Command(
-        entt::registry* registry,
-        std::unordered_map<const type_info*, std::shared_ptr<void>>* resources,
-        std::unordered_map<entt::entity, std::unordered_set<entt::entity>>*
-            entity_tree
-    );
+    EPIX_API Command(World* world);
 
     /*! @brief Spawn an entity.
      * Note that the components to be added should not be type that is
@@ -106,12 +100,13 @@ struct Command {
      * @return The child entity id.
      */
     template <typename... Args>
-    entt::entity spawn(Args&&... args) {
-        auto entity = m_registry->create();
+    Entity spawn(Args&&... args) {
+        auto m_registry = &m_world->m_registry;
+        auto entity     = m_registry->create();
         app_tools::registry_emplace(
             m_registry, entity, std::forward<Args>(args)...
         );
-        return entity;
+        return {entity};
     }
 
     /**
@@ -120,7 +115,7 @@ struct Command {
      * @param entity The entity id.
      * @return `EntityCommand` The entity command.
      */
-    EntityCommand entity(entt::entity entity);
+    EPIX_API EntityCommand entity(Entity entity);
 
     /*! @brief Insert a resource.
      * If the resource already exists, nothing will happen.
@@ -129,28 +124,34 @@ struct Command {
      * @param args The arguments to be passed to the constructor of T
      */
     template <typename T, typename... Args>
-    void insert_resource(Args&&... args) {
-        if (m_resources->find(&typeid(T)) == m_resources->end()) {
-            m_resources->emplace(std::make_pair(
-                &typeid(T), std::static_pointer_cast<void>(
-                                std::make_shared<std::remove_reference_t<T>>(
-                                    std::forward<Args>(args)...
-                                )
-                            )
-            ));
+    void emplace_resource(Args&&... args) {
+        auto m_resources = &m_world->m_resources;
+        if (m_resources->find(std::type_index(typeid(std::remove_reference_t<T>)
+            )) == m_resources->end()) {
+            m_resources->emplace(
+                std::type_index(typeid(std::remove_reference_t<T>)),
+                std::static_pointer_cast<void>(
+                    std::make_shared<std::remove_reference_t<T>>(
+                        std::forward<Args>(args)...
+                    )
+                )
+            );
         }
     }
 
     template <typename T>
     void insert_resource(T&& res) {
-        if (m_resources->find(&typeid(T)) == m_resources->end()) {
-            m_resources->emplace(std::make_pair(
-                &typeid(T), std::static_pointer_cast<void>(
-                                std::make_shared<std::remove_reference_t<T>>(
-                                    std::forward<T>(res)
-                                )
-                            )
-            ));
+        auto m_resources = &m_world->m_resources;
+        if (m_resources->find(std::type_index(typeid(std::remove_reference_t<T>)
+            )) == m_resources->end()) {
+            m_resources->emplace(
+                std::type_index(typeid(std::remove_reference_t<T>)),
+                std::static_pointer_cast<void>(
+                    std::make_shared<std::remove_reference_t<T>>(
+                        std::forward<T>(res)
+                    )
+                )
+            );
         }
     }
 
@@ -160,7 +161,8 @@ struct Command {
      */
     template <typename T>
     void remove_resource() {
-        m_resources->erase(&typeid(T));
+        auto m_resources = &m_world->m_resources;
+        m_resources->erase(std::type_index(typeid(std::remove_reference_t<T>)));
     }
 
     /*! @brief Insert Resource using default values.
@@ -169,15 +171,22 @@ struct Command {
      */
     template <typename T>
     void init_resource() {
-        if (m_resources->find(&typeid(T)) == m_resources->end()) {
+        auto m_resources = &m_world->m_resources;
+        if (m_resources->find(std::type_index(typeid(std::remove_reference_t<T>)
+            )) == m_resources->end()) {
             auto res = std::static_pointer_cast<void>(
                 std::make_shared<std::remove_reference_t<T>>()
             );
-            m_resources->insert({&typeid(T), res});
+            m_resources->emplace(
+                std::type_index(typeid(std::remove_reference_t<T>)), res
+            );
         }
     }
 
-    void end();
+   private:
+    EPIX_API void end();
+
+    friend struct SubApp;
 };
 }  // namespace app
 }  // namespace pixel_engine

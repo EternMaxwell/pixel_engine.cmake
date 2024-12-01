@@ -5,6 +5,8 @@
 #include <tuple>
 #include <type_traits>
 
+#include "tools.h"
+
 namespace pixel_engine {
 namespace app {
 template <typename... T>
@@ -80,9 +82,9 @@ class QueryBase<Get<Qus...>, With<Ins...>, Without<Exs...>> {
      */
     auto iter() { return iterator(m_view.each()); }
 
-    std::tuple<Qus&...> get(Entity id) { return m_view.get<Qus...>(id); }
+    std::tuple<Qus&...> get(entt::entity id) { return m_view.get<Qus...>(id); }
 
-    bool contains(Entity id) { return m_view.contains(id); }
+    bool contains(entt::entity id) { return m_view.contains(id); }
 
     /*! @brief Get the single entity and requaired components.
      * @return An optional of a single tuple of entity and requaired
@@ -213,12 +215,15 @@ struct Extract<Get<Gets...>, With<Withs...>, Without<Withouts...>> {
     ) {
         query.for_each(func);
     }
-    auto get(Entity id) { return query.get(id); }
-    bool contains(Entity id) { return query.contains(id); }
+    auto get(entt::entity id) { return query.get(id); }
+    bool contains(entt::entity id) { return query.contains(id); }
 };
 
 template <typename... Gets, typename... Withs, typename... Withouts>
-struct Extract<Get<Entity, Gets...>, With<Withs...>, Without<Withouts...>> {
+struct Extract<
+    Get<Entity, Gets...>,
+    With<Withs...>,
+    Without<Withouts...>> {
     using type = QueryBase<
         Get<Entity, std::add_const_t<Gets>...>,
         With<std::add_const_t<Withs>...>,

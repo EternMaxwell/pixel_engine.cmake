@@ -1,33 +1,39 @@
 #pragma once
 
-#include "app/app.h"
+// ----EPIX API----
+#include "app/command.h"
+// ----EPIX API----
 
-namespace pixel_engine {
-namespace prelude {
-using App = app::App;
+#include "app/app.h"
+#include "app/runner.h"
+#include "app/runner_tools.h"
+#include "app/stage_runner.h"
+#include "app/subapp.h"
+#include "app/substage_runner.h"
+#include "app/system.h"
+#include "app/tools.h"
+#include "app/world.h"
+
+namespace pixel_engine::prelude {
+using namespace pixel_engine;
+
+// ENTITY PART
+using App      = app::App;
+using Plugin   = app::Plugin;
+using Entity   = app::Entity;
+using Bundle   = internal_components::Bundle;
+using Parent   = internal_components::Parent;
+using Children = internal_components::Children;
+
+// EVENTS
 using AppExit = app::AppExit;
 
-using Bundle = app::Bundle;
-using Entity = app::Entity;
-
+// SYSTEM PARA PART
 template <typename T>
-using Handle = app::Handle<T>;
-
-// query types
-template <typename... T>
-using Get = app::Get<T...>;
-template <typename... T>
-using With = app::With<T...>;
-template <typename... T>
-using Without = app::Without<T...>;
-
+using Res = app::Res<T>;
+template <typename T>
+using ResMut  = app::ResMut<T>;
 using Command = app::Command;
-template <typename T>
-using Resource = app::Resource<T>;
-template <typename In, typename Ws = With<>, typename Ex = Without<>>
-using Query = app::Query<In, Ws, Ex>;
-template <typename In, typename Ws = With<>, typename Ex = Without<>>
-using Extract = app::Extract<In, Ws, Ex>;
 template <typename T>
 using EventReader = app::EventReader<T>;
 template <typename T>
@@ -36,14 +42,16 @@ template <typename T>
 using State = app::State<T>;
 template <typename T>
 using NextState = app::NextState<T>;
-
-using Plugin = app::Plugin;
-
+template <typename... Args>
+using Get = app::Get<Args...>;
+template <typename... Args>
+using With = app::With<Args...>;
+template <typename... Args>
+using Without = app::Without<Args...>;
+template <typename G, typename I = With<>, typename E = Without<>>
+using Query = app::Query<G, I, E>;
+template <typename G, typename I = With<>, typename E = Without<>>
+using Extract = app::Extract<G, I, E>;
 template <typename T>
-std::shared_ptr<app::BasicSystem<bool>> in_state(const T&& t) {
-    return std::make_shared<app::Condition<Resource<State<T>>>>(
-        [&](Resource<State<T>> cur) { return cur->is_state(t); }
-    );
-}
-}  // namespace prelude
-}  // namespace pixel_engine
+using Local = app::Local<T>;
+}  // namespace pixel_engine::prelude
