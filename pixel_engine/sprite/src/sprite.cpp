@@ -26,7 +26,7 @@ Entity SpriteServerVK::load_image(Command& cmd, const std::string& _path) {
     if (image != images.end()) {
         return image->second;
     } else {
-        auto image_view = cmd.spawn(ImageLoading{path});
+        auto image_view = cmd.spawn(ImageLoading{path}).id();
         images[path]    = image_view;
         return image_view;
     }
@@ -39,7 +39,7 @@ Entity SpriteServerVK::create_sampler(
     if (sampler != samplers.end()) {
         return sampler->second;
     } else {
-        auto sampler_handle = cmd.spawn(SamplerCreating{create_info, name});
+        auto sampler_handle = cmd.spawn(SamplerCreating{create_info, name}).id();
         samplers[name]      = sampler_handle;
         return sampler_handle;
     }

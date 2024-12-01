@@ -1,6 +1,6 @@
 #include <spdlog/spdlog.h>
 
-#include "pixel_engine/fallingsand/components.h"
+#include "pixel_engine/world/sand/components.h"
 
 using namespace pixel_engine::world::sand::components;
 

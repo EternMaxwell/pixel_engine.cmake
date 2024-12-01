@@ -3,12 +3,12 @@
 using namespace pixel_engine::app;
 
 EPIX_API EntityCommand::EntityCommand(
-    World* world,
+    entt::registry* registry,
     Entity entity,
-    std::shared_ptr<spp::sparse_hash_set<Entity>> despawns,
-    std::shared_ptr<spp::sparse_hash_set<Entity>> recursive_despawns
+    spp::sparse_hash_set<Entity>* despawns,
+    spp::sparse_hash_set<Entity>* recursive_despawns
 )
-    : m_registry(&world->m_registry),
+    : m_registry(registry),
       m_entity(entity),
       m_despawns(despawns),
       m_recursive_despawns(recursive_despawns) {}
@@ -19,13 +19,20 @@ EPIX_API void EntityCommand::despawn_recurse() {
     m_recursive_despawns->emplace(m_entity);
 }
 
+EPIX_API Entity EntityCommand::id() { return m_entity; }
+
+EPIX_API EntityCommand::operator Entity() { return m_entity; }
+
 EPIX_API Command::Command(World* world)
     : m_world(world),
       m_despawns(std::make_shared<spp::sparse_hash_set<Entity>>()),
       m_recursive_despawns(std::make_shared<spp::sparse_hash_set<Entity>>()) {}
 
 EPIX_API EntityCommand Command::entity(Entity entity) {
-    return EntityCommand(m_world, entity, m_despawns, m_recursive_despawns);
+    return EntityCommand(
+        &m_world->m_registry, entity, m_despawns.get(),
+        m_recursive_despawns.get()
+    );
 }
 
 EPIX_API void Command::end() {

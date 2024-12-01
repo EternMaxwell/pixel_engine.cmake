@@ -46,5 +46,6 @@ target_link_libraries (pixel_engine PUBLIC pixel_engine::render::debug)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::render::font)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::render::sprite)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::render::pixel)
+target_link_libraries (pixel_engine PUBLIC pixel_engine::world::sand)
 
 # remove_definitions(-DEPIX_BUILD_DLL)

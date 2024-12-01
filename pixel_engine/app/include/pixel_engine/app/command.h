@@ -18,15 +18,15 @@ struct EntityCommand {
    private:
     entt::registry* const m_registry;
     const Entity m_entity;
-    std::shared_ptr<spp::sparse_hash_set<Entity>> m_despawns;
-    std::shared_ptr<spp::sparse_hash_set<Entity>> m_recursive_despawns;
+    spp::sparse_hash_set<Entity>* m_despawns;
+    spp::sparse_hash_set<Entity>* m_recursive_despawns;
 
    public:
     EPIX_API EntityCommand(
-        World* world,
+        entt::registry* registry,
         Entity entity,
-        std::shared_ptr<spp::sparse_hash_set<Entity>> despawns,
-        std::shared_ptr<spp::sparse_hash_set<Entity>> recursive_despawns
+        spp::sparse_hash_set<Entity>* despawns,
+        spp::sparse_hash_set<Entity>* recursive_despawns
     );
 
     /*! @brief Spawn an entity.
@@ -40,17 +40,17 @@ struct EntityCommand {
      * @tparam Args The types of the components to be added to the
      * child entity.
      * @param args The components to be added to the child entity.
-     * @return The child entity id.
+     * @return The entity command for the child entity.
      */
     template <typename... Args>
-    Entity spawn(Args&&... args) {
+    EntityCommand spawn(Args&&... args) {
         auto child = m_registry->create();
         app_tools::registry_emplace(
             m_registry, child, Parent{.id = m_entity}, args...
         );
         auto& children = m_registry->get_or_emplace<Children>(m_entity.id);
         children.children.insert(child);
-        return {child};
+        return {m_registry, {child}, m_despawns, m_recursive_despawns};
     }
 
     /*! @brief Emplace new components to the entity.
@@ -75,6 +75,9 @@ struct EntityCommand {
     /*! @brief Despawn an entity and all its children.
      */
     EPIX_API void despawn_recurse();
+
+    EPIX_API Entity id();
+    EPIX_API operator Entity();
 };
 
 struct Command {
@@ -97,16 +100,18 @@ struct Command {
      * @tparam Args The types of the components to be added to the
      * child entity.
      * @param args The components to be added to the child entity.
-     * @return The child entity id.
+     * @return The entity command for new entity.
      */
     template <typename... Args>
-    Entity spawn(Args&&... args) {
+    EntityCommand spawn(Args&&... args) {
         auto m_registry = &m_world->m_registry;
         auto entity     = m_registry->create();
         app_tools::registry_emplace(
             m_registry, entity, std::forward<Args>(args)...
         );
-        return {entity};
+        return EntityCommand(
+            m_registry, {entity}, m_despawns.get(), m_recursive_despawns.get()
+        );
     }
 
     /**

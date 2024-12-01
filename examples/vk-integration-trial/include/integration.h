@@ -532,8 +532,9 @@ void create_pixel_block_with_collision(
         // }
         b2BodyDef body_def = b2DefaultBodyDef();
         body_def.type      = b2BodyType::b2_dynamicBody;
-        body_def.position  = b2Vec2(offset.x, offset.y) * 5 + b2Vec2(-m_block.size().x / 2, 40) * 5;
-        auto body          = b2CreateBody(world, &body_def);
+        body_def.position  = b2Vec2(offset.x, offset.y) * 5 +
+                            b2Vec2(-m_block.size().x / 2, 40) * 5;
+        auto body = b2CreateBody(world, &body_def);
         for (size_t i = 0; i < triangle_list.size(); i += 3) {
             b2Vec2 points[3];
             for (int j = 2; j >= 0; j--) {
@@ -1043,7 +1044,7 @@ void run() {
     App app = App::create();
     app.enable_loop();
     app.add_plugin(pixel_engine::window::WindowPlugin{});
-    app.add_plugin(pixel_engine::input::InputPlugin{}.enable_output());
+    app.add_plugin(pixel_engine::input::InputPlugin{});
     app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
     app.add_plugin(pixel_engine::render::debug::vulkan::DebugRenderPlugin{});
     // app.add_plugin(pixel_engine::font::FontPlugin{});
