@@ -11,10 +11,13 @@ target_include_directories(${PROJNAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/includ
 
 set_target_properties(${PROJNAME} PROPERTIES CXX_STANDARD 20)
 
-target_link_libraries (${PROJNAME} PUBLIC pixel_engine)
-target_link_libraries (${PROJNAME} PUBLIC VulkanMemoryAllocator)
-target_link_libraries (${PROJNAME} PUBLIC pixel_engine::imgui)
-target_link_libraries (${PROJNAME} PUBLIC box2d)
-target_link_libraries (${PROJNAME} PUBLIC earcut.hpp)
+target_link_libraries (${PROJNAME} PRIVATE pixel_engine)
+target_link_libraries (${PROJNAME} PRIVATE VulkanMemoryAllocator)
+target_link_libraries (${PROJNAME} PRIVATE pixel_engine::imgui)
+target_link_libraries (${PROJNAME} PRIVATE box2d)
+target_link_libraries (${PROJNAME} PRIVATE earcut.hpp)
 
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)
+add_custom_command(TARGET ${PROJNAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:${PROJNAME}> $<TARGET_FILE_DIR:${PROJNAME}>
+  COMMAND_EXPAND_LISTS
+  )
