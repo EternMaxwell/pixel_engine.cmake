@@ -1,5 +1,4 @@
 ﻿#pragma once
-
 #include "resources.h"
 #include "systems.h"
 
@@ -22,10 +21,10 @@ class TaskQueuePlugin : public Plugin {
     };
 
    public:
-    TaskQueuePlugin() {}
-    TaskQueuePlugin(int num_threads) : num_threads(num_threads) {}
+    EPIX_API TaskQueuePlugin() {}
+    EPIX_API TaskQueuePlugin(int num_threads) : num_threads(num_threads) {}
 
-    void build(App& app);
+    EPIX_API void build(App& app);
 };
 }  // namespace task_queue
 }  // namespace pixel_engine

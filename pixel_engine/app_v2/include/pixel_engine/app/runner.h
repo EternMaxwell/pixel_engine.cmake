@@ -1,14 +1,16 @@
 #pragma once
 
+#include "common.h"
 #include "stage_runner.h"
 #include "subapp.h"
 
 namespace pixel_engine::app {
 struct Runner {
-    Runner(spp::sparse_hash_map<std::type_index, std::unique_ptr<SubApp>>*
-               sub_apps);
-    Runner(Runner&& other)            = default;
-    Runner& operator=(Runner&& other) = default;
+    EPIX_API Runner(
+        spp::sparse_hash_map<std::type_index, std::unique_ptr<SubApp>>* sub_apps
+    );
+    EPIX_API Runner(Runner&& other)            = default;
+    EPIX_API Runner& operator=(Runner&& other) = default;
 
     struct StageNode {
         std::type_index stage;
@@ -21,7 +23,9 @@ struct Runner {
         spp::sparse_hash_set<std::type_index> next_stages;
         size_t prev_count;
         std::optional<size_t> depth;
-        StageNode(std::type_index stage, std::unique_ptr<StageRunner>&& runner);
+        EPIX_API StageNode(
+            std::type_index stage, std::unique_ptr<StageRunner>&& runner
+        );
         template <typename T>
         void add_prev_stage() {
             prev_stages.insert(std::type_index(typeid(T)));
@@ -30,8 +34,8 @@ struct Runner {
         void add_next_stage() {
             next_stages.insert(std::type_index(typeid(T)));
         }
-        void clear_tmp();
-        size_t get_depth();
+        EPIX_API void clear_tmp();
+        EPIX_API size_t get_depth();
     };
 
     template <typename SrcT, typename DstT, typename StageT, typename... Subs>
@@ -102,25 +106,25 @@ struct Runner {
         return m_startup_stages.find(std::type_index(typeid(StageT))) !=
                m_startup_stages.end();
     }
-    bool stage_startup(std::type_index stage);
+    EPIX_API bool stage_startup(std::type_index stage);
     template <typename StageT>
     bool stage_loop() {
         return m_loop_stages.find(std::type_index(typeid(StageT))) !=
                m_loop_stages.end();
     }
-    bool stage_loop(std::type_index stage);
+    EPIX_API bool stage_loop(std::type_index stage);
     template <typename StageT>
     bool stage_state_transition() {
         return m_state_transition_stages.find(std::type_index(typeid(StageT))
                ) != m_state_transition_stages.end();
     }
-    bool stage_state_transition(std::type_index stage);
+    EPIX_API bool stage_state_transition(std::type_index stage);
     template <typename StageT>
     bool stage_exit() {
         return m_exit_stages.find(std::type_index(typeid(StageT))) !=
                m_exit_stages.end();
     }
-    bool stage_exit(std::type_index stage);
+    EPIX_API bool stage_exit(std::type_index stage);
 
     template <typename SetT, typename... Sets>
     void configure_sets(SetT set, Sets... sets) {
@@ -152,18 +156,18 @@ struct Runner {
         return nullptr;
     }
 
-    void build();
-    void bake_all();
-    void run(std::shared_ptr<StageNode> node);
-    void run_startup();
-    void run_loop();
-    void run_state_transition();
-    void run_exit();
-    void tick_events();
-    void end_commands();
-    void update_states();
-    void add_worker(const std::string& name, uint32_t num_threads);
-    void set_log_level(spdlog::level::level_enum level);
+    EPIX_API void build();
+    EPIX_API void bake_all();
+    EPIX_API void run(std::shared_ptr<StageNode> node);
+    EPIX_API void run_startup();
+    EPIX_API void run_loop();
+    EPIX_API void run_state_transition();
+    EPIX_API void run_exit();
+    EPIX_API void tick_events();
+    EPIX_API void end_commands();
+    EPIX_API void update_states();
+    EPIX_API void add_worker(const std::string& name, uint32_t num_threads);
+    EPIX_API void set_log_level(spdlog::level::level_enum level);
 
    protected:
     MsgQueueBase<std::shared_ptr<StageNode>> msg_queue;

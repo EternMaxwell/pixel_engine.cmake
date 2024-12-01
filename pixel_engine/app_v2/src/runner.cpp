@@ -2,7 +2,7 @@
 
 using namespace pixel_engine::app;
 
-Runner::Runner(
+EPIX_API Runner::Runner(
     spp::sparse_hash_map<std::type_index, std::unique_ptr<SubApp>>* sub_apps
 )
     : m_sub_apps(sub_apps),
@@ -15,16 +15,16 @@ Runner::Runner(
     add_worker("single", 1);
     m_logger = spdlog::default_logger()->clone("runner");
 }
-Runner::StageNode::StageNode(
+EPIX_API Runner::StageNode::StageNode(
     std::type_index stage, std::unique_ptr<StageRunner>&& runner
 )
     : stage(stage),
       runner(std::forward<std::unique_ptr<StageRunner>>(runner)) {}
-void Runner::StageNode::clear_tmp() {
+EPIX_API void Runner::StageNode::clear_tmp() {
     weak_prev_stages.clear();
     weak_next_stages.clear();
 }
-size_t Runner::StageNode::get_depth() {
+EPIX_API size_t Runner::StageNode::get_depth() {
     if (depth) return depth.value();
     depth = 0;
     for (auto& prev : strong_prev_stages) {
@@ -34,20 +34,20 @@ size_t Runner::StageNode::get_depth() {
     }
     return depth.value();
 }
-bool Runner::stage_startup(std::type_index stage) {
+EPIX_API bool Runner::stage_startup(std::type_index stage) {
     return m_startup_stages.find(stage) != m_startup_stages.end();
 }
-bool Runner::stage_loop(std::type_index stage) {
+EPIX_API bool Runner::stage_loop(std::type_index stage) {
     return m_loop_stages.find(stage) != m_loop_stages.end();
 }
-bool Runner::stage_state_transition(std::type_index stage) {
+EPIX_API bool Runner::stage_state_transition(std::type_index stage) {
     return m_state_transition_stages.find(stage) !=
            m_state_transition_stages.end();
 }
-bool Runner::stage_exit(std::type_index stage) {
+EPIX_API bool Runner::stage_exit(std::type_index stage) {
     return m_exit_stages.find(stage) != m_exit_stages.end();
 }
-void Runner::build() {
+EPIX_API void Runner::build() {
     for (auto& [ptr, stage] : m_startup_stages) {
         stage->runner->build();
         for (auto next_ptr : stage->next_stages) {
@@ -200,7 +200,7 @@ void Runner::build() {
     }
 }
 
-void Runner::bake_all() {
+EPIX_API void Runner::bake_all() {
     for (auto& [ptr, stage] : m_startup_stages) {
         stage->runner->bake();
     }
@@ -215,14 +215,14 @@ void Runner::bake_all() {
     }
 }
 
-void Runner::run(std::shared_ptr<StageNode> node) {
+EPIX_API void Runner::run(std::shared_ptr<StageNode> node) {
     auto ftr = m_control_pool->submit_task([this, node]() {
         node->runner->run();
         msg_queue.push(node);
     });
 }
 
-void Runner::run_startup() {
+EPIX_API void Runner::run_startup() {
     for (auto& [ptr, stage] : m_startup_stages) {
         stage->prev_count =
             stage->strong_prev_stages.size() + stage->weak_prev_stages.size();
@@ -264,7 +264,7 @@ void Runner::run_startup() {
     }
 }
 
-void Runner::run_loop() {
+EPIX_API void Runner::run_loop() {
     for (auto& [ptr, stage] : m_loop_stages) {
         stage->prev_count =
             stage->strong_prev_stages.size() + stage->weak_prev_stages.size();
@@ -306,7 +306,7 @@ void Runner::run_loop() {
     }
 }
 
-void Runner::run_state_transition() {
+EPIX_API void Runner::run_state_transition() {
     for (auto& [ptr, stage] : m_state_transition_stages) {
         stage->prev_count =
             stage->strong_prev_stages.size() + stage->weak_prev_stages.size();
@@ -348,7 +348,7 @@ void Runner::run_state_transition() {
     }
 }
 
-void Runner::run_exit() {
+EPIX_API void Runner::run_exit() {
     for (auto& [ptr, stage] : m_exit_stages) {
         stage->prev_count =
             stage->strong_prev_stages.size() + stage->weak_prev_stages.size();
@@ -390,31 +390,31 @@ void Runner::run_exit() {
     }
 }
 
-void Runner::set_log_level(spdlog::level::level_enum level) {
+EPIX_API void Runner::set_log_level(spdlog::level::level_enum level) {
     m_logger->set_level(level);
     for (auto&& [stage, node] : m_startup_stages) {
         node->runner->set_log_level(level);
     }
 }
 
-void Runner::tick_events() {
+EPIX_API void Runner::tick_events() {
     for (auto&& [type, subapp] : *m_sub_apps) {
         subapp->tick_events();
     }
 }
 
-void Runner::end_commands() {
+EPIX_API void Runner::end_commands() {
     for (auto&& [type, subapp] : *m_sub_apps) {
         subapp->end_commands();
     }
 }
 
-void Runner::update_states() {
+EPIX_API void Runner::update_states() {
     for (auto&& [type, subapp] : *m_sub_apps) {
         subapp->update_states();
     }
 }
 
-void Runner::add_worker(const std::string& name, uint32_t num_threads) {
+EPIX_API void Runner::add_worker(const std::string& name, uint32_t num_threads) {
     m_pools->add_pool(name, num_threads);
 }

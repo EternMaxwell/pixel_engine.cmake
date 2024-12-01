@@ -6,15 +6,15 @@
 
 namespace pixel_engine::app {
 struct StageRunner {
-    StageRunner(
+    EPIX_API StageRunner(
         std::type_index stage,
         SubApp* src,
         SubApp* dst,
         WorkerPool* pools,
         SetMap* sets
     );
-    StageRunner(StageRunner&& other)            = default;
-    StageRunner& operator=(StageRunner&& other) = default;
+    EPIX_API StageRunner(StageRunner&& other)   = default;
+    EPIX_API StageRunner& operator=(StageRunner&& other) = default;
 
     template <typename StageT>
     void add_sub_stage(StageT sub_stage) {
@@ -58,12 +58,12 @@ struct StageRunner {
         );
     }
 
-    bool conflict(const StageRunner* other) const;
+    EPIX_API bool conflict(const StageRunner* other) const;
 
-    void build();
-    void bake();
-    void run();
-    void set_log_level(spdlog::level::level_enum level);
+    EPIX_API void build();
+    EPIX_API void bake();
+    EPIX_API void run();
+    EPIX_API void set_log_level(spdlog::level::level_enum level);
 
    protected:
     SubApp* m_src;

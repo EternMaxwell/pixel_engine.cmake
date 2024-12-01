@@ -5,30 +5,32 @@
 #include <entt/entity/registry.hpp>
 #include <tuple>
 
+#include "common.h"
+
 namespace pixel_engine {
 namespace app {
 struct App;
 struct SubApp;
 struct Entity {
     entt::entity id = entt::null;
-    Entity& operator=(entt::entity id);
-    operator entt::entity();
-    operator bool();
-    bool operator!();
-    bool operator==(const Entity& other);
-    bool operator!=(const Entity& other);
-    bool operator==(const entt::entity& other);
-    bool operator!=(const entt::entity& other);
+    EPIX_API Entity& operator=(entt::entity id);
+    EPIX_API operator entt::entity();
+    EPIX_API operator bool();
+    EPIX_API bool operator!();
+    EPIX_API bool operator==(const Entity& other);
+    EPIX_API bool operator!=(const Entity& other);
+    EPIX_API bool operator==(const entt::entity& other);
+    EPIX_API bool operator!=(const entt::entity& other);
 };
 }  // namespace app
 }  // namespace pixel_engine
 template <>
 struct std::hash<pixel_engine::app::Entity> {
-    size_t operator()(const pixel_engine::app::Entity& entity) const;
+    EPIX_API size_t operator()(const pixel_engine::app::Entity& entity) const;
 };
 template <>
 struct std::equal_to<pixel_engine::app::Entity> {
-    bool operator()(
+    EPIX_API bool operator()(
         const pixel_engine::app::Entity& a, const pixel_engine::app::Entity& b
     ) const;
 };

@@ -4,6 +4,7 @@
 
 #include <entt/entity/registry.hpp>
 
+#include "common.h"
 #include "tools.h"
 #include "world.h"
 
@@ -21,7 +22,7 @@ struct EntityCommand {
     std::shared_ptr<spp::sparse_hash_set<Entity>> m_recursive_despawns;
 
    public:
-    EntityCommand(
+    EPIX_API EntityCommand(
         World* world,
         Entity entity,
         std::shared_ptr<spp::sparse_hash_set<Entity>> despawns,
@@ -69,11 +70,11 @@ struct EntityCommand {
 
     /*! @brief Despawn an entity.
      */
-    void despawn();
+    EPIX_API void despawn();
 
     /*! @brief Despawn an entity and all its children.
      */
-    void despawn_recurse();
+    EPIX_API void despawn_recurse();
 };
 
 struct Command {
@@ -83,7 +84,7 @@ struct Command {
     std::shared_ptr<spp::sparse_hash_set<Entity>> m_recursive_despawns;
 
    public:
-    Command(World* world);
+    EPIX_API Command(World* world);
 
     /*! @brief Spawn an entity.
      * Note that the components to be added should not be type that is
@@ -114,7 +115,7 @@ struct Command {
      * @param entity The entity id.
      * @return `EntityCommand` The entity command.
      */
-    EntityCommand entity(Entity entity);
+    EPIX_API EntityCommand entity(Entity entity);
 
     /*! @brief Insert a resource.
      * If the resource already exists, nothing will happen.
@@ -183,7 +184,7 @@ struct Command {
     }
 
    private:
-    void end();
+    EPIX_API void end();
 
     friend struct SubApp;
 };

@@ -24,7 +24,7 @@ class AssetServerGLPlugin : public Plugin {
 
     std::string get_base_path() const { return m_base_path; }
 
-    void build(App& app) override;
+    EPIX_API void build(App& app) override;
 };
 }  // namespace asset_server_gl
 }  // namespace pixel_engine

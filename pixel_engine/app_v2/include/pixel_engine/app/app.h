@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common.h"
 #include "runner.h"
 
 namespace pixel_engine::prelude {
@@ -50,7 +51,7 @@ struct Plugin {
     virtual void build(App&) = 0;
 };
 struct App {
-    static App create();
+    EPIX_API static App create();
     struct SystemInfo {
         std::vector<SystemNode*> nodes;
         App* app;
@@ -86,7 +87,8 @@ struct App {
         }
         template <typename T>
         SystemInfo& on_enter(T state) {
-            if (app->m_runner->stage_state_transition(nodes[0]->m_stage.m_stage)) {
+            if (app->m_runner->stage_state_transition(nodes[0]->m_stage.m_stage
+                )) {
                 for (auto node : nodes)
                     node->m_conditions.emplace_back(
                         std::make_unique<
@@ -111,7 +113,8 @@ struct App {
         }
         template <typename T>
         SystemInfo& on_exit(T state) {
-            if (app->m_runner->stage_state_transition(nodes[0]->m_stage.m_stage)) {
+            if (app->m_runner->stage_state_transition(nodes[0]->m_stage.m_stage
+                )) {
                 for (auto node : nodes)
                     node->m_conditions.emplace_back(
                         std::make_unique<
@@ -134,7 +137,8 @@ struct App {
         }
         template <typename T>
         SystemInfo& on_change() {
-            if (app->m_runner->stage_state_transition(nodes[0]->m_stage.m_stage)) {
+            if (app->m_runner->stage_state_transition(nodes[0]->m_stage.m_stage
+                )) {
                 for (auto node : nodes)
                     node->m_conditions.emplace_back(
                         std::make_unique<
@@ -164,9 +168,9 @@ struct App {
                 );
             return *this;
         }
-        SystemInfo& chain();
+        EPIX_API SystemInfo& chain();
 
-        App* operator->();
+        EPIX_API App* operator->();
     };
 
     template <typename StageT, typename... Args>
@@ -184,7 +188,8 @@ struct App {
     App& add_plugin(T&& plugin) {
         m_plugins.emplace(
             std::type_index(typeid(std::remove_reference_t<T>)),
-            std::make_shared<std::remove_reference_t<T>>(std::forward<T>(plugin))
+            std::make_shared<std::remove_reference_t<T>>(std::forward<T>(plugin)
+            )
         );
         return *this;
     }
@@ -283,18 +288,18 @@ struct App {
         return *this;
     }
 
-    void run();
-    void set_log_level(spdlog::level::level_enum level);
-    App& enable_loop();
-    App& disable_loop();
-    App* operator->();
+    EPIX_API void run();
+    EPIX_API void set_log_level(spdlog::level::level_enum level);
+    EPIX_API App& enable_loop();
+    EPIX_API App& disable_loop();
+    EPIX_API App* operator->();
 
    protected:
-    App();
-    App(const App&)            = delete;
-    App& operator=(const App&) = delete;
-    App(App&&)                 = default;
-    App& operator=(App&&)      = default;
+    EPIX_API App();
+    EPIX_API App(const App&)            = delete;
+    EPIX_API App& operator=(const App&) = delete;
+    EPIX_API App(App&&)                 = default;
+    EPIX_API App& operator=(App&&)      = default;
 
     template <typename T>
     void add_sub_app() {
@@ -303,11 +308,11 @@ struct App {
         );
     }
 
-    void build_plugins();
-    void build();
-    void end_commands();
-    void tick_events();
-    void update_states();
+    EPIX_API void build_plugins();
+    EPIX_API void build();
+    EPIX_API void end_commands();
+    EPIX_API void tick_events();
+    EPIX_API void update_states();
 
     std::unique_ptr<
         spp::sparse_hash_map<std::type_index, std::unique_ptr<SubApp>>>

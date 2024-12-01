@@ -24,26 +24,26 @@ struct TaskQueue {
      * new one.
      *  @return A reference to the pool.
      */
-    std::shared_ptr<BS::thread_pool> get_pool();
+    EPIX_API std::shared_ptr<BS::thread_pool> get_pool();
 
     /*! @brief Get a pool by index. If the index is out of bounds, create new
      * pools.
      *  @param index The index of the pool.
      *  @return A reference to the pool.
      */
-    std::shared_ptr<BS::thread_pool> get_pool(int index);
+    EPIX_API std::shared_ptr<BS::thread_pool> get_pool(int index);
 
     /*! @brief Get a pool that is not busy.
      *  @return A pointer to the pool. If no pool is available, return nullptr.
      */
-    std::shared_ptr<BS::thread_pool> request_pool();
+    EPIX_API std::shared_ptr<BS::thread_pool> request_pool();
 
     /*! @brief Get a pool by index.
      *  @param index The index of the pool.
      *  @return A pointer to the pool. If the index is out of bounds, return
      * nullptr.
      */
-    std::shared_ptr<BS::thread_pool> request_pool(int index);
+    EPIX_API std::shared_ptr<BS::thread_pool> request_pool(int index);
 };
 }  // namespace resources
 }  // namespace task_queue

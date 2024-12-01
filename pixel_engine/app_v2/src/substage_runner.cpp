@@ -2,7 +2,7 @@
 
 using namespace pixel_engine::app;
 
-void SubStageRunner::build() {
+EPIX_API void SubStageRunner::build() {
     // clear previous dependencies if any
     // tmp dependencies will be reset in prepare function
     // so no need to clear them here
@@ -58,7 +58,7 @@ void SubStageRunner::build() {
         }
     }
 }
-void SubStageRunner::bake() {
+EPIX_API void SubStageRunner::bake() {
     for (auto& [ptr, system] : m_systems) {
         system->clear_tmp();
     }
@@ -85,7 +85,7 @@ void SubStageRunner::bake() {
         }
     }
 }
-void SubStageRunner::run(std::shared_ptr<SystemNode> node) {
+EPIX_API void SubStageRunner::run(std::shared_ptr<SystemNode> node) {
     auto pool = m_pools->get_pool(node->m_worker);
     if (pool) {
         auto ftr = pool->submit_task([this, node]() {
@@ -101,7 +101,7 @@ void SubStageRunner::run(std::shared_ptr<SystemNode> node) {
         msg_queue.push(node);
     }
 }
-void SubStageRunner::run() {
+EPIX_API void SubStageRunner::run() {
     for (auto& [ptr, system] : m_systems) {
         system->m_prev_count =
             system->m_strong_prevs.size() + system->m_weak_prevs.size();
@@ -149,6 +149,6 @@ void SubStageRunner::run() {
         );
     }
 }
-void SubStageRunner::set_log_level(spdlog::level::level_enum level) {
+EPIX_API void SubStageRunner::set_log_level(spdlog::level::level_enum level) {
     m_logger->set_level(level);
 }

@@ -2,15 +2,15 @@
 
 using namespace pixel_engine::app;
 
-App* App::SystemInfo::operator->() { return app; }
-App::SystemInfo& App::SystemInfo::chain() {
+EPIX_API App* App::SystemInfo::operator->() { return app; }
+EPIX_API App::SystemInfo& App::SystemInfo::chain() {
     for (size_t i = 0; i < nodes.size() - 1; i++) {
         nodes[i]->before(nodes[i + 1]->m_sys_addr);
     }
     return *this;
 }
 
-App App::create() {
+EPIX_API App App::create() {
     App app;
     app.add_sub_app<RenderSubApp>();
     app.m_runner->assign_startup_stage<MainSubApp, MainSubApp>(
@@ -33,7 +33,7 @@ App App::create() {
     );
     return std::move(app);
 }
-void App::run() {
+EPIX_API void App::run() {
     m_logger->info("Building App");
     build();
     m_logger->info("Running App");
@@ -63,21 +63,21 @@ void App::run() {
     end_commands();
     m_logger->info("App terminated");
 }
-void App::set_log_level(spdlog::level::level_enum level) {
+EPIX_API void App::set_log_level(spdlog::level::level_enum level) {
     m_logger->set_level(level);
     m_runner->set_log_level(level);
 }
-App& App::enable_loop() {
+EPIX_API App& App::enable_loop() {
     m_loop_enabled = true;
     return *this;
 }
-App& App::disable_loop() {
+EPIX_API App& App::disable_loop() {
     m_loop_enabled = false;
     return *this;
 }
-App* App::operator->() { return this; }
+EPIX_API App* App::operator->() { return this; }
 
-App::App()
+EPIX_API App::App()
     : m_sub_apps(
           std::make_unique<
               spp::sparse_hash_map<std::type_index, std::unique_ptr<SubApp>>>()
@@ -95,7 +95,7 @@ App::App()
     add_sub_app<MainSubApp>();
     add_event<AppExit>();
 }
-void App::build_plugins() {
+EPIX_API void App::build_plugins() {
     for (auto& [ptr, plugin] : m_plugins) {
         plugin->build(*this);
         for (auto& [app_ptr, subapp] : *m_sub_apps) {
@@ -103,22 +103,22 @@ void App::build_plugins() {
         }
     }
 }
-void App::build() {
+EPIX_API void App::build() {
     build_plugins();
     m_runner->build();
     m_runner->bake_all();
 }
-void App::end_commands() {
+EPIX_API void App::end_commands() {
     for (auto& [ptr, subapp] : *m_sub_apps) {
         subapp->end_commands();
     }
 }
-void App::tick_events() {
+EPIX_API void App::tick_events() {
     for (auto& [ptr, subapp] : *m_sub_apps) {
         subapp->tick_events();
     }
 }
-void App::update_states() {
+EPIX_API void App::update_states() {
     for (auto& [ptr, subapp] : *m_sub_apps) {
         subapp->update_states();
     }

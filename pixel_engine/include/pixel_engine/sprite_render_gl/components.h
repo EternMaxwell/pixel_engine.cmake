@@ -20,10 +20,10 @@ struct Vertex {
 struct Sprite {
     Image texture;
     float center[2] = {0.5f, 0.5f};
-    float size[2] = {1.0f, 1.0f};
-    float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float size[2]   = {1.0f, 1.0f};
+    float color[4]  = {1.0f, 1.0f, 1.0f, 1.0f};
 
-    void vertex_data(Vertex* vertices) const;
+    EPIX_API void vertex_data(Vertex* vertices) const;
 };
 
 struct SpriteBundle : Bundle {

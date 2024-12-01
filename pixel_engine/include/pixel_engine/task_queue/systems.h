@@ -10,7 +10,9 @@ class TaskQueuePlugin;
 namespace systems {
 using namespace prelude;
 
-void insert_task_queue(Command command, ResMut<TaskQueuePlugin> task_queue);
+EPIX_API void insert_task_queue(
+    Command command, ResMut<TaskQueuePlugin> task_queue
+);
 }  // namespace systems
 }  // namespace task_queue
 }  // namespace pixel_engine

@@ -13,24 +13,21 @@ using namespace prelude;
 using namespace components;
 using namespace window::components;
 
-void clear_color(
-    Query<Get<Window>> query);
+EPIX_API void clear_color(Query<Get<Window>> query);
 
-void update_viewport(
-    Query<Get<Window>> query);
+EPIX_API void update_viewport(Query<Get<Window>> query);
 
-void context_creation(
-    Query<Get<Window>> query);
+EPIX_API void context_creation(Query<Get<Window>> query);
 
-void swap_buffers(
-    Query<Get<Window>> query);
+EPIX_API void swap_buffers(Query<Get<Window>> query);
 
-void complete_pipeline(
+EPIX_API void complete_pipeline(
     Command command,
     Query<
         Get<Entity, ProgramShaderAttachments, VertexAttribs>,
-        With<PipelineCreation>, Without<>>
-        query);
+        With<PipelineCreation>,
+        Without<>> query
+);
 }  // namespace systems
 }  // namespace render_gl
 }  // namespace pixel_engine

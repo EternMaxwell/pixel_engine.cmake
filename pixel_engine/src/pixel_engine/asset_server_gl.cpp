@@ -11,7 +11,7 @@ using namespace pixel_engine::asset_server_gl;
 using namespace pixel_engine::prelude;
 using namespace pixel_engine::render_gl::components;
 
-std::vector<char>
+EPIX_API std::vector<char>
 pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader_source(
     const std::string& path
 ) {
@@ -26,7 +26,8 @@ pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader_source(
     return buffer;
 }
 
-ShaderPtr pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
+EPIX_API ShaderPtr
+pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
     const std::vector<char>& source, int type
 ) {
     const char* source_ptr = source.data();
@@ -46,7 +47,8 @@ ShaderPtr pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
     return shader;
 }
 
-ShaderPtr pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
+EPIX_API ShaderPtr
+pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
     const std::string& path, int type
 ) {
     std::vector<char> source = load_shader_source(path);
@@ -67,7 +69,7 @@ ShaderPtr pixel_engine::asset_server_gl::resources::AssetServerGL::load_shader(
     return shader;
 }
 
-TexturePtr
+EPIX_API TexturePtr
 pixel_engine::asset_server_gl::resources::AssetServerGL::load_image_2d(
     const std::string& path
 ) {
@@ -95,7 +97,7 @@ pixel_engine::asset_server_gl::resources::AssetServerGL::load_image_2d(
     return TexturePtr{.id = texture};
 }
 
-SamplerPtr
+EPIX_API SamplerPtr
 pixel_engine::asset_server_gl::resources::AssetServerGL::create_sampler(
     int wrap_s, int wrap_t, int min_filter, int mag_filter
 ) {
@@ -108,7 +110,8 @@ pixel_engine::asset_server_gl::resources::AssetServerGL::create_sampler(
     return SamplerPtr{.id = sampler};
 }
 
-FT_Face pixel_engine::asset_server_gl::resources::AssetServerGL::load_font(
+EPIX_API FT_Face
+pixel_engine::asset_server_gl::resources::AssetServerGL::load_font(
     const FT_Library& library, const std::string& path
 ) {
     if (m_font_faces.find(path) != m_font_faces.end()) {
@@ -124,7 +127,8 @@ FT_Face pixel_engine::asset_server_gl::resources::AssetServerGL::load_font(
     return face;
 }
 
-void pixel_engine::asset_server_gl::AssetServerGLPlugin::build(App& app) {
+EPIX_API void pixel_engine::asset_server_gl::AssetServerGLPlugin::build(App& app
+) {
     app.configure_sets(
            AssetServerGLSets::insert_asset_server,
            AssetServerGLSets::after_insertion

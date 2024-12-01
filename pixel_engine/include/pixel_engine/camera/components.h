@@ -11,7 +11,7 @@ using namespace transform;
 struct Camera2d {};
 
 struct Camera2dBundle : app::Bundle {
-    Transform transform = Transform();
+    Transform transform        = Transform();
     OrthoProjection projection = OrthoProjection();
     Camera2d camera;
 
@@ -23,7 +23,7 @@ struct Camera2dBundle : app::Bundle {
 };
 }  // namespace components
 
-using Camera2d = components::Camera2d;
+using Camera2d       = components::Camera2d;
 using Camera2dBundle = components::Camera2dBundle;
 }  // namespace camera
 }  // namespace pixel_engine

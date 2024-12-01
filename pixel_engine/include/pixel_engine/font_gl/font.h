@@ -7,17 +7,17 @@
 #include "systems.h"
 
 namespace pixel_engine {
-    namespace font_gl {
-        using namespace prelude;
+namespace font_gl {
+using namespace prelude;
 
-        enum class FontGLSets {
-            insert_library,
-            after_insertion,
-        };
+enum class FontGLSets {
+    insert_library,
+    after_insertion,
+};
 
-        class FontGLPlugin : public Plugin {
-           public:
-            void build(App& app);
-        };
-    }  // namespace font_gl
+class FontGLPlugin : public Plugin {
+   public:
+    EPIX_API void build(App& app);
+};
+}  // namespace font_gl
 }  // namespace pixel_engine

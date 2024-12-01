@@ -16,7 +16,7 @@ using namespace transform;
  */
 struct Pixel {
     float position[3] = {0, 0, 0};
-    float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float color[4]    = {1.0f, 1.0f, 1.0f, 1.0f};
 };
 
 /*! @brief A struct to store pixel datas. Uses vector to store pixels.
@@ -30,7 +30,7 @@ struct Pixels {
 };
 
 struct PixelSize {
-    float width = 1.0f;
+    float width  = 1.0f;
     float height = 1.0f;
 };
 

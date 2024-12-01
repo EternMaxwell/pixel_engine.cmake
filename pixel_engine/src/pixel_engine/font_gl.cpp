@@ -5,7 +5,7 @@ using namespace pixel_engine::font_gl::components;
 using namespace pixel_engine::font_gl::systems;
 using namespace pixel_engine::font_gl::resources;
 
-void pixel_engine::font_gl::FontGLPlugin::build(App& app) {
+EPIX_API void pixel_engine::font_gl::FontGLPlugin::build(App& app) {
     app.configure_sets(FontGLSets::insert_library, FontGLSets::after_insertion)
         .add_system(PreStartup, insert_ft2_library)
         .in_set(FontGLSets::insert_library)
@@ -16,7 +16,8 @@ void pixel_engine::font_gl::FontGLPlugin::build(App& app) {
         .use_worker("single");
 }
 
-void pixel_engine::font_gl::systems::insert_ft2_library(Command command) {
+EPIX_API void pixel_engine::font_gl::systems::insert_ft2_library(Command command
+) {
     FT2Library ft2_library;
     FT_Error error = FT_Init_FreeType(&ft2_library.library);
     if (error) {
@@ -25,7 +26,7 @@ void pixel_engine::font_gl::systems::insert_ft2_library(Command command) {
     command.insert_resource(ft2_library);
 }
 
-void pixel_engine::font_gl::systems::create_pipeline(
+EPIX_API void pixel_engine::font_gl::systems::create_pipeline(
     Command command, ResMut<AssetServerGL> asset_server
 ) {
     command.spawn(
@@ -51,15 +52,13 @@ void pixel_engine::font_gl::systems::create_pipeline(
     );
 }
 
-void pixel_engine::font_gl::systems::draw(
+EPIX_API void pixel_engine::font_gl::systems::draw(
     Query<Get<const Text, const Transform>> text_query,
     Query<
         Get<const Transform, const OrthoProjection>,
         With<Camera2d>,
         Without<>> camera_query,
-    Query<
-        Get<const window::Window>,
-        With<window::PrimaryWindow>> window_query,
+    Query<Get<const window::Window>, With<window::PrimaryWindow>> window_query,
     render_gl::PipelineQuery::query_type<TextPipeline> pipeline_query
 ) {
     if (!pipeline_query.single().has_value()) return;

@@ -5,7 +5,7 @@ using namespace pixel_engine::sprite_render_gl::components;
 using namespace pixel_engine::sprite_render_gl::systems;
 using namespace pixel_engine::prelude;
 
-void pixel_engine::sprite_render_gl::SpriteRenderGLPlugin::build(App& app) {
+EPIX_API void pixel_engine::sprite_render_gl::SpriteRenderGLPlugin::build(App& app) {
     app.add_system(Startup, create_pipeline)
         .use_worker("single")
         ->configure_sets(
@@ -17,7 +17,7 @@ void pixel_engine::sprite_render_gl::SpriteRenderGLPlugin::build(App& app) {
         .use_worker("single");
 }
 
-void pixel_engine::sprite_render_gl::systems::create_pipeline(
+EPIX_API void pixel_engine::sprite_render_gl::systems::create_pipeline(
     Command command, ResMut<AssetServerGL> asset_server
 ) {
     ShaderPtr vertex_shader;
@@ -44,7 +44,7 @@ void pixel_engine::sprite_render_gl::systems::create_pipeline(
     );
 }
 
-void pixel_engine::sprite_render_gl::components::Sprite::vertex_data(
+EPIX_API void pixel_engine::sprite_render_gl::components::Sprite::vertex_data(
     Vertex* vertices
 ) const {
     std::memcpy(&vertices[0].color, &color, 4 * sizeof(float));
@@ -73,7 +73,7 @@ void pixel_engine::sprite_render_gl::components::Sprite::vertex_data(
     vertices[3].position[2] = 0.0f;
 }
 
-void pixel_engine::sprite_render_gl::systems::draw_sprite(
+EPIX_API void pixel_engine::sprite_render_gl::systems::draw_sprite(
     render_gl::PipelineQuery::query_type<SpritePipeline> pipeline_query,
     Query<
         Get<const Transform, const OrthoProjection>,

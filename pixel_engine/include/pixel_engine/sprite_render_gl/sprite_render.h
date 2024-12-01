@@ -16,7 +16,7 @@ enum class SpriteRenderGLSets {
 
 struct SpriteRenderGLPlugin : public Plugin {
    public:
-    void build(App& app) override;
+    EPIX_API void build(App& app) override;
 };
 }  // namespace sprite_render_gl
 }  // namespace pixel_engine

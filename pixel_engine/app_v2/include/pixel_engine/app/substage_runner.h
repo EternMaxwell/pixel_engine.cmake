@@ -28,11 +28,11 @@ struct SubStageRunner {
         m_systems.emplace((void*)(func), ptr);
         return ptr.get();
     }
-    void build();
-    void bake();
-    void run(std::shared_ptr<SystemNode> node);
-    void run();
-    void set_log_level(spdlog::level::level_enum level);
+    EPIX_API void build();
+    EPIX_API void bake();
+    EPIX_API void run(std::shared_ptr<SystemNode> node);
+    EPIX_API void run();
+    EPIX_API void set_log_level(spdlog::level::level_enum level);
 
    protected:
     SubApp* m_src;

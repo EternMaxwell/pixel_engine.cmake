@@ -36,25 +36,25 @@ struct ShaderPtr {
      *
      * @param type `int` The type of the shader.
      */
-    void create(int type);
+    EPIX_API void create(int type);
     /**
      * @brief Sets the source code of the shader.
      *
      * @param source `const char*` The source code of the shader.
      */
-    void source(const char* source);
+    EPIX_API void source(const char* source);
     /**
      * @brief Compiles the shader.
      *
      * @return `bool` True if the shader is compiled successfully.
      */
-    bool compile();
+    EPIX_API bool compile();
     /**
      * @brief Checks if the shader object is valid.
      *
      * @return `bool` True if the shader object is valid.
      */
-    bool valid() const;
+    EPIX_API bool valid() const;
 };
 
 /**
@@ -72,29 +72,29 @@ struct ProgramPtr {
     /**
      * @brief Creates the actual program object.
      */
-    void create();
+    EPIX_API void create();
     /**
      * @brief Attaches a shader to the program.
      *
      * @param shader `const ShaderPtr&` The shader object to attach.
      */
-    void attach(const ShaderPtr& shader);
+    EPIX_API void attach(const ShaderPtr& shader);
     /**
      * @brief Links the program.
      *
      * @return `bool` True if the program is linked successfully.
      */
-    bool link();
+    EPIX_API bool link();
     /**
      * @brief Uses the program.
      */
-    void use() const;
+    EPIX_API void use() const;
     /**
      * @brief Checks if the program object is valid.
      *
      * @return `bool` True if the program object is valid.
      */
-    bool valid() const;
+    EPIX_API bool valid() const;
 };
 
 /**
@@ -119,8 +119,8 @@ struct VertexAttrib {
 
 struct VertexAttribs {
     std::vector<VertexAttrib> attribs;
-    VertexAttrib& operator[](size_t index);
-    void add(
+    EPIX_API VertexAttrib& operator[](size_t index);
+    EPIX_API void add(
         uint32_t location,
         uint32_t size,
         int type,
@@ -145,17 +145,17 @@ struct VertexArrayPtr {
     /**
      * @brief Creates the actual vertex array object.
      */
-    void create();
+    EPIX_API void create();
     /**
      * @brief Binds the vertex array object.
      */
-    void bind() const;
+    EPIX_API void bind() const;
     /**
      * @brief Checks if the vertex array object is valid.
      *
      * @return `bool` True if the vertex array object is valid.
      */
-    bool valid() const;
+    EPIX_API bool valid() const;
 };
 
 /**
@@ -173,26 +173,26 @@ struct BufferPtr {
     /**
      * @brief Creates the actual buffer object.
      */
-    void create();
+    EPIX_API void create();
     /**
      * @brief Binds the buffer object.
      *
      * @param target `int` The target of the buffer.
      */
-    void bind(int target) const;
+    EPIX_API void bind(int target) const;
     /**
      * @brief Binds the buffer object to a specific index.
      *
      * @param target `int` The target of the buffer.
      * @param index `int` The index to bind the buffer to.
      */
-    void bindBase(int target, int index) const;
+    EPIX_API void bindBase(int target, int index) const;
     /**
      * @brief Checks if the buffer object is valid.
      *
      * @return `bool` True if the buffer object is valid.
      */
-    bool valid() const;
+    EPIX_API bool valid() const;
     /**
      * @brief Sets the data of the buffer.
      *
@@ -200,7 +200,7 @@ struct BufferPtr {
      * @param size `size_t` The size of the data.
      * @param usage `int` The usage of the data.
      */
-    void data(const void* data, size_t size, int usage);
+    EPIX_API void data(const void* data, size_t size, int usage);
     /**
      * @brief Sub data of the buffer.
      *
@@ -208,7 +208,7 @@ struct BufferPtr {
      * @param size `size_t` The size of the data.
      * @param offset `size_t` The offset of the data.
      */
-    void subData(const void* data, size_t size, size_t offset);
+    EPIX_API void subData(const void* data, size_t size, size_t offset);
 };
 
 /**
@@ -228,15 +228,15 @@ struct UniformBufferBindings {
     /**
      * @brief Bind the uniform buffers.
      */
-    void bind() const;
+    EPIX_API void bind() const;
     /**
      * @brief Set the uniform buffer binds at index.
      *
      * @param index `size_t` The bind index
      * @param buffer `BufferPtr` The ptr to the buffer to bind
      */
-    void set(size_t index, const BufferPtr& buffer);
-    BufferPtr& operator[](size_t index);
+    EPIX_API void set(size_t index, const BufferPtr& buffer);
+    EPIX_API BufferPtr& operator[](size_t index);
 };
 
 /**
@@ -256,15 +256,15 @@ struct StorageBufferBindings {
     /**
      * @brief Bind the storage buffers.
      */
-    void bind() const;
+    EPIX_API void bind() const;
     /**
      * @brief Set the storage buffer binds at index.
      *
      * @param index `size_t` The bind index
      * @param buffer `BufferPtr` The ptr to the buffer to bind
      */
-    void set(size_t index, const BufferPtr& buffer);
-    BufferPtr& operator[](size_t index);
+    EPIX_API void set(size_t index, const BufferPtr& buffer);
+    EPIX_API BufferPtr& operator[](size_t index);
 };
 
 /**
@@ -288,13 +288,13 @@ struct TexturePtr {
      *
      * @param type `int` The type of the texture.
      */
-    void create(int type);
+    EPIX_API void create(int type);
     /**
      * @brief Checks if the texture object is valid.
      *
      * @return `bool` True if the texture object is valid.
      */
-    bool valid() const;
+    EPIX_API bool valid() const;
 };
 
 /**
@@ -312,13 +312,13 @@ struct SamplerPtr {
     /**
      * @brief Creates the actual sampler object.
      */
-    void create();
+    EPIX_API void create();
     /**
      * @brief Checks if the sampler object is valid.
      *
      * @return `bool` True if the sampler object is valid.
      */
-    bool valid() const;
+    EPIX_API bool valid() const;
 };
 
 /**
@@ -353,22 +353,22 @@ struct TextureBindings {
     /**
      * @brief Bind the textures.
      */
-    void bind() const;
+    EPIX_API void bind() const;
     /**
      * @brief Set the texture binds at index.
      *
      * @param index `size_t` The bind index
      * @param texture `Image` The texture to bind
      */
-    void set(size_t index, const Image& image);
-    Image& operator[](size_t index);
+    EPIX_API void set(size_t index, const Image& image);
+    EPIX_API Image& operator[](size_t index);
 };
 
 struct ImageTexture {
     TexturePtr texture;
-    int level = 0;
+    int level    = 0;
     bool layered = false;
-    int layer = 0;
+    int layer    = 0;
     int access;
     int format;
 };
@@ -392,7 +392,7 @@ struct ImageTextureBindings {
     /**
      * @brief Bind the image textures.
      */
-    void bind() const;
+    EPIX_API void bind() const;
     /**
      * @brief Set the image texture binds at index.
      *
@@ -404,7 +404,7 @@ struct ImageTextureBindings {
      * @param access `int` The access of the texture
      * @param format `int` The format of the texture
      */
-    void set(
+    EPIX_API void set(
         size_t index,
         const TexturePtr& image,
         int level,
@@ -413,7 +413,7 @@ struct ImageTextureBindings {
         int access,
         int format
     );
-    ImageTexture& operator[](size_t index);
+    EPIX_API ImageTexture& operator[](size_t index);
 };
 
 /**
@@ -430,7 +430,7 @@ struct ViewPort {
     int width;
     int height;
 
-    void use() const;
+    EPIX_API void use() const;
 };
 
 /**
@@ -441,9 +441,9 @@ struct ViewPort {
  */
 struct DepthRange {
     float nearf = 0.0f;
-    float farf = 1.0f;
+    float farf  = 1.0f;
 
-    void use() const;
+    EPIX_API void use() const;
 };
 
 /**
@@ -645,7 +645,7 @@ struct PipelineLayout {
     TextureBindings textures;
     ImageTextureBindings images;
 
-    void use() const;
+    EPIX_API void use() const;
 };
 
 /**
@@ -664,7 +664,7 @@ struct PerSampleOperations {
     Blending blending;
     LogicOp logic_op;
 
-    void use() const;
+    EPIX_API void use() const;
 };
 
 /**
@@ -674,10 +674,10 @@ struct PerSampleOperations {
  */
 struct RenderBufferPtr {
     uint32_t id = 0;
-    void create();
-    void storage(int internal_format, int width, int height);
-    bool check();
-    bool valid() const;
+    EPIX_API void create();
+    EPIX_API void storage(int internal_format, int width, int height);
+    EPIX_API bool check();
+    EPIX_API bool valid() const;
 };
 
 /**
@@ -687,19 +687,19 @@ struct RenderBufferPtr {
  */
 struct FrameBufferPtr {
     uint32_t id = 0;
-    void create();
-    void bind() const;
-    void attachTexture(
+    EPIX_API void create();
+    EPIX_API void bind() const;
+    EPIX_API void attachTexture(
         uint32_t attachment, const TexturePtr& texture, int level
     );
-    void attachTextureLayer(
+    EPIX_API void attachTextureLayer(
         uint32_t attachment, const TexturePtr& texture, int level, int layer
     );
-    void attachRenderBuffer(
+    EPIX_API void attachRenderBuffer(
         uint32_t attachment, const RenderBufferPtr& render_buffer
     );
-    bool check();
-    bool unique() const;
+    EPIX_API bool check();
+    EPIX_API bool unique() const;
 };
 
 /**

@@ -5,41 +5,43 @@
 using namespace pixel_engine::render_gl::systems;
 using namespace pixel_engine::render_gl::components;
 
-void ShaderPtr::create(int type) { id = glCreateShader(type); }
+EPIX_API void ShaderPtr::create(int type) { id = glCreateShader(type); }
 
-void ShaderPtr::source(const char* source) {
+EPIX_API void ShaderPtr::source(const char* source) {
     glShaderSource(id, 1, &source, NULL);
 }
 
-bool ShaderPtr::compile() {
+EPIX_API bool ShaderPtr::compile() {
     glCompileShader(id);
     int success;
     glGetShaderiv(id, GL_COMPILE_STATUS, &success);
     return success;
 }
 
-bool ShaderPtr::valid() const { return id != 0; }
+EPIX_API bool ShaderPtr::valid() const { return id != 0; }
 
-void ProgramPtr::create() { id = glCreateProgram(); }
+EPIX_API void ProgramPtr::create() { id = glCreateProgram(); }
 
-void ProgramPtr::attach(const ShaderPtr& shader) {
+EPIX_API void ProgramPtr::attach(const ShaderPtr& shader) {
     glAttachShader(id, shader.id);
 }
 
-bool ProgramPtr::link() {
+EPIX_API bool ProgramPtr::link() {
     glLinkProgram(id);
     int success;
     glGetProgramiv(id, GL_LINK_STATUS, &success);
     return success;
 }
 
-void ProgramPtr::use() const { glUseProgram(id); }
+EPIX_API void ProgramPtr::use() const { glUseProgram(id); }
 
-bool ProgramPtr::valid() const { return id != 0; }
+EPIX_API bool ProgramPtr::valid() const { return id != 0; }
 
-VertexAttrib& VertexAttribs::operator[](size_t index) { return attribs[index]; }
+EPIX_API VertexAttrib& VertexAttribs::operator[](size_t index) {
+    return attribs[index];
+}
 
-void VertexAttribs::add(
+EPIX_API void VertexAttribs::add(
     uint32_t location,
     uint32_t size,
     int type,
@@ -50,103 +52,103 @@ void VertexAttribs::add(
     attribs.push_back({location, size, type, normalized, stride, offset});
 }
 
-void VertexArrayPtr::create() { glCreateVertexArrays(1, &id); }
+EPIX_API void VertexArrayPtr::create() { glCreateVertexArrays(1, &id); }
 
-void VertexArrayPtr::bind() const { glBindVertexArray(id); }
+EPIX_API void VertexArrayPtr::bind() const { glBindVertexArray(id); }
 
-bool VertexArrayPtr::valid() const { return id != 0; }
+EPIX_API bool VertexArrayPtr::valid() const { return id != 0; }
 
-void BufferPtr::create() { glCreateBuffers(1, &id); }
+EPIX_API void BufferPtr::create() { glCreateBuffers(1, &id); }
 
-void BufferPtr::bind(int target) const { glBindBuffer(target, id); }
+EPIX_API void BufferPtr::bind(int target) const { glBindBuffer(target, id); }
 
-void BufferPtr::bindBase(int target, int index) const {
+EPIX_API void BufferPtr::bindBase(int target, int index) const {
     glBindBufferBase(target, index, id);
 }
 
-bool BufferPtr::valid() const { return id != 0; }
+EPIX_API bool BufferPtr::valid() const { return id != 0; }
 
-void BufferPtr::data(const void* data, size_t size, int usage) {
+EPIX_API void BufferPtr::data(const void* data, size_t size, int usage) {
     glNamedBufferData(id, size, data, usage);
 }
 
-void BufferPtr::subData(const void* data, size_t size, size_t offset) {
+EPIX_API void BufferPtr::subData(const void* data, size_t size, size_t offset) {
     glNamedBufferSubData(id, offset, size, data);
 }
 
-void UniformBufferBindings::bind() const {
+EPIX_API void UniformBufferBindings::bind() const {
     for (size_t i = 0; i < buffers.size(); i++) {
         glBindBufferBase(GL_UNIFORM_BUFFER, i, buffers[i].id);
     }
 }
 
-void UniformBufferBindings::set(size_t index, const BufferPtr& buffer) {
+EPIX_API void UniformBufferBindings::set(size_t index, const BufferPtr& buffer) {
     if (index >= buffers.size()) {
         buffers.resize(index + 1);
     }
     buffers[index] = buffer;
 }
 
-void StorageBufferBindings::bind() const {
+EPIX_API void StorageBufferBindings::bind() const {
     for (size_t i = 0; i < buffers.size(); i++) {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, i, buffers[i].id);
     }
 }
 
-void StorageBufferBindings::set(size_t index, const BufferPtr& buffer) {
+EPIX_API void StorageBufferBindings::set(size_t index, const BufferPtr& buffer) {
     if (index >= buffers.size()) {
         buffers.resize(index + 1);
     }
     buffers[index] = buffer;
 }
 
-BufferPtr& UniformBufferBindings::operator[](size_t index) {
+EPIX_API BufferPtr& UniformBufferBindings::operator[](size_t index) {
     if (index >= buffers.size()) {
         buffers.resize(index + 1);
     }
     return buffers[index];
 }
 
-BufferPtr& StorageBufferBindings::operator[](size_t index) {
+EPIX_API BufferPtr& StorageBufferBindings::operator[](size_t index) {
     if (index >= buffers.size()) {
         buffers.resize(index + 1);
     }
     return buffers[index];
 }
 
-void TexturePtr::create(int type) {
+EPIX_API void TexturePtr::create(int type) {
     this->type = type;
     glCreateTextures(type, 1, &id);
 }
 
-bool TexturePtr::valid() const { return id != 0; }
+EPIX_API bool TexturePtr::valid() const { return id != 0; }
 
-void SamplerPtr::create() { glCreateSamplers(1, &id); }
+EPIX_API void SamplerPtr::create() { glCreateSamplers(1, &id); }
 
-bool SamplerPtr::valid() const { return id != 0; }
+EPIX_API bool SamplerPtr::valid() const { return id != 0; }
 
-void TextureBindings::bind() const {
+EPIX_API void TextureBindings::bind() const {
     for (size_t i = 0; i < textures.size(); i++) {
         glBindTextureUnit(i, textures[i].texture.id);
         glBindSampler(i, textures[i].sampler.id);
     }
 }
 
-void TextureBindings::set(size_t index, const Image& texture) {
+EPIX_API void TextureBindings::set(size_t index, const Image& texture) {
     if (index >= textures.size()) {
         textures.resize(index + 1);
     }
     textures[index] = texture;
 }
 
-Image& TextureBindings::operator[](size_t index) {
+EPIX_API Image& TextureBindings::operator[](size_t index) {
     if (index >= textures.size()) {
         textures.resize(index + 1);
     }
     return textures[index];
 }
 
-void ImageTextureBindings::bind() const {
+EPIX_API void ImageTextureBindings::bind() const {
     for (size_t i = 0; i < images.size(); i++) {
         glBindImageTexture(
             i, images[i].texture.id, images[i].level, images[i].layered,
@@ -155,7 +157,7 @@ void ImageTextureBindings::bind() const {
     }
 }
 
-void ImageTextureBindings::set(
+EPIX_API void ImageTextureBindings::set(
     size_t index,
     const TexturePtr& texture,
     int level,
@@ -170,18 +172,18 @@ void ImageTextureBindings::set(
     images[index] = {texture, level, layered, layer, access, format};
 }
 
-ImageTexture& ImageTextureBindings::operator[](size_t index) {
+EPIX_API ImageTexture& ImageTextureBindings::operator[](size_t index) {
     if (index >= images.size()) {
         images.resize(index + 1);
     }
     return images[index];
 }
 
-void ViewPort::use() const { glViewport(x, y, width, height); }
+EPIX_API void ViewPort::use() const { glViewport(x, y, width, height); }
 
-void DepthRange::use() const { glDepthRange(nearf, farf); }
+EPIX_API void DepthRange::use() const { glDepthRange(nearf, farf); }
 
-void PipelineLayout::use() const {
+EPIX_API void PipelineLayout::use() const {
     vertex_array.bind();
     vertex_buffer.bind(GL_ARRAY_BUFFER);
     index_buffer.bind(GL_ELEMENT_ARRAY_BUFFER);
@@ -192,7 +194,7 @@ void PipelineLayout::use() const {
     images.bind();
 }
 
-void PerSampleOperations::use() const {
+EPIX_API void PerSampleOperations::use() const {
     if (scissor_test.enable) {
         glEnable(GL_SCISSOR_TEST);
         glScissor(
@@ -253,43 +255,43 @@ void PerSampleOperations::use() const {
     }
 }
 
-void RenderBufferPtr::create() { glCreateRenderbuffers(1, &id); }
+EPIX_API void RenderBufferPtr::create() { glCreateRenderbuffers(1, &id); }
 
-bool RenderBufferPtr::valid() const { return id != 0; }
+EPIX_API bool RenderBufferPtr::valid() const { return id != 0; }
 
-void RenderBufferPtr::storage(int internal_format, int width, int height) {
+EPIX_API void RenderBufferPtr::storage(int internal_format, int width, int height) {
     glNamedRenderbufferStorage(id, internal_format, width, height);
 }
 
-bool RenderBufferPtr::check() {
+EPIX_API bool RenderBufferPtr::check() {
     auto status = glCheckNamedFramebufferStatus(id, GL_RENDERBUFFER);
     return status == GL_FRAMEBUFFER_COMPLETE;
 }
 
-void FrameBufferPtr::create() { glCreateFramebuffers(1, &id); }
+EPIX_API void FrameBufferPtr::create() { glCreateFramebuffers(1, &id); }
 
-void FrameBufferPtr::bind() const { glBindFramebuffer(GL_FRAMEBUFFER, id); }
+EPIX_API void FrameBufferPtr::bind() const { glBindFramebuffer(GL_FRAMEBUFFER, id); }
 
-bool FrameBufferPtr::check() {
+EPIX_API bool FrameBufferPtr::check() {
     auto status = glCheckNamedFramebufferStatus(id, GL_FRAMEBUFFER);
     return status == GL_FRAMEBUFFER_COMPLETE;
 }
 
-bool FrameBufferPtr::unique() const { return id != 0; }
+EPIX_API bool FrameBufferPtr::unique() const { return id != 0; }
 
-void FrameBufferPtr::attachTexture(
+EPIX_API void FrameBufferPtr::attachTexture(
     uint32_t attachment, const TexturePtr& texture, int level
 ) {
     glNamedFramebufferTexture(id, attachment, texture.id, level);
 }
 
-void FrameBufferPtr::attachTextureLayer(
+EPIX_API void FrameBufferPtr::attachTextureLayer(
     uint32_t attachment, const TexturePtr& texture, int level, int layer
 ) {
     glNamedFramebufferTextureLayer(id, attachment, texture.id, level, layer);
 }
 
-void FrameBufferPtr::attachRenderBuffer(
+EPIX_API void FrameBufferPtr::attachRenderBuffer(
     uint32_t attachment, const RenderBufferPtr& render_buffer
 ) {
     glNamedFramebufferRenderbuffer(
@@ -297,7 +299,7 @@ void FrameBufferPtr::attachRenderBuffer(
     );
 }
 
-void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
+EPIX_API void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
     using namespace render_gl;
     using namespace window;
     app.configure_sets(
@@ -325,7 +327,7 @@ void pixel_engine::render_gl::RenderGLPlugin::build(App& app) {
         .use_worker("single");
 }
 
-void pixel_engine::render_gl::systems::clear_color(Query<Get<Window>> query) {
+EPIX_API void pixel_engine::render_gl::systems::clear_color(Query<Get<Window>> query) {
     for (auto [window] : query.iter()) {
         if (glfwGetCurrentContext() != window.get_handle())
             glfwMakeContextCurrent(window.get_handle());
@@ -333,7 +335,7 @@ void pixel_engine::render_gl::systems::clear_color(Query<Get<Window>> query) {
     }
 }
 
-void pixel_engine::render_gl::systems::update_viewport(Query<Get<Window>> query
+EPIX_API void pixel_engine::render_gl::systems::update_viewport(Query<Get<Window>> query
 ) {
     for (auto [window] : query.iter()) {
         if (glfwGetCurrentContext() != window.get_handle())
@@ -342,7 +344,7 @@ void pixel_engine::render_gl::systems::update_viewport(Query<Get<Window>> query
     }
 }
 
-void pixel_engine::render_gl::systems::context_creation(Query<Get<Window>> query
+EPIX_API void pixel_engine::render_gl::systems::context_creation(Query<Get<Window>> query
 ) {
     for (auto [window] : query.iter()) {
         if (glfwGetCurrentContext() != window.get_handle())
@@ -371,7 +373,7 @@ void pixel_engine::render_gl::systems::context_creation(Query<Get<Window>> query
     }
 }
 
-void pixel_engine::render_gl::systems::swap_buffers(Query<Get<Window>> query) {
+EPIX_API void pixel_engine::render_gl::systems::swap_buffers(Query<Get<Window>> query) {
     for (auto [window] : query.iter()) {
         if (glfwGetCurrentContext() != window.get_handle())
             glfwMakeContextCurrent(window.get_handle());
@@ -379,7 +381,7 @@ void pixel_engine::render_gl::systems::swap_buffers(Query<Get<Window>> query) {
     }
 }
 
-void pixel_engine::render_gl::systems::complete_pipeline(
+EPIX_API void pixel_engine::render_gl::systems::complete_pipeline(
     Command command,
     Query<
         Get<Entity, ProgramShaderAttachments, VertexAttribs>,

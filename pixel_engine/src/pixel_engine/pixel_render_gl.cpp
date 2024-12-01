@@ -33,7 +33,8 @@ layout(location = 0) out vec4 fragColor;
 void main() { fragColor = color; })";
 }  // namespace pixel_shader_source
 
-void pixel_engine::pixel_render_gl::PixelRenderGLPlugin::build(App& app) {
+EPIX_API void pixel_engine::pixel_render_gl::PixelRenderGLPlugin::build(App& app
+) {
     app.add_system(PreStartup, create_pipeline)
         .in_set(render_gl::RenderGLStartupSets::after_context_creation)
         .use_worker("single")
@@ -41,7 +42,7 @@ void pixel_engine::pixel_render_gl::PixelRenderGLPlugin::build(App& app) {
         .use_worker("single");
 }
 
-void pixel_engine::pixel_render_gl::systems::create_pipeline(
+EPIX_API void pixel_engine::pixel_render_gl::systems::create_pipeline(
     Command command, ResMut<AssetServerGL> asset_server
 ) {
     unsigned int uniform_buffer;
@@ -71,7 +72,7 @@ void pixel_engine::pixel_render_gl::systems::create_pipeline(
     );
 }
 
-void pixel_engine::pixel_render_gl::systems::draw(
+EPIX_API void pixel_engine::pixel_render_gl::systems::draw(
     Query<Get<const Pixels, const PixelSize, const Transform>> pixels_query,
     Query<
         Get<const Transform, const OrthoProjection>,

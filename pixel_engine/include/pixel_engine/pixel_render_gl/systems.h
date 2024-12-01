@@ -17,14 +17,17 @@ using namespace render_gl::components;
 using namespace components;
 using namespace camera;
 
-void create_pipeline(Command command, ResMut<AssetServerGL> asset_server);
+void EPIX_API
+create_pipeline(Command command, ResMut<AssetServerGL> asset_server);
 
-void draw(
+void EPIX_API draw(
     Query<Get<const Pixels, const PixelSize, const Transform>> pixels_query,
     Query<
-        Get<const Transform, const OrthoProjection>, With<Camera2d>, Without<>>
-        camera_query,
-    render_gl::PipelineQuery::query_type<PixelPipeline> pipeline_query);
+        Get<const Transform, const OrthoProjection>,
+        With<Camera2d>,
+        Without<>> camera_query,
+    render_gl::PipelineQuery::query_type<PixelPipeline> pipeline_query
+);
 }  // namespace systems
 }  // namespace pixel_render_gl
 }  // namespace pixel_engine

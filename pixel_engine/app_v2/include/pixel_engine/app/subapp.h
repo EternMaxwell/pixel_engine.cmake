@@ -138,9 +138,9 @@ struct SubApp {
     };
 
    public:
-    void tick_events();
-    void end_commands();
-    void update_states();
+    EPIX_API void tick_events();
+    EPIX_API void end_commands();
+    EPIX_API void update_states();
 
     template <typename T, typename... Args>
     void emplace_resource(Args&&... args) {

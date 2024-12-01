@@ -7,6 +7,7 @@
 #include <mutex>
 #include <queue>
 
+#include "common.h"
 #include "system.h"
 
 namespace pixel_engine::app {
@@ -14,8 +15,8 @@ struct SystemStage {
     template <typename T>
     SystemStage(T stage)
         : m_stage(typeid(T)), m_sub_stage(static_cast<size_t>(stage)) {}
-    bool operator==(const SystemStage& other) const;
-    bool operator!=(const SystemStage& other) const;
+    EPIX_API bool operator==(const SystemStage& other) const;
+    EPIX_API bool operator!=(const SystemStage& other) const;
 
     std::type_index m_stage;
     size_t m_sub_stage;
@@ -23,8 +24,8 @@ struct SystemStage {
 struct SystemSet {
     template <typename T>
     SystemSet(T set) : m_type(typeid(T)), m_value(static_cast<size_t>(set)) {}
-    bool operator==(const SystemSet& other) const;
-    bool operator!=(const SystemSet& other) const;
+    EPIX_API bool operator==(const SystemSet& other) const;
+    EPIX_API bool operator!=(const SystemSet& other) const;
 
     std::type_index m_type;
     size_t m_value;
@@ -37,11 +38,11 @@ struct SystemNode {
         : m_stage(stage), m_system(std::make_unique<System<Args...>>(func)) {
         m_sys_addr = (void*)func;
     }
-    bool run(SubApp* src, SubApp* dst);
-    void before(void* other_sys);
-    void after(void* other_sys);
-    void clear_tmp();
-    double reach_time();
+    EPIX_API bool run(SubApp* src, SubApp* dst);
+    EPIX_API void before(void* other_sys);
+    EPIX_API void after(void* other_sys);
+    EPIX_API void clear_tmp();
+    EPIX_API double reach_time();
 
     SystemStage m_stage;
     std::vector<SystemSet> m_in_sets;
@@ -96,8 +97,8 @@ struct MsgQueueBase {
     }
 };
 struct WorkerPool {
-    BS::thread_pool* get_pool(const std::string& name);
-    void add_pool(const std::string& name, uint32_t num_threads);
+    EPIX_API BS::thread_pool* get_pool(const std::string& name);
+    EPIX_API void add_pool(const std::string& name, uint32_t num_threads);
 
     spp::sparse_hash_map<std::string, std::unique_ptr<BS::thread_pool>> m_pools;
 };

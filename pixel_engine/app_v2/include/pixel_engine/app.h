@@ -1,5 +1,9 @@
 #pragma once
 
+// ----EPIX API----
+#include "app/command.h"
+// ----EPIX API----
+
 #include "app/app.h"
 #include "app/runner.h"
 #include "app/runner_tools.h"

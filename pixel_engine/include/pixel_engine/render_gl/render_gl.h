@@ -20,7 +20,7 @@ enum class RenderGLPipelineCompletionSets {
 
 class RenderGLPlugin : public Plugin {
    public:
-    void build(App& app) override;
+    EPIX_API void build(App& app) override;
 };
 
 /**
@@ -39,12 +39,21 @@ struct PipelineQuery {
      */
     template <typename... Args>
     using query_type = Query<
-        Get<PipelineLayout, ProgramPtr, ViewPort, DepthRange,
-            PerSampleOperations, FrameBufferPtr>,
-        With<Pipeline, Args...>, Without<>>;
+        Get<PipelineLayout,
+            ProgramPtr,
+            ViewPort,
+            DepthRange,
+            PerSampleOperations,
+            FrameBufferPtr>,
+        With<Pipeline, Args...>,
+        Without<>>;
     using bundle_type = std::tuple<
-        PipelineLayout&, ProgramPtr&, ViewPort&, DepthRange&,
-        PerSampleOperations&, FrameBufferPtr&>;
+        PipelineLayout&,
+        ProgramPtr&,
+        ViewPort&,
+        DepthRange&,
+        PerSampleOperations&,
+        FrameBufferPtr&>;
 };
 }  // namespace render_gl
 }  // namespace pixel_engine

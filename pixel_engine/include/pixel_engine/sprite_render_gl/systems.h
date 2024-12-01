@@ -21,14 +21,18 @@ using namespace camera;
 
 using sprite_query_type = Query<Get<Transform, Sprite>, With<>, Without<>>;
 
-void create_pipeline(Command command, ResMut<AssetServerGL> asset_server);
+EPIX_API void create_pipeline(
+    Command command, ResMut<AssetServerGL> asset_server
+);
 
-void draw_sprite(
+EPIX_API void draw_sprite(
     render_gl::PipelineQuery::query_type<SpritePipeline> pipeline_query,
     Query<
-        Get<const Transform, const OrthoProjection>, With<Camera2d>, Without<>>
-        camera_query,
-    sprite_query_type sprite_query);
+        Get<const Transform, const OrthoProjection>,
+        With<Camera2d>,
+        Without<>> camera_query,
+    sprite_query_type sprite_query
+);
 }  // namespace systems
 }  // namespace sprite_render_gl
 }  // namespace pixel_engine
