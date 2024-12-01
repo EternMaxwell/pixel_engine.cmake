@@ -1006,6 +1006,21 @@ void update_mouse_joint(
     }
 }
 
+glm::vec4 sand_gen_color() { return {0.8f, 0.8f, 0.0f, 1.0f}; }
+
+void create_simulation(Command command) {
+    using namespace pixel_engine::world::sand;
+    using namespace pixel_engine::world::sand::components;
+
+    ElemRegistry registry;
+    registry.register_elem(
+        "sand", Element{"sand", "sand", sand_gen_color, true, 1.0f}
+    );
+    Simulation simulation(std::move(registry), 64);
+    simulation.load_chunk(0, 0);
+    command.spawn(std::move(simulation));
+}
+
 struct VK_TrialPlugin : Plugin {
     void build(App& app) override {
         auto window_plugin = app.get_plugin<WindowPlugin>();
@@ -1020,7 +1035,7 @@ struct VK_TrialPlugin : Plugin {
         app.insert_state(SimulateState::Running);
         app.add_system(
                Startup, create_b2d_world, create_ground, create_dynamic,
-               create_pixel_block_with_collision
+               create_pixel_block_with_collision, create_simulation
         )
             .chain();
         app.add_system(PreUpdate, update_b2d_world)

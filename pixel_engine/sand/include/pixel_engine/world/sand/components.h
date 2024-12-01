@@ -13,24 +13,6 @@ struct Element {
     glm::vec4 (*gen_color)();
     bool movable;
     float density;
-    float viscosity;
-    float flammability;
-    float heat_capacity;
-    float heat_conductivity;
-
-    const static uint8_t LOW_TEMP      = 0x01;
-    const static uint8_t HIGH_TEMP     = 0x02;
-    const static uint8_t LOW_PRESSURE  = 0x04;
-    const static uint8_t HIGH_PRESSURE = 0x08;
-    uint8_t transition_flags;
-    float low_temp;
-    uint32_t low_temp_elem_id;
-    float high_temp;
-    uint32_t high_temp_elem_id;
-    float low_pressure;
-    uint32_t low_pressure_elem_id;
-    float high_pressure;
-    uint32_t high_pressure_elem_id;
 };
 struct CellDef {
     enum class DefIdentifier { Name, Id } identifier;
