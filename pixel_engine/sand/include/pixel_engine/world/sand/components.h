@@ -183,13 +183,13 @@ struct Simulation {
         const Element& elem = m_registry.get_elem(cell.elem_id);
         return {cell, elem};
     }
-    void create(int x, int y, const CellDef& def) {
+    Cell& create(int x, int y, const CellDef& def) {
         assert(contains(x, y));
         int chunk_x = x / m_chunk_size;
         int chunk_y = y / m_chunk_size;
         int cell_x  = x % m_chunk_size;
         int cell_y  = y % m_chunk_size;
-        m_chunk_map.get_chunk(chunk_x, chunk_y)
+        return m_chunk_map.get_chunk(chunk_x, chunk_y)
             .create(cell_x, cell_y, def, m_registry);
     }
     void update() {
