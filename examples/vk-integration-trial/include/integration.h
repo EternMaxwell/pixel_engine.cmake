@@ -4,12 +4,8 @@
 #endif
 #include <GLFW/glfw3.h>
 
-#ifndef STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-#endif
 #include <box2d/box2d.h>
 #include <pixel_engine/imgui.h>
-#include <stb_image.h>
 
 #include <earcut.hpp>
 #include <random>

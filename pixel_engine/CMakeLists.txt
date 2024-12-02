@@ -1,7 +1,10 @@
 ﻿cmake_minimum_required (VERSION 3.21)
 
-# add_compile_definitions(EPIX_BUILD_DLL)
+file(GLOB_RECURSE MODULE_SOURCES "src/*.c" "src/*.cpp")
+list(APPEND ENGINE_SOURCES ${MODULE_SOURCES})
+list(APPEND ENGINE_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+add_subdirectory(common)
 add_subdirectory(app)
 add_subdirectory(window)
 add_subdirectory(input)
@@ -15,18 +18,11 @@ add_subdirectory(sprite)
 add_subdirectory(pixel_render)
 add_subdirectory(sand)
 
-file(GLOB_RECURSE ENGINE_HEADERS "include/*.h" "include/*.hpp")
-file(GLOB_RECURSE ENGINE_SOURCES "src/*.c" "src/*.cpp")
-add_library(pixel_engine STATIC ${ENGINE_SOURCES})
+# BUILD STATIC
+add_library(pixel_engine STATIC ${MODULE_SOURCES})
 target_include_directories(pixel_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-#set_target_properties(pixel_engine PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR} PUBLIC_HEADER ${ENGINE_HEADERS})
-
-#include glfw vulkan ... etc
-#target_include_directories(pixel_engine PUBLIC )
 target_include_directories(pixel_engine PUBLIC ../libs/stb)
-
-#link glfw vulkan ... etc
+target_link_libraries (pixel_engine PUBLIC epix_common)
 target_link_libraries (pixel_engine PUBLIC glfw)
 target_link_libraries (pixel_engine PUBLIC OpenGL::GL)
 target_link_libraries (pixel_engine PUBLIC glad)
@@ -48,4 +44,22 @@ target_link_libraries (pixel_engine PUBLIC pixel_engine::render::sprite)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::render::pixel)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::world::sand)
 
-# remove_definitions(-DEPIX_BUILD_DLL)
+# BUILD SHARED
+add_library(pixel_engine_shared SHARED ${ENGINE_SOURCES})
+target_compile_definitions(pixel_engine_shared PRIVATE EPIX_BUILD_SHARED)
+target_include_directories(pixel_engine_shared PUBLIC ${ENGINE_INCLUDES})
+target_include_directories(pixel_engine_shared PRIVATE ../libs/stb)
+target_link_libraries (pixel_engine_shared PUBLIC epix_common)
+target_link_libraries (pixel_engine_shared PUBLIC sparsepp)
+target_link_libraries (pixel_engine_shared PUBLIC imgui)
+target_link_libraries (pixel_engine_shared PUBLIC glfw)
+target_link_libraries (pixel_engine_shared PUBLIC OpenGL::GL)
+target_link_libraries (pixel_engine_shared PUBLIC glad)
+target_link_libraries (pixel_engine_shared PUBLIC Vulkan::Vulkan)
+target_link_libraries (pixel_engine_shared PUBLIC EnTT::EnTT)
+target_link_libraries (pixel_engine_shared PUBLIC spdlog::spdlog)
+target_link_libraries (pixel_engine_shared PUBLIC Boost::pfr)
+target_link_libraries (pixel_engine_shared PUBLIC BSThreadPool)
+target_link_libraries (pixel_engine_shared PUBLIC glm::glm)
+target_link_libraries (pixel_engine_shared PUBLIC freetype)
+target_link_libraries (pixel_engine_shared PUBLIC VulkanMemoryAllocator)

@@ -1,0 +1,2 @@
+add_library(epix_common INTERFACE)
+target_include_directories(epix_common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
