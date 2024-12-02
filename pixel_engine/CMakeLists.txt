@@ -12,6 +12,7 @@ add_subdirectory(debug_draw)
 add_subdirectory(font)
 add_subdirectory(sprite)
 add_subdirectory(pixel_render)
+add_subdirectory(physics2d)
 
 file(GLOB_RECURSE ENGINE_HEADERS "include/*.h" "include/*.hpp")
 file(GLOB_RECURSE ENGINE_SOURCES "src/*.c" "src/*.cpp")

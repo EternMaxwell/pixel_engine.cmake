@@ -14,6 +14,7 @@ set_target_properties(${PROJNAME} PROPERTIES CXX_STANDARD 20)
 target_link_libraries (${PROJNAME} PUBLIC pixel_engine)
 target_link_libraries (${PROJNAME} PUBLIC VulkanMemoryAllocator)
 target_link_libraries (${PROJNAME} PUBLIC pixel_engine::imgui)
+target_link_libraries (${PROJNAME} PUBLIC pixel_engine::physics::2d)
 target_link_libraries (${PROJNAME} PUBLIC box2d)
 target_link_libraries (${PROJNAME} PUBLIC earcut.hpp)
 
