@@ -45,6 +45,8 @@ target_link_libraries (pixel_engine PUBLIC pixel_engine::render::sprite)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::render::pixel)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::world::sand)
 
+add_library(epix ALIAS pixel_engine)
+
 # BUILD SHARED
 # ADD IMGUI SOURCES AND INCLUDES
 set(ENGINE_SOURCES ${ENGINE_SOURCES} ${IMGUI_SOURCES})
@@ -66,3 +68,7 @@ target_link_libraries (pixel_engine_shared PUBLIC BSThreadPool)
 target_link_libraries (pixel_engine_shared PUBLIC glm::glm)
 target_link_libraries (pixel_engine_shared PUBLIC freetype)
 target_link_libraries (pixel_engine_shared PUBLIC VulkanMemoryAllocator)
+
+set_target_properties(pixel_engine_shared PROPERTIES OUTPUT_NAME epix)
+
+add_library(epix_shared ALIAS pixel_engine_shared)
