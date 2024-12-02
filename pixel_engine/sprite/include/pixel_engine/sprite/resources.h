@@ -25,11 +25,11 @@ struct SpriteServerVK {
     std::deque<int> free_sampler_indices;
     int next_sampler_index = 0;
     // The entity the handle points to will have image, image view, image index.
-    Entity load_image(Command& cmd, const std::string& _path);
-    Entity create_sampler(
+    EPIX_API Entity load_image(Command& cmd, const std::string& _path);
+    EPIX_API Entity create_sampler(
         Command& cmd, vk::SamplerCreateInfo create_info, const std::string& name
     );
-    Entity get_sampler(const std::string& name);
+    EPIX_API Entity get_sampler(const std::string& name);
 };
 }  // namespace resources
 }  // namespace sprite

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <pixel_engine/common.h>
+#define IMGUI_API EPIX_API
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
@@ -24,23 +26,23 @@ using namespace pixel_engine::prelude;
 using namespace pixel_engine::render_vk::components;
 using namespace pixel_engine::window::components;
 using namespace pixel_engine::imgui;
-void insert_imgui_ctx(Command cmd);
-void init_imgui(
+EPIX_API void insert_imgui_ctx(Command cmd);
+EPIX_API void init_imgui(
     Query<
         Get<Instance, PhysicalDevice, Device, Queue, CommandPool>,
         With<RenderContext>> context_query,
     Query<Get<Window>, With<PrimaryWindow>> window_query,
     ResMut<ImGuiContext> imgui_context
 );
-void deinit_imgui(
+EPIX_API void deinit_imgui(
     Query<Get<Device, CommandPool>, With<RenderContext>> context_query,
     ResMut<ImGuiContext> imgui_context
 );
-void begin_imgui(
+EPIX_API void begin_imgui(
     ResMut<ImGuiContext> ctx,
     Query<Get<Device, Queue, Swapchain>, With<RenderContext>> query
 );
-void end_imgui(
+EPIX_API void end_imgui(
     ResMut<ImGuiContext> ctx,
     Query<Get<Device, Queue, Swapchain>, With<RenderContext>> query
 );

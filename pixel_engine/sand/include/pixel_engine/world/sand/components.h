@@ -6,6 +6,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <mutex>
 
+#include "pixel_engine/common.h"
+
 namespace pixel_engine::world::sand::components {
 struct Element {
     std::string name;
@@ -43,18 +45,18 @@ struct ElemRegistry {
     std::vector<Element> elements;
 
    public:
-    ElemRegistry();
-    ElemRegistry(const ElemRegistry& other);
-    ElemRegistry(ElemRegistry&& other);
-    ElemRegistry& operator=(const ElemRegistry& other);
-    ElemRegistry& operator=(ElemRegistry&& other);
+    EPIX_API ElemRegistry();
+    EPIX_API ElemRegistry(const ElemRegistry& other);
+    EPIX_API ElemRegistry(ElemRegistry&& other);
+    EPIX_API ElemRegistry& operator=(const ElemRegistry& other);
+    EPIX_API ElemRegistry& operator=(ElemRegistry&& other);
 
-    int register_elem(const std::string& name, const Element& elem);
-    int elem_id(const std::string& name);
-    const Element& get_elem(const std::string& name);
-    const Element& get_elem(int id) const;
-    const Element& operator[](int id) const;
-    void add_equiv(const std::string& name, const std::string& equiv);
+    EPIX_API int register_elem(const std::string& name, const Element& elem);
+    EPIX_API int elem_id(const std::string& name);
+    EPIX_API const Element& get_elem(const std::string& name);
+    EPIX_API const Element& get_elem(int id) const;
+    EPIX_API const Element& operator[](int id) const;
+    EPIX_API void add_equiv(const std::string& name, const std::string& equiv);
 };
 struct Simulation {
     struct Chunk {

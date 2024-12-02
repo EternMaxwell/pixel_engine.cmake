@@ -18,7 +18,7 @@ using namespace pixel_engine::render_vk::components;
 std::shared_ptr<spdlog::logger> sprite_logger =
     spdlog::default_logger()->clone("sprite");
 
-void systems::create_sprite_renderer_vk(
+EPIX_API void systems::create_sprite_renderer_vk(
     Command cmd,
     Query<Get<Device, CommandPool, Queue>, With<RenderContext>> ctx_query
 ) {
@@ -356,7 +356,7 @@ void systems::create_sprite_renderer_vk(
     cmd.spawn(sprite_renderer);
 }
 
-void systems::update_image_bindings(
+EPIX_API void systems::update_image_bindings(
     Query<Get<ImageBindingUpdate>> query,
     Query<Get<ImageView, ImageIndex>, With<Image>> image_query,
     Query<Get<SpriteRenderer>> renderer_query,
@@ -383,7 +383,7 @@ void systems::update_image_bindings(
     }
 }
 
-void systems::update_sampler_bindings(
+EPIX_API void systems::update_sampler_bindings(
     Query<Get<SamplerBindingUpdate>> query,
     Query<Get<Sampler, SamplerIndex>> sampler_query,
     Query<Get<SpriteRenderer>> renderer_query,
@@ -409,7 +409,7 @@ void systems::update_sampler_bindings(
     }
 }
 
-void systems::create_sprite_depth_vk(
+EPIX_API void systems::create_sprite_depth_vk(
     Command cmd,
     Query<Get<Device, CommandPool, Queue, Swapchain>, With<RenderContext>>
         ctx_query,
@@ -453,7 +453,7 @@ void systems::create_sprite_depth_vk(
     );
 }
 
-void systems::update_sprite_depth_vk(
+EPIX_API void systems::update_sprite_depth_vk(
     Query<Get<ImageView, Image, SpriteDepthExtent>, With<SpriteDepth>> query,
     Query<Get<Device, Swapchain>, With<RenderContext>> ctx_query
 ) {
@@ -503,7 +503,7 @@ void systems::update_sprite_depth_vk(
     }
 }
 
-void systems::destroy_sprite_depth_vk(
+EPIX_API void systems::destroy_sprite_depth_vk(
     Query<Get<Device>, With<RenderContext>> query,
     Query<Get<ImageView, Image>, With<SpriteDepth, SpriteDepthExtent>>
         depth_query
@@ -516,7 +516,7 @@ void systems::destroy_sprite_depth_vk(
     }
 }
 
-void systems::draw_sprite_2d_vk(
+EPIX_API void systems::draw_sprite_2d_vk(
     Query<Get<SpriteRenderer>> renderer_query,
     Query<Get<Sprite, SpritePos2D>> sprite_query,
     Query<Get<Device, CommandPool, Queue, Swapchain>, With<RenderContext>>
@@ -720,7 +720,7 @@ void systems::draw_sprite_2d_vk(
     queue->submit(submit_info, *fence);
 }
 
-void systems::destroy_sprite_renderer_vk(
+EPIX_API void systems::destroy_sprite_renderer_vk(
     Query<Get<SpriteRenderer>> renderer_query,
     Query<Get<Device>, With<RenderContext>> query
 ) {

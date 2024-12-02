@@ -15,7 +15,7 @@ using namespace sprite::resources;
 using namespace sprite::systems;
 
 struct SpritePluginVK : Plugin {
-    void build(App& app) override;
+    EPIX_API void build(App& app) override;
 };
 }  // namespace sprite
 }  // namespace pixel_engine

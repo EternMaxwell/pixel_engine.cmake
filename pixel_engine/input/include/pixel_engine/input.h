@@ -15,9 +15,9 @@ using namespace events;
 
 struct InputPlugin : Plugin {
     bool enable_output_event = false;
-    InputPlugin& enable_output();
-    InputPlugin& disable_output();
-    void build(App& app) override;
+    EPIX_API InputPlugin& enable_output();
+    EPIX_API InputPlugin& disable_output();
+    EPIX_API void build(App& app) override;
 };
 }  // namespace input
 }  // namespace pixel_engine

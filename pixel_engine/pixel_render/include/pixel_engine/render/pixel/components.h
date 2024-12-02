@@ -32,10 +32,10 @@ struct PixelBlockData {
 };
 
 struct PixelBlock {
-    static PixelBlock create(glm::uvec2 size);
+    EPIX_API static PixelBlock create(glm::uvec2 size);
 
-    glm::vec4& operator[](glm::uvec2 pos);
-    const glm::vec4& operator[](glm::uvec2 pos) const;
+    EPIX_API glm::vec4& operator[](glm::uvec2 pos);
+    EPIX_API const glm::vec4& operator[](glm::uvec2 pos) const;
 
     std::vector<glm::vec4> pixels;
     glm::uvec2 size;
@@ -72,37 +72,39 @@ struct PixelBlockRenderer {
         PixelBlockData* block_model_data;
         PixelBlockVertex* vertex_data;
 
-        Context(Device& device, Queue& queue);
+        EPIX_API Context(Device& device, Queue& queue);
     };
     std::optional<Context> context;
 
-    void begin(
+    EPIX_API void begin(
         Device& device,
         Swapchain& swapchain,
         Queue& queue,
         const PixelUniformBuffer& pixel_uniform
     );
-    void begin(
+    EPIX_API void begin(
         Device& device,
         Queue& queue,
         ImageView& render_target,
         vk::Extent2D extent,
         const PixelUniformBuffer& pixel_uniform
     );
-    void begin(
+    EPIX_API void begin(
         Device& device,
         Queue& queue,
         Framebuffer& framebuffer,
         vk::Extent2D extent,
         const PixelUniformBuffer& pixel_uniform
     );
-    void draw(const PixelBlock& block, const BlockPos2d& pos2d);
-    void end();
+    EPIX_API void draw(const PixelBlock& block, const BlockPos2d& pos2d);
+    EPIX_API void end();
 
    private:
-    void set_block_data(const PixelBlock& block, const BlockPos2d& pos2d);
-    void reset_cmd();
-    void flush();
+    EPIX_API void set_block_data(
+        const PixelBlock& block, const BlockPos2d& pos2d
+    );
+    EPIX_API void reset_cmd();
+    EPIX_API void flush();
 };
 
 struct PixelRenderer {
@@ -128,41 +130,41 @@ struct PixelRenderer {
         glm::mat4* model_data;
         PixelVertex* vertex_data;
 
-        Context(Device& device, Queue& queue);
+        EPIX_API Context(Device& device, Queue& queue);
     };
 
     std::optional<Context> context;
 
-    void begin(
+    EPIX_API void begin(
         Device& device,
         Swapchain& swapchain,
         Queue& queue,
         const PixelUniformBuffer& pixel_uniform
     );
-    void begin(
+    EPIX_API void begin(
         Device& device,
         Queue& queue,
         ImageView& render_target,
         vk::Extent2D extent,
         const PixelUniformBuffer& pixel_uniform
     );
-    void begin(
+    EPIX_API void begin(
         Device& device,
         Queue& queue,
         Framebuffer& framebuffer,
         vk::Extent2D extent,
         const PixelUniformBuffer& pixel_uniform
     );
-    void draw(const glm::vec4& color, const glm::vec2& pos);
-    void end();
-    void set_model(const glm::mat4& model);
-    void set_model(
+    EPIX_API void draw(const glm::vec4& color, const glm::vec2& pos);
+    EPIX_API void end();
+    EPIX_API void set_model(const glm::mat4& model);
+    EPIX_API void set_model(
         const glm::vec2& pos, const glm::vec2& scale, float rotation
     );
 
    private:
-    void reset_cmd();
-    void flush();
+    EPIX_API void reset_cmd();
+    EPIX_API void flush();
 };
 }  // namespace components
 }  // namespace pixel_engine::render::pixel

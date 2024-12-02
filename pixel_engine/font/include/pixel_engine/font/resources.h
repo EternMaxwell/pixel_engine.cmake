@@ -17,7 +17,7 @@ struct Font {
     int pixels     = 64;
     FT_Face font_face;
 
-    bool operator==(const Font& other) const {
+    EPIX_API bool operator==(const Font& other) const {
         return font_face == other.font_face && pixels == other.pixels &&
                antialias == other.antialias;
     }
@@ -44,9 +44,9 @@ struct Glyph {
     vec2 uv_2;
 };
 struct GlyphMap {
-    const Glyph& get_glyph(uint32_t index) const;
-    void add_glyph(uint32_t index, const Glyph& glyph);
-    bool contains(uint32_t index) const;
+    EPIX_API const Glyph& get_glyph(uint32_t index) const;
+    EPIX_API void add_glyph(uint32_t index, const Glyph& glyph);
+    EPIX_API bool contains(uint32_t index) const;
 
    private:
     std::shared_ptr<std::unordered_map<uint32_t, Glyph>> glyphs =
@@ -65,9 +65,9 @@ struct FT2LibGL {
         uint32_t current_layer       = 0;
         uint32_t current_line_height = 0;
     };
-    FT_Face load_font(const std::string& file_path);
-    void init();
-    void destroy();
+    EPIX_API FT_Face load_font(const std::string& file_path);
+    EPIX_API void init();
+    EPIX_API void destroy();
     const uint32_t font_texture_width  = 2048;
     const uint32_t font_texture_height = 2048;
     const uint32_t font_texture_layers = 256;
@@ -86,30 +86,30 @@ struct FT2Library {
         uint32_t current_layer       = 0;
         uint32_t current_line_height = 0;
     };
-    FT_Face load_font(const std::string& file_path);
-    std::tuple<Image, ImageView, GlyphMap>& get_font_texture(
+    EPIX_API FT_Face load_font(const std::string& file_path);
+    EPIX_API std::tuple<Image, ImageView, GlyphMap>& get_font_texture(
         const Font& font,
         Device& device,
         CommandPool& command_pool,
         Queue& queue
     );
-    uint32_t font_index(const Font& font);
-    void add_char_to_texture(
+    EPIX_API uint32_t font_index(const Font& font);
+    EPIX_API void add_char_to_texture(
         const Font& font,
         wchar_t c,
         Device& device,
         CommandPool& command_pool,
         Queue& queue
     );
-    void add_chars_to_texture(
+    EPIX_API void add_chars_to_texture(
         const Font& font,
         const std::wstring& text,
         Device& device,
         CommandPool& command_pool,
         Queue& queue
     );
-    std::optional<const Glyph> get_glyph(const Font& font, wchar_t c);
-    std::optional<const Glyph> get_glyph_add(
+    EPIX_API std::optional<const Glyph> get_glyph(const Font& font, wchar_t c);
+    EPIX_API std::optional<const Glyph> get_glyph_add(
         const Font& font,
         wchar_t c,
         Device& device,
@@ -117,8 +117,8 @@ struct FT2Library {
         Queue& queue
     );
 
-    void clear_font_textures(Device& device);
-    void destroy();
+    EPIX_API void clear_font_textures(Device& device);
+    EPIX_API void destroy();
 
     const uint32_t font_texture_width  = 2048;
     const uint32_t font_texture_height = 2048;

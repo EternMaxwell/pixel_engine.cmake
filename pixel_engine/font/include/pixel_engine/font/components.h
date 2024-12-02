@@ -85,19 +85,19 @@ struct TextRenderer {
 
     std::optional<Context> ctx;
 
-    void begin(
+    EPIX_API void begin(
         Device* device,
         Swapchain* swapchain,
         Queue* queue,
         CommandPool* command_pool,
         ResMut<resources::vulkan::FT2Library> ft2_library
     );
-    void reset_cmd();
-    void flush();
-    void setModel(const TextModelData& model);
-    void setModel(const TextPos& pos, int texture_id);
-    void draw(const Text& text, const TextPos& pos);
-    void end();
+    EPIX_API void reset_cmd();
+    EPIX_API void flush();
+    EPIX_API void setModel(const TextModelData& model);
+    EPIX_API void setModel(const TextPos& pos, int texture_id);
+    EPIX_API void draw(const Text& text, const TextPos& pos);
+    EPIX_API void end();
 };
 
 struct TextRendererGl {
@@ -112,7 +112,8 @@ struct TextRendererGl {
 }  // namespace pixel_engine
 template <>
 struct std::hash<pixel_engine::font::components::Font> {
-    size_t operator()(const pixel_engine::font::components::Font& font) const {
+    EPIX_API size_t operator()(const pixel_engine::font::components::Font& font
+    ) const {
         return (std::hash<int>()(font.pixels) ^
                 std::hash<bool>()(font.antialias)) *
                std::hash<FT_Face>()(font.font_face);

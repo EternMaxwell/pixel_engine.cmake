@@ -12,30 +12,30 @@ namespace pixel_engine::render::debug::vulkan::systems {
 using namespace pixel_engine::prelude;
 using namespace pixel_engine::render_vk::components;
 using namespace pixel_engine::render::debug::vulkan::components;
-void create_line_drawer(
+EPIX_API void create_line_drawer(
     Query<Get<Device, CommandPool>, With<RenderContext>> query,
     Command cmd,
     Res<DebugRenderPlugin> plugin
 );
-void create_point_drawer(
+EPIX_API void create_point_drawer(
     Query<Get<Device, CommandPool>, With<RenderContext>> query,
     Command cmd,
     Res<DebugRenderPlugin> plugin
 );
-void create_triangle_drawer(
+EPIX_API void create_triangle_drawer(
     Query<Get<Device, CommandPool>, With<RenderContext>> query,
     Command cmd,
     Res<DebugRenderPlugin> plugin
 );
-void destroy_line_drawer(
+EPIX_API void destroy_line_drawer(
     Query<Get<Device>, With<RenderContext>> device_query,
     Query<Get<LineDrawer>> query
 );
-void destroy_point_drawer(
+EPIX_API void destroy_point_drawer(
     Query<Get<Device>, With<RenderContext>> device_query,
     Query<Get<PointDrawer>> query
 );
-void destroy_triangle_drawer(
+EPIX_API void destroy_triangle_drawer(
     Query<Get<Device>, With<RenderContext>> device_query,
     Query<Get<TriangleDrawer>> query
 );

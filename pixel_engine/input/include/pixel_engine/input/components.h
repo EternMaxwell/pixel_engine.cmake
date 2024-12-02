@@ -137,31 +137,33 @@ enum KeyCode {
 };  // namespace resources
 
 struct KeyHash {
-    size_t operator()(const KeyCode& key) const;
+    EPIX_API size_t operator()(const KeyCode& key) const;
 };
 
 template <>
 struct ButtonInput<KeyCode> {
    public:
-    ButtonInput<KeyCode>(Entity window);
+    EPIX_API ButtonInput<KeyCode>(Entity window);
 
-    bool just_pressed(KeyCode key) const;
-    bool just_released(KeyCode key) const;
-    bool pressed(KeyCode key) const;
+    EPIX_API bool just_pressed(KeyCode key) const;
+    EPIX_API bool just_released(KeyCode key) const;
+    EPIX_API bool pressed(KeyCode key) const;
 
-    const spp::sparse_hash_set<KeyCode, KeyHash>& just_pressed_keys() const;
-    const spp::sparse_hash_set<KeyCode, KeyHash>& just_released_keys() const;
-    const spp::sparse_hash_set<KeyCode, KeyHash>& pressed_keys() const;
+    EPIX_API const spp::sparse_hash_set<KeyCode, KeyHash>& just_pressed_keys(
+    ) const;
+    EPIX_API const spp::sparse_hash_set<KeyCode, KeyHash>& just_released_keys(
+    ) const;
+    EPIX_API const spp::sparse_hash_set<KeyCode, KeyHash>& pressed_keys() const;
 
-    bool any_just_pressed(const std::vector<KeyCode>& keys) const;
-    bool any_just_released(const std::vector<KeyCode>& keys) const;
-    bool any_pressed(const std::vector<KeyCode>& keys) const;
+    EPIX_API bool any_just_pressed(const std::vector<KeyCode>& keys) const;
+    EPIX_API bool any_just_released(const std::vector<KeyCode>& keys) const;
+    EPIX_API bool any_pressed(const std::vector<KeyCode>& keys) const;
 
-    bool all_pressed(const std::vector<KeyCode>& keys) const;
+    EPIX_API bool all_pressed(const std::vector<KeyCode>& keys) const;
 
-    const char* key_name(KeyCode key) const;
+    EPIX_API const char* key_name(KeyCode key) const;
 
-    Entity linked_window() const;
+    EPIX_API Entity linked_window() const;
 
    private:
     Entity m_window;
@@ -170,12 +172,12 @@ struct ButtonInput<KeyCode> {
     spp::sparse_hash_set<KeyCode, KeyHash> m_just_released;
     spp::sparse_hash_set<KeyCode, KeyHash> m_pressed;
 
-    friend void update_key_button_input(
+    friend EPIX_API void update_key_button_input(
         ButtonInput<KeyCode>& key_input, GLFWwindow* window
     );
 };
 
-void update_key_button_input(
+EPIX_API void update_key_button_input(
     ButtonInput<KeyCode>& key_input, GLFWwindow* window
 );
 
@@ -195,7 +197,7 @@ enum MouseButton {
 };
 
 struct MouseButtonHash {
-    size_t operator()(const MouseButton& button) const {
+    EPIX_API size_t operator()(const MouseButton& button) const {
         return std::hash<int>()(static_cast<int>(button));
     }
 };
@@ -203,26 +205,28 @@ struct MouseButtonHash {
 template <>
 struct ButtonInput<MouseButton> {
    public:
-    ButtonInput<MouseButton>(Entity window);
+    EPIX_API ButtonInput<MouseButton>(Entity window);
 
-    bool just_pressed(MouseButton button) const;
-    bool just_released(MouseButton button) const;
-    bool pressed(MouseButton button) const;
+    EPIX_API bool just_pressed(MouseButton button) const;
+    EPIX_API bool just_released(MouseButton button) const;
+    EPIX_API bool pressed(MouseButton button) const;
 
-    const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
+    EPIX_API const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
     just_pressed_buttons() const;
-    const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
+    EPIX_API const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
     just_released_buttons() const;
-    const spp::sparse_hash_set<MouseButton, MouseButtonHash>& pressed_buttons(
+    EPIX_API const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
+    pressed_buttons() const;
+
+    EPIX_API bool any_just_pressed(const std::vector<MouseButton>& buttons
     ) const;
+    EPIX_API bool any_just_released(const std::vector<MouseButton>& buttons
+    ) const;
+    EPIX_API bool any_pressed(const std::vector<MouseButton>& buttons) const;
 
-    bool any_just_pressed(const std::vector<MouseButton>& buttons) const;
-    bool any_just_released(const std::vector<MouseButton>& buttons) const;
-    bool any_pressed(const std::vector<MouseButton>& buttons) const;
+    EPIX_API bool all_pressed(const std::vector<MouseButton>& buttons) const;
 
-    bool all_pressed(const std::vector<MouseButton>& buttons) const;
-
-    Entity linked_window() const;
+    EPIX_API Entity linked_window() const;
 
    private:
     Entity m_window;
@@ -231,12 +235,12 @@ struct ButtonInput<MouseButton> {
     spp::sparse_hash_set<MouseButton, MouseButtonHash> m_just_released;
     spp::sparse_hash_set<MouseButton, MouseButtonHash> m_pressed;
 
-    friend void update_mouse_button_input(
+    friend EPIX_API void update_mouse_button_input(
         ButtonInput<MouseButton>& mouse_input, GLFWwindow* window
     );
 };
 
-void update_mouse_button_input(
+EPIX_API void update_mouse_button_input(
     ButtonInput<MouseButton>& mouse_input, GLFWwindow* window
 );
 }  // namespace components

@@ -44,12 +44,12 @@ struct LineDrawer {
 
     std::optional<Context> context;
 
-    void begin(Device& device, Queue& queue, Swapchain& swapchain);
-    void flush();
-    void end();
-    void setModel(const glm::mat4& model);
-    void reset_cmd();
-    void drawLine(
+    EPIX_API void begin(Device& device, Queue& queue, Swapchain& swapchain);
+    EPIX_API void flush();
+    EPIX_API void end();
+    EPIX_API void setModel(const glm::mat4& model);
+    EPIX_API void reset_cmd();
+    EPIX_API void drawLine(
         const glm::vec3& start, const glm::vec3& end, const glm::vec4& color
     );
 };
@@ -85,12 +85,12 @@ struct TriangleDrawer {
 
     std::optional<Context> context;
 
-    void begin(Device& device, Queue& queue, Swapchain& swapchain);
-    void flush();
-    void end();
-    void setModel(const glm::mat4& model);
-    void reset_cmd();
-    void drawTriangle(
+    EPIX_API void begin(Device& device, Queue& queue, Swapchain& swapchain);
+    EPIX_API void flush();
+    EPIX_API void end();
+    EPIX_API void setModel(const glm::mat4& model);
+    EPIX_API void reset_cmd();
+    EPIX_API void drawTriangle(
         const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,
         const glm::vec4& color
     );
@@ -127,11 +127,11 @@ struct PointDrawer {
 
     std::optional<Context> context;
 
-    void begin(Device& device, Queue& queue, Swapchain& swapchain);
-    void flush();
-    void end();
-    void setModel(const glm::mat4& model);
-    void reset_cmd();
-    void drawPoint(const glm::vec3& pos, const glm::vec4& color);
+    EPIX_API void begin(Device& device, Queue& queue, Swapchain& swapchain);
+    EPIX_API void flush();
+    EPIX_API void end();
+    EPIX_API void setModel(const glm::mat4& model);
+    EPIX_API void reset_cmd();
+    EPIX_API void drawPoint(const glm::vec3& pos, const glm::vec4& color);
 };
 }  // namespace pixel_engine::render::debug::vulkan::components

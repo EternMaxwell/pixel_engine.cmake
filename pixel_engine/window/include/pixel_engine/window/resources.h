@@ -14,8 +14,8 @@ struct WindowThreadPool : BS::thread_pool {
 
 struct WindowMap {
    public:
-    void insert(GLFWwindow* window, Entity entity);
-    const Entity& get(GLFWwindow* window) const;
+    EPIX_API void insert(GLFWwindow* window, Entity entity);
+    EPIX_API const Entity& get(GLFWwindow* window) const;
 
    protected:
     std::unordered_map<GLFWwindow*, Entity> window_map;

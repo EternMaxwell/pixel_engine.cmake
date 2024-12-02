@@ -19,50 +19,50 @@ using namespace components;
 using namespace events;
 using namespace pixel_engine::prelude;
 
-void init_glfw();
-void create_window_thread_pool(Command command);
-void insert_primary_window(
+EPIX_API void init_glfw();
+EPIX_API void create_window_thread_pool(Command command);
+EPIX_API void insert_primary_window(
     Command command, ResMut<window::WindowPlugin> window_plugin
 );
-void create_window(
+EPIX_API void create_window(
     Command command,
     Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query,
     ResMut<resources::WindowThreadPool> pool
 );
-void update_window_cursor_pos(
+EPIX_API void update_window_cursor_pos(
     Query<Get<Entity, Window>> query,
     EventReader<CursorMove> cursor_read,
     EventWriter<CursorMove> cursor_event
 );
-void update_window_size(Query<Get<Window>> query);
-void update_window_pos(Query<Get<Window>> query);
-void close_window(
+EPIX_API void update_window_size(Query<Get<Window>> query);
+EPIX_API void update_window_pos(Query<Get<Window>> query);
+EPIX_API void close_window(
     Command command,
     EventReader<AnyWindowClose> any_close_event,
     Query<Get<Window>> query
 );
-void primary_window_close(
+EPIX_API void primary_window_close(
     Command command,
     Query<Get<Entity, Window>, With<PrimaryWindow>> query,
     EventWriter<AnyWindowClose> any_close_event
 );
-void window_close(
+EPIX_API void window_close(
     Command command,
     Query<Get<Entity, Window>, Without<PrimaryWindow>> query,
     EventWriter<AnyWindowClose> any_close_event
 );
-void no_window_exists(
+EPIX_API void no_window_exists(
     Query<Get<Window>> query, EventWriter<NoWindowExists> no_window_event
 );
-void poll_events(
+EPIX_API void poll_events(
     ResMut<resources::WindowThreadPool> pool,
     Local<std::future<void>> future,
     Query<Get<Window>, With<PrimaryWindow>> query
 );
-void scroll_events(
+EPIX_API void scroll_events(
     EventReader<MouseScroll> scroll_read, EventWriter<MouseScroll> scroll_event
 );
-void exit_on_no_window(
+EPIX_API void exit_on_no_window(
     EventReader<NoWindowExists> no_window_event, EventWriter<AppExit> exit_event
 );
 }  // namespace systems

@@ -4,23 +4,23 @@
 
 namespace pixel_engine::render::pixel {
 namespace components {
-PixelBlock PixelBlock::create(glm::uvec2 size) {
+EPIX_API PixelBlock PixelBlock::create(glm::uvec2 size) {
     PixelBlock block;
     block.size = size;
     block.pixels.resize(size.x * size.y, glm::vec4(0.0f));
     return block;
 }
-glm::vec4& PixelBlock::operator[](glm::uvec2 pos) {
+EPIX_API glm::vec4& PixelBlock::operator[](glm::uvec2 pos) {
     return pixels[pos.x + pos.y * size.x];
 }
-const glm::vec4& PixelBlock::operator[](glm::uvec2 pos) const {
+EPIX_API const glm::vec4& PixelBlock::operator[](glm::uvec2 pos) const {
     return pixels[pos.x + pos.y * size.x];
 }
 
-PixelBlockRenderer::Context::Context(Device& device, Queue& queue)
+EPIX_API PixelBlockRenderer::Context::Context(Device& device, Queue& queue)
     : device(&device), queue(&queue) {}
 
-void PixelBlockRenderer::begin(
+EPIX_API void PixelBlockRenderer::begin(
     Device& device,
     Swapchain& swapchain,
     Queue& queue,
@@ -48,7 +48,7 @@ void PixelBlockRenderer::begin(
         pixel_uniform;
     uniform_buffer.unmap(device);
 }
-void PixelBlockRenderer::begin(
+EPIX_API void PixelBlockRenderer::begin(
     Device& device,
     Queue& queue,
     ImageView& render_target,
@@ -78,7 +78,7 @@ void PixelBlockRenderer::begin(
     uniform_buffer.unmap(device);
 }
 
-void PixelBlockRenderer::begin(
+EPIX_API void PixelBlockRenderer::begin(
     Device& device,
     Queue& queue,
     Framebuffer& framebuffer,
@@ -100,7 +100,7 @@ void PixelBlockRenderer::begin(
     uniform_buffer.unmap(device);
 }
 
-void PixelBlockRenderer::end() {
+EPIX_API void PixelBlockRenderer::end() {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     flush();
@@ -109,7 +109,7 @@ void PixelBlockRenderer::end() {
     context.reset();
 }
 
-void PixelBlockRenderer::draw(
+EPIX_API void PixelBlockRenderer::draw(
     const PixelBlock& block, const BlockPos2d& pos2d
 ) {
     if (!context.has_value()) return;
@@ -130,14 +130,14 @@ void PixelBlockRenderer::draw(
     }
 }
 
-void PixelBlockRenderer::reset_cmd() {
+EPIX_API void PixelBlockRenderer::reset_cmd() {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     (*ctx.device)->waitForFences(*fence, VK_TRUE, UINT64_MAX);
     command_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 }
 
-void PixelBlockRenderer::set_block_data(
+EPIX_API void PixelBlockRenderer::set_block_data(
     const PixelBlock& block, const BlockPos2d& pos2d
 ) {
     if (!context.has_value()) return;
@@ -157,7 +157,7 @@ void PixelBlockRenderer::set_block_data(
     };
 }
 
-void PixelBlockRenderer::flush() {
+EPIX_API void PixelBlockRenderer::flush() {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     if (ctx.block_model_offset) {
@@ -240,10 +240,10 @@ void PixelBlockRenderer::flush() {
     }
 }
 
-PixelRenderer::Context::Context(Device& device, Queue& queue)
+EPIX_API PixelRenderer::Context::Context(Device& device, Queue& queue)
     : device(&device), queue(&queue) {}
 
-void PixelRenderer::begin(
+EPIX_API void PixelRenderer::begin(
     Device& device,
     Swapchain& swapchain,
     Queue& queue,
@@ -263,14 +263,13 @@ void PixelRenderer::begin(
                     .setHeight(swapchain.extent.height)
                     .setLayers(1)
     );
-    ctx.model_data = static_cast<glm::mat4*>(block_model_buffer.map(device));
-    ctx.vertex_data =
-        static_cast<PixelVertex*>(vertex_buffer.map(device));
+    ctx.model_data  = static_cast<glm::mat4*>(block_model_buffer.map(device));
+    ctx.vertex_data = static_cast<PixelVertex*>(vertex_buffer.map(device));
     *static_cast<PixelUniformBuffer*>(uniform_buffer.map(device)) =
         pixel_uniform;
     uniform_buffer.unmap(device);
 }
-void PixelRenderer::begin(
+EPIX_API void PixelRenderer::begin(
     Device& device,
     Queue& queue,
     ImageView& render_target,
@@ -291,15 +290,14 @@ void PixelRenderer::begin(
                     .setHeight(extent.height)
                     .setLayers(1)
     );
-    ctx.model_data = static_cast<glm::mat4*>(block_model_buffer.map(device));
-    ctx.vertex_data =
-        static_cast<PixelVertex*>(vertex_buffer.map(device));
+    ctx.model_data  = static_cast<glm::mat4*>(block_model_buffer.map(device));
+    ctx.vertex_data = static_cast<PixelVertex*>(vertex_buffer.map(device));
     *static_cast<PixelUniformBuffer*>(uniform_buffer.map(device)) =
         pixel_uniform;
     uniform_buffer.unmap(device);
 }
 
-void PixelRenderer::begin(
+EPIX_API void PixelRenderer::begin(
     Device& device,
     Queue& queue,
     Framebuffer& framebuffer,
@@ -313,14 +311,13 @@ void PixelRenderer::begin(
     reset_cmd();
     this->framebuffer = framebuffer;
     ctx.model_data    = static_cast<glm::mat4*>(block_model_buffer.map(device));
-    ctx.vertex_data =
-        static_cast<PixelVertex*>(vertex_buffer.map(device));
+    ctx.vertex_data   = static_cast<PixelVertex*>(vertex_buffer.map(device));
     *static_cast<PixelUniformBuffer*>(uniform_buffer.map(device)) =
         pixel_uniform;
     uniform_buffer.unmap(device);
 }
 
-void PixelRenderer::end() {
+EPIX_API void PixelRenderer::end() {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     flush();
@@ -329,7 +326,9 @@ void PixelRenderer::end() {
     context.reset();
 }
 
-void PixelRenderer::draw(const glm::vec4& color, const glm::vec2& pos) {
+EPIX_API void PixelRenderer::draw(
+    const glm::vec4& color, const glm::vec2& pos
+) {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     if (ctx.vertex_offset + 1 >= 4 * 1024 * 1024) {
@@ -343,14 +342,14 @@ void PixelRenderer::draw(const glm::vec4& color, const glm::vec2& pos) {
     ctx.vertex_offset++;
 }
 
-void PixelRenderer::reset_cmd() {
+EPIX_API void PixelRenderer::reset_cmd() {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     (*ctx.device)->waitForFences(*fence, VK_TRUE, UINT64_MAX);
     command_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 }
 
-void PixelRenderer::set_model(const glm::mat4& model) {
+EPIX_API void PixelRenderer::set_model(const glm::mat4& model) {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     if (ctx.model_offset + 1 >= 4 * 1024) {
@@ -360,7 +359,7 @@ void PixelRenderer::set_model(const glm::mat4& model) {
     ctx.model_data[ctx.model_offset++] = model;
 }
 
-void PixelRenderer::set_model(
+EPIX_API void PixelRenderer::set_model(
     const glm::vec2& pos, const glm::vec2& scale, float rotation
 ) {
     if (!context.has_value()) return;
@@ -375,7 +374,7 @@ void PixelRenderer::set_model(
     ctx.model_data[ctx.model_offset++] = model;
 }
 
-void PixelRenderer::flush() {
+EPIX_API void PixelRenderer::flush() {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     if (ctx.model_offset) {
@@ -420,7 +419,8 @@ void PixelRenderer::flush() {
         // );
         // command_buffer->pipelineBarrier(
         //     vk::PipelineStageFlagBits::eTransfer,
-        //     vk::PipelineStageFlagBits::eVertexInput, {}, {}, buffer_barrier, {}
+        //     vk::PipelineStageFlagBits::eVertexInput, {}, {}, buffer_barrier,
+        //     {}
         // );
         vk::RenderPassBeginInfo render_pass_info;
         render_pass_info.setRenderPass(*render_pass);

@@ -10,12 +10,12 @@ using namespace prelude;
 
 struct ContextCreated {};
 
-void clear_color(Query<Get<window::Window>> query);
-void update_viewport(Query<Get<window::Window>> query);
-void context_creation(
+EPIX_API void clear_color(Query<Get<window::Window>> query);
+EPIX_API void update_viewport(Query<Get<window::Window>> query);
+EPIX_API void context_creation(
     Command cmd,
     Query<Get<Entity, window::Window>, Without<ContextCreated>> query
 );
-void swap_buffers(Query<Get<window::Window>> query);
+EPIX_API void swap_buffers(Query<Get<window::Window>> query);
 }  // namespace systems
 }  // namespace pixel_engine::render::ogl

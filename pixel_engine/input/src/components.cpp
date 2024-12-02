@@ -5,62 +5,66 @@ using namespace pixel_engine::input;
 using namespace pixel_engine::prelude;
 using namespace pixel_engine::input::components;
 
-size_t KeyHash::operator()(const KeyCode& key) const {
+EPIX_API size_t KeyHash::operator()(const KeyCode& key) const {
     return std::hash<int>()(static_cast<int>(key));
 }
 
-ButtonInput<KeyCode>::ButtonInput(Entity window) : m_window(window) {}
-bool ButtonInput<KeyCode>::just_pressed(KeyCode key) const {
+EPIX_API ButtonInput<KeyCode>::ButtonInput(Entity window) : m_window(window) {}
+EPIX_API bool ButtonInput<KeyCode>::just_pressed(KeyCode key) const {
     return m_just_pressed.find(key) != m_just_pressed.end();
 }
-bool ButtonInput<KeyCode>::just_released(KeyCode key) const {
+EPIX_API bool ButtonInput<KeyCode>::just_released(KeyCode key) const {
     return m_just_released.find(key) != m_just_released.end();
 }
-bool ButtonInput<KeyCode>::pressed(KeyCode key) const {
+EPIX_API bool ButtonInput<KeyCode>::pressed(KeyCode key) const {
     return m_pressed.find(key) != m_pressed.end();
 }
-const spp::sparse_hash_set<KeyCode, KeyHash>&
+EPIX_API const spp::sparse_hash_set<KeyCode, KeyHash>&
 ButtonInput<KeyCode>::just_pressed_keys() const {
     return m_just_pressed;
 }
-const spp::sparse_hash_set<KeyCode, KeyHash>&
+EPIX_API const spp::sparse_hash_set<KeyCode, KeyHash>&
 ButtonInput<KeyCode>::just_released_keys() const {
     return m_just_released;
 }
-const spp::sparse_hash_set<KeyCode, KeyHash>& ButtonInput<KeyCode>::pressed_keys(
-) const {
+EPIX_API const spp::sparse_hash_set<KeyCode, KeyHash>&
+ButtonInput<KeyCode>::pressed_keys() const {
     return m_pressed;
 }
-bool ButtonInput<KeyCode>::all_pressed(const std::vector<KeyCode>& keys) const {
+EPIX_API bool ButtonInput<KeyCode>::all_pressed(const std::vector<KeyCode>& keys
+) const {
     for (auto key : keys) {
         if (!pressed(key)) return false;
     }
     return true;
 }
-bool ButtonInput<KeyCode>::any_just_pressed(const std::vector<KeyCode>& keys
+EPIX_API bool ButtonInput<KeyCode>::any_just_pressed(
+    const std::vector<KeyCode>& keys
 ) const {
     for (auto key : keys) {
         if (just_pressed(key)) return true;
     }
     return false;
 }
-bool ButtonInput<KeyCode>::any_just_released(const std::vector<KeyCode>& keys
+EPIX_API bool ButtonInput<KeyCode>::any_just_released(
+    const std::vector<KeyCode>& keys
 ) const {
     for (auto key : keys) {
         if (just_released(key)) return true;
     }
     return false;
 }
-bool ButtonInput<KeyCode>::any_pressed(const std::vector<KeyCode>& keys) const {
+EPIX_API bool ButtonInput<KeyCode>::any_pressed(const std::vector<KeyCode>& keys
+) const {
     for (auto key : keys) {
         if (pressed(key)) return true;
     }
     return false;
 }
-const char* ButtonInput<KeyCode>::key_name(KeyCode key) const {
+EPIX_API const char* ButtonInput<KeyCode>::key_name(KeyCode key) const {
     return glfwGetKeyName(static_cast<int>(key), 0);
 }
-Entity ButtonInput<KeyCode>::linked_window() const { return m_window; }
+EPIX_API Entity ButtonInput<KeyCode>::linked_window() const { return m_window; }
 
 static std::vector<KeyCode> keyCodeAll = {
     KeyA,
@@ -186,7 +190,7 @@ static std::vector<KeyCode> keyCodeAll = {
     KeyLast
 };
 
-void components::update_key_button_input(
+EPIX_API void components::update_key_button_input(
     ButtonInput<KeyCode>& key_input, GLFWwindow* window
 ) {
     key_input.m_just_pressed.clear();
@@ -210,30 +214,31 @@ void components::update_key_button_input(
     );
 }
 
-ButtonInput<MouseButton>::ButtonInput(Entity window)
+EPIX_API ButtonInput<MouseButton>::ButtonInput(Entity window)
     : m_window(window) {}
-bool ButtonInput<MouseButton>::just_pressed(MouseButton button) const {
+EPIX_API bool ButtonInput<MouseButton>::just_pressed(MouseButton button) const {
     return m_just_pressed.find(button) != m_just_pressed.end();
 }
-bool ButtonInput<MouseButton>::just_released(MouseButton button) const {
+EPIX_API bool ButtonInput<MouseButton>::just_released(MouseButton button
+) const {
     return m_just_released.find(button) != m_just_released.end();
 }
-bool ButtonInput<MouseButton>::pressed(MouseButton button) const {
+EPIX_API bool ButtonInput<MouseButton>::pressed(MouseButton button) const {
     return m_pressed.find(button) != m_pressed.end();
 }
-const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
+EPIX_API const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
 ButtonInput<MouseButton>::just_pressed_buttons() const {
     return m_just_pressed;
 }
-const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
+EPIX_API const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
 ButtonInput<MouseButton>::just_released_buttons() const {
     return m_just_released;
 }
-const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
+EPIX_API const spp::sparse_hash_set<MouseButton, MouseButtonHash>&
 ButtonInput<MouseButton>::pressed_buttons() const {
     return m_pressed;
 }
-bool ButtonInput<MouseButton>::any_just_pressed(
+EPIX_API bool ButtonInput<MouseButton>::any_just_pressed(
     const std::vector<MouseButton>& buttons
 ) const {
     for (auto button : buttons) {
@@ -241,7 +246,7 @@ bool ButtonInput<MouseButton>::any_just_pressed(
     }
     return false;
 }
-bool ButtonInput<MouseButton>::any_just_released(
+EPIX_API bool ButtonInput<MouseButton>::any_just_released(
     const std::vector<MouseButton>& buttons
 ) const {
     for (auto button : buttons) {
@@ -249,7 +254,7 @@ bool ButtonInput<MouseButton>::any_just_released(
     }
     return false;
 }
-bool ButtonInput<MouseButton>::any_pressed(
+EPIX_API bool ButtonInput<MouseButton>::any_pressed(
     const std::vector<MouseButton>& buttons
 ) const {
     for (auto button : buttons) {
@@ -257,7 +262,7 @@ bool ButtonInput<MouseButton>::any_pressed(
     }
     return false;
 }
-bool ButtonInput<MouseButton>::all_pressed(
+EPIX_API bool ButtonInput<MouseButton>::all_pressed(
     const std::vector<MouseButton>& buttons
 ) const {
     for (auto button : buttons) {
@@ -265,7 +270,7 @@ bool ButtonInput<MouseButton>::all_pressed(
     }
     return true;
 }
-Entity ButtonInput<MouseButton>::linked_window() const {
+EPIX_API Entity ButtonInput<MouseButton>::linked_window() const {
     return m_window;
 }
 
@@ -275,7 +280,7 @@ static std::vector<MouseButton> mouseButtonAll = {
     MouseButtonLast, MouseButtonLeft, MouseButtonRight, MouseButtonMiddle
 };
 
-void components::update_mouse_button_input(
+EPIX_API void components::update_mouse_button_input(
     ButtonInput<MouseButton>& mouse_input, GLFWwindow* window
 ) {
     mouse_input.m_just_pressed.clear();

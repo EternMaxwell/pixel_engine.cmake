@@ -10,22 +10,22 @@ static std::shared_ptr<spdlog::logger> logger =
 
 using namespace pixel_engine::font::resources::tools;
 
-const Glyph& GlyphMap::get_glyph(uint32_t index) const {
+EPIX_API const Glyph& GlyphMap::get_glyph(uint32_t index) const {
     if (glyphs->find(index) == glyphs->end()) {
         throw std::runtime_error("Glyph not found");
     }
     return glyphs->at(index);
 }
 
-void GlyphMap::add_glyph(uint32_t index, const Glyph& glyph) {
+EPIX_API void GlyphMap::add_glyph(uint32_t index, const Glyph& glyph) {
     glyphs->insert({index, glyph});
 }
 
-bool GlyphMap::contains(uint32_t index) const {
+EPIX_API bool GlyphMap::contains(uint32_t index) const {
     return glyphs->find(index) != glyphs->end();
 }
 
-FT_Face FT2Library::load_font(const std::string& file_path) {
+EPIX_API FT_Face FT2Library::load_font(const std::string& file_path) {
     auto path = std::filesystem::absolute(file_path).string();
     if (font_faces.find(path) != font_faces.end()) {
         return font_faces[path];
@@ -39,7 +39,7 @@ FT_Face FT2Library::load_font(const std::string& file_path) {
     return face;
 }
 
-std::tuple<Image, ImageView, GlyphMap>& FT2Library::get_font_texture(
+EPIX_API std::tuple<Image, ImageView, GlyphMap>& FT2Library::get_font_texture(
     const Font& font, Device& device, CommandPool& command_pool, Queue& queue
 ) {
     if (font_textures.find(font) != font_textures.end()) {
@@ -122,7 +122,7 @@ std::tuple<Image, ImageView, GlyphMap>& FT2Library::get_font_texture(
     return font_textures[font];
 }
 
-uint32_t FT2Library::font_index(const Font& font) {
+EPIX_API uint32_t FT2Library::font_index(const Font& font) {
     if (font_texture_index.find(font) == font_texture_index.end()) {
         logger->error("Font not found, replacing it with 0");
         return 0;
@@ -130,7 +130,7 @@ uint32_t FT2Library::font_index(const Font& font) {
     return font_texture_index[font];
 }
 
-void FT2Library::add_char_to_texture(
+EPIX_API void FT2Library::add_char_to_texture(
     const Font& font,
     wchar_t c,
     Device& device,
@@ -410,7 +410,7 @@ void FT2Library::add_char_to_texture(
     };
 }
 
-void FT2Library::add_chars_to_texture(
+EPIX_API void FT2Library::add_chars_to_texture(
     const Font& font,
     const std::wstring& text,
     Device& device,
@@ -422,7 +422,9 @@ void FT2Library::add_chars_to_texture(
     }
 }
 
-std::optional<const Glyph> FT2Library::get_glyph(const Font& font, wchar_t c) {
+EPIX_API std::optional<const Glyph> FT2Library::get_glyph(
+    const Font& font, wchar_t c
+) {
     if (font_textures.find(font) == font_textures.end()) {
         return std::nullopt;
     }
@@ -434,7 +436,7 @@ std::optional<const Glyph> FT2Library::get_glyph(const Font& font, wchar_t c) {
     return glyph_map.get_glyph(index);
 }
 
-std::optional<const Glyph> FT2Library::get_glyph_add(
+EPIX_API std::optional<const Glyph> FT2Library::get_glyph_add(
     const Font& font,
     wchar_t c,
     Device& device,
@@ -452,7 +454,7 @@ std::optional<const Glyph> FT2Library::get_glyph_add(
     return get_glyph(font, c);
 }
 
-void FT2Library::clear_font_textures(Device& device) {
+EPIX_API void FT2Library::clear_font_textures(Device& device) {
     for (auto& [font, texture] : font_textures) {
         auto [image, image_view, glyph_map] = texture;
         image.destroy(device);
@@ -461,14 +463,14 @@ void FT2Library::clear_font_textures(Device& device) {
     font_textures.clear();
 }
 
-void FT2Library::destroy() {
+EPIX_API void FT2Library::destroy() {
     for (auto& [_, face] : font_faces) {
         FT_Done_Face(face);
     }
     FT_Done_FreeType(library);
 }
 
-void FontPlugin::build(App& app) {
+EPIX_API void FontPlugin::build(App& app) {
     auto render_vk_plugin = app.get_plugin<render_vk::RenderVKPlugin>();
     if (!render_vk_plugin) {
         throw std::runtime_error("FontPlugin requires RenderVKPlugin");

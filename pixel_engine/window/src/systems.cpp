@@ -6,17 +6,17 @@ using namespace pixel_engine::window::systems;
 using namespace pixel_engine::window;
 using namespace pixel_engine::prelude;
 
-void systems::init_glfw() {
+EPIX_API void systems::init_glfw() {
     if (!glfwInit()) {
         throw std::runtime_error("Failed to initialize GLFW");
     }
 }
 
-void systems::create_window_thread_pool(Command command) {
+EPIX_API void systems::create_window_thread_pool(Command command) {
     command.emplace_resource<resources::WindowThreadPool>();
 }
 
-void systems::insert_primary_window(
+EPIX_API void systems::insert_primary_window(
     Command command, ResMut<window::WindowPlugin> window_plugin
 ) {
     command.spawn(window_plugin->primary_desc(), PrimaryWindow{});
@@ -25,7 +25,9 @@ void systems::insert_primary_window(
 static std::mutex scroll_mutex;
 static std::vector<events::MouseScroll> scroll_cache;
 
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+EPIX_API void scroll_callback(
+    GLFWwindow* window, double xoffset, double yoffset
+) {
     std::lock_guard<std::mutex> lock(scroll_mutex);
     std::pair<Entity, resources::WindowThreadPool*>* ptr =
         static_cast<std::pair<Entity, resources::WindowThreadPool*>*>(
@@ -34,7 +36,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     scroll_cache.emplace_back(xoffset, yoffset, ptr->first);
 }
 
-void systems::create_window(
+EPIX_API void systems::create_window(
     Command command,
     Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query,
     ResMut<resources::WindowThreadPool> pool
@@ -64,7 +66,7 @@ void systems::create_window(
     }
 }
 
-void systems::update_window_cursor_pos(
+EPIX_API void systems::update_window_cursor_pos(
     Query<Get<Entity, Window>> query,
     EventReader<events::CursorMove> cursor_read,
     EventWriter<events::CursorMove> cursor_event
@@ -79,19 +81,19 @@ void systems::update_window_cursor_pos(
     }
 }
 
-void systems::update_window_size(Query<Get<Window>> query) {
+EPIX_API void systems::update_window_size(Query<Get<Window>> query) {
     for (auto [window] : query.iter()) {
         update_size(window);
     }
 }
 
-void systems::update_window_pos(Query<Get<Window>> query) {
+EPIX_API void systems::update_window_pos(Query<Get<Window>> query) {
     for (auto [window] : query.iter()) {
         update_pos(window);
     }
 }
 
-void systems::close_window(
+EPIX_API void systems::close_window(
     Command command,
     EventReader<AnyWindowClose> any_close_event,
     Query<Get<Window>> query
@@ -103,7 +105,7 @@ void systems::close_window(
     }
 }
 
-void systems::primary_window_close(
+EPIX_API void systems::primary_window_close(
     Command command,
     Query<Get<Entity, Window>, With<PrimaryWindow>> query,
     EventWriter<AnyWindowClose> any_close_event
@@ -115,7 +117,7 @@ void systems::primary_window_close(
     }
 }
 
-void systems::window_close(
+EPIX_API void systems::window_close(
     Command command,
     Query<Get<Entity, Window>, Without<PrimaryWindow>> query,
     EventWriter<AnyWindowClose> any_close_event
@@ -127,7 +129,7 @@ void systems::window_close(
     }
 }
 
-void systems::no_window_exists(
+EPIX_API void systems::no_window_exists(
     Query<Get<Window>> query, EventWriter<NoWindowExists> no_window_event
 ) {
     for (auto [window] : query.iter()) {
@@ -137,7 +139,7 @@ void systems::no_window_exists(
     no_window_event.write(NoWindowExists{});
 }
 
-void systems::poll_events(
+EPIX_API void systems::poll_events(
     ResMut<resources::WindowThreadPool> pool,
     Local<std::future<void>> future,
     Query<Get<Window>, With<PrimaryWindow>> query
@@ -154,7 +156,7 @@ void systems::poll_events(
     }
 }
 
-void systems::scroll_events(
+EPIX_API void systems::scroll_events(
     EventReader<MouseScroll> scroll_read, EventWriter<MouseScroll> scroll_event
 ) {
     scroll_read.clear();
@@ -165,7 +167,7 @@ void systems::scroll_events(
     scroll_cache.clear();
 }
 
-void systems::exit_on_no_window(
+EPIX_API void systems::exit_on_no_window(
     EventReader<NoWindowExists> no_window_event, EventWriter<AppExit> exit_event
 ) {
     for (auto _ : no_window_event.read()) {

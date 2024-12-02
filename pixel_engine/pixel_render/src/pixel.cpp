@@ -12,7 +12,7 @@
 #include "shaders/pixel/vertex_shader.h"
 
 namespace pixel_engine::render::pixel {
-void systems::create_pixel_block_pipeline(
+EPIX_API void systems::create_pixel_block_pipeline(
     Command command, Query<Get<Device, CommandPool>, With<RenderContext>> query
 ) {
     if (!query.single().has_value()) return;
@@ -293,7 +293,7 @@ void systems::create_pixel_block_pipeline(
     frag_shader_module.destroy(device);
     geom_shader_module.destroy(device);
 }
-void systems::create_pixel_pipeline(
+EPIX_API void systems::create_pixel_pipeline(
     Command command, Query<Get<Device, CommandPool>, With<RenderContext>> query
 ) {
     if (!query.single().has_value()) return;
@@ -308,7 +308,9 @@ void systems::create_pixel_pipeline(
     vertex_buffer_info.setSize(sizeof(PixelVertex) * 4 * 1024 * 1024);
     AllocationCreateInfo vertex_alloc_info;
     vertex_alloc_info.setUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
-    vertex_alloc_info.setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+    vertex_alloc_info.setFlags(
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+    );
     Buffer vertex_buffer =
         Buffer::create(device, vertex_buffer_info, vertex_alloc_info);
     vk::BufferCreateInfo uniform_buffer_info;
@@ -562,7 +564,7 @@ void systems::create_pixel_pipeline(
     frag_shader_module.destroy(device);
     geom_shader_module.destroy(device);
 }
-void systems::draw_pixel_blocks_vk(
+EPIX_API void systems::draw_pixel_blocks_vk(
     Query<Get<Device, CommandPool, Swapchain, Queue>, With<RenderContext>>
         query,
     Query<Get<PixelBlockRenderer>> renderer_query,
@@ -586,7 +588,7 @@ void systems::draw_pixel_blocks_vk(
     }
     renderer.end();
 }
-void systems::destroy_pixel_block_pipeline(
+EPIX_API void systems::destroy_pixel_block_pipeline(
     Query<Get<Device>, With<RenderContext>> query,
     Query<Get<PixelBlockRenderer>> renderer_query
 ) {
@@ -607,7 +609,7 @@ void systems::destroy_pixel_block_pipeline(
     renderer.fence.destroy(device);
     if (renderer.framebuffer) renderer.framebuffer.destroy(device);
 }
-void systems::destroy_pixel_pipeline(
+EPIX_API void systems::destroy_pixel_pipeline(
     Query<Get<Device>, With<RenderContext>> query,
     Query<Get<PixelRenderer>> renderer_query
 ) {
@@ -628,7 +630,7 @@ void systems::destroy_pixel_pipeline(
     if (renderer.framebuffer) renderer.framebuffer.destroy(device);
 }
 
-void PixelRenderPlugin::build(App& app) {
+EPIX_API void PixelRenderPlugin::build(App& app) {
     app.add_system(Startup, systems::create_pixel_block_pipeline);
     app.add_system(Startup, systems::create_pixel_pipeline);
     app.add_system(Render, systems::draw_pixel_blocks_vk)

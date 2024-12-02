@@ -9,7 +9,7 @@ using namespace pixel_engine::input::systems;
 
 static auto logger = spdlog::default_logger()->clone("input");
 
-void systems::create_input_for_window(
+EPIX_API void systems::create_input_for_window(
     Command command,
     Query<
         Get<Entity, const window::components::Window>,
@@ -22,7 +22,7 @@ void systems::create_input_for_window(
     }
 }
 
-void systems::update_input(
+EPIX_API void systems::update_input(
     Query<
         Get<Entity,
             ButtonInput<KeyCode>,
@@ -82,7 +82,7 @@ void systems::update_input(
     }
 }
 
-void systems::output_event(
+EPIX_API void systems::output_event(
     EventReader<pixel_engine::input::events::MouseScroll> scroll_events,
     Query<Get<ButtonInput<KeyCode>, ButtonInput<MouseButton>, const Window>>
         query,
@@ -128,17 +128,17 @@ void systems::output_event(
     }
 }
 
-InputPlugin &InputPlugin::enable_output() {
+EPIX_API InputPlugin &InputPlugin::enable_output() {
     enable_output_event = true;
     return *this;
 }
 
-InputPlugin &InputPlugin::disable_output() {
+EPIX_API InputPlugin &InputPlugin::disable_output() {
     enable_output_event = false;
     return *this;
 }
 
-void InputPlugin::build(App &app) {
+EPIX_API void InputPlugin::build(App &app) {
     app.add_event<events::KeyEvent>();
     app.add_event<events::MouseButtonEvent>();
     app.add_system(app::Startup, create_input_for_window)

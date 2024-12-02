@@ -1,7 +1,7 @@
 #include "pixel_engine/render_ogl.h"
 
 namespace pixel_engine::render::ogl {
-void RenderGlPlugin::build(App& app) {
+EPIX_API void RenderGlPlugin::build(App& app) {
     app.add_system(PreStartup, systems::context_creation)
         .use_worker("single")
         .after(window::systems::init_glfw);

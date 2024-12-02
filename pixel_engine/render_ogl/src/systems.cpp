@@ -2,7 +2,7 @@
 
 using namespace pixel_engine::render::ogl;
 
-void systems::clear_color(Query<Get<window::Window>> query) {
+EPIX_API void systems::clear_color(Query<Get<window::Window>> query) {
     for (auto [window] : query.iter()) {
         if (window.get_handle() == nullptr) return;
         if (glfwGetCurrentContext() != window.get_handle())
@@ -11,7 +11,7 @@ void systems::clear_color(Query<Get<window::Window>> query) {
     }
 }
 
-void systems::update_viewport(Query<Get<window::Window>> query) {
+EPIX_API void systems::update_viewport(Query<Get<window::Window>> query) {
     for (auto [window] : query.iter()) {
         if (window.get_handle() == nullptr) return;
         if (glfwGetCurrentContext() != window.get_handle())
@@ -20,7 +20,7 @@ void systems::update_viewport(Query<Get<window::Window>> query) {
     }
 }
 
-void systems::context_creation(
+EPIX_API void systems::context_creation(
     Command cmd,
     Query<Get<Entity, window::Window>, Without<systems::ContextCreated>> query
 ) {
@@ -58,7 +58,7 @@ void systems::context_creation(
     }
 }
 
-void systems::swap_buffers(Query<Get<window::Window>> query) {
+EPIX_API void systems::swap_buffers(Query<Get<window::Window>> query) {
     for (auto [window] : query.iter()) {
         if (window.get_handle() == nullptr) return;
         if (glfwGetCurrentContext() != window.get_handle())

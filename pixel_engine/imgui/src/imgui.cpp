@@ -3,7 +3,7 @@
 using namespace pixel_engine::prelude;
 using namespace pixel_engine::imgui;
 
-void ImGuiPluginVK::build(App& app) {
+EPIX_API void ImGuiPluginVK::build(App& app) {
     app.add_system(PreStartup, systems::insert_imgui_ctx);
     app.add_system(Startup, systems::init_imgui).use_worker("single");
     app.add_system(PreRender, systems::begin_imgui)

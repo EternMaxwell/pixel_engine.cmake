@@ -5,7 +5,6 @@
 #include "window/events.h"
 #include "window/systems.h"
 
-
 namespace pixel_engine {
 namespace window {
 using namespace components;
@@ -39,8 +38,8 @@ class WindowPlugin : public app::Plugin {
    public:
     WindowDescription primary_window_description;
 
-    WindowDescription& primary_desc();
-    void build(App& app) override;
+    EPIX_API WindowDescription& primary_desc();
+    EPIX_API void build(App& app) override;
 };
 }  // namespace window
 }  // namespace pixel_engine

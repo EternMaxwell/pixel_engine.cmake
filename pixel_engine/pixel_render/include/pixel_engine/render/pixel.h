@@ -6,6 +6,6 @@
 namespace pixel_engine::render::pixel {
 using namespace pixel_engine::prelude;
 struct PixelRenderPlugin : Plugin {
-    void build(App& app) override;
+    EPIX_API void build(App& app) override;
 };
 }  // namespace pixel_engine::render::pixel

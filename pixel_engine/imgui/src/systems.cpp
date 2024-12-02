@@ -6,10 +6,10 @@ using namespace pixel_engine::window::components;
 using namespace pixel_engine::imgui;
 
 namespace pixel_engine::imgui {
-void systems::insert_imgui_ctx(Command cmd) {
+EPIX_API void systems::insert_imgui_ctx(Command cmd) {
     cmd.insert_resource(ImGuiContext{});
 }
-void systems::init_imgui(
+EPIX_API void systems::init_imgui(
     Query<
         Get<Instance, PhysicalDevice, Device, Queue, CommandPool>,
         With<RenderContext>> context_query,
@@ -71,7 +71,7 @@ void systems::init_imgui(
         vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled)
     );
 }
-void systems::deinit_imgui(
+EPIX_API void systems::deinit_imgui(
     Query<Get<Device, CommandPool>, With<RenderContext>> context_query,
     ResMut<ImGuiContext> imgui_context
 ) {
@@ -87,7 +87,7 @@ void systems::deinit_imgui(
     imgui_context->fence.destroy(device);
     if (imgui_context->framebuffer) imgui_context->framebuffer.destroy(device);
 }
-void systems::begin_imgui(
+EPIX_API void systems::begin_imgui(
     ResMut<ImGuiContext> ctx,
     Query<Get<Device, Queue, Swapchain>, With<RenderContext>> query
 ) {
@@ -97,7 +97,7 @@ void systems::begin_imgui(
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 }
-void systems::end_imgui(
+EPIX_API void systems::end_imgui(
     ResMut<ImGuiContext> ctx,
     Query<Get<Device, Queue, Swapchain>, With<RenderContext>> query
 ) {

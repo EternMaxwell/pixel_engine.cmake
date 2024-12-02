@@ -3,7 +3,7 @@
 using namespace pixel_engine::prelude;
 using namespace pixel_engine::render_vk;
 
-void RenderVKPlugin::build(App& app) {
+EPIX_API void RenderVKPlugin::build(App& app) {
     auto window_plugin = app.get_plugin<window::WindowPlugin>();
     window_plugin->primary_desc().set_vsync(vsync).set_hints(
         {{GLFW_RESIZABLE, GLFW_TRUE}, {GLFW_CLIENT_API, GLFW_NO_API}}

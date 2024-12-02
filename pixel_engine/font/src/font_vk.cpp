@@ -14,7 +14,7 @@ using namespace systems::vulkan;
 static std::shared_ptr<spdlog::logger> logger =
     spdlog::default_logger()->clone("font");
 
-void TextRenderer::begin(
+EPIX_API void TextRenderer::begin(
     Device* device,
     Swapchain* swapchain,
     Queue* queue,
@@ -49,14 +49,14 @@ void TextRenderer::begin(
     ctx.value().models   = (TextModelData*)text_model_buffer.map(*device);
 }
 
-void TextRenderer::reset_cmd() {
+EPIX_API void TextRenderer::reset_cmd() {
     if (!ctx.has_value()) return;
     auto& device = *ctx.value().device;
     device->waitForFences(*fence, VK_TRUE, UINT64_MAX);
     command_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 }
 
-void TextRenderer::flush() {
+EPIX_API void TextRenderer::flush() {
     if (!ctx.has_value()) return;
     auto& device = *ctx.value().device;
     auto& queue  = *ctx.value().queue;
@@ -123,7 +123,7 @@ void TextRenderer::flush() {
     ctx.value().model_count  = 0;
 }
 
-void TextRenderer::setModel(const TextModelData& model) {
+EPIX_API void TextRenderer::setModel(const TextModelData& model) {
     if (!ctx.has_value()) return;
     if (ctx.value().model_count >= 1024) {
         flush();
@@ -133,7 +133,7 @@ void TextRenderer::setModel(const TextModelData& model) {
     ctx.value().model_count++;
 }
 
-void TextRenderer::setModel(const TextPos& pos, int texture_id) {
+EPIX_API void TextRenderer::setModel(const TextPos& pos, int texture_id) {
     setModel(
         {glm::translate(glm::mat4(1.0f), {pos.x, pos.y, 0.0f}),
          {1.0f, 1.0f, 1.0f, 1.0f},
@@ -141,7 +141,7 @@ void TextRenderer::setModel(const TextPos& pos, int texture_id) {
     );
 }
 
-void TextRenderer::draw(const Text& text, const TextPos& pos) {
+EPIX_API void TextRenderer::draw(const Text& text, const TextPos& pos) {
     if (!ctx.has_value()) return;
     auto& context = ctx.value();
     auto&& tmp    = context.ft2_library->get_font_texture(
@@ -176,7 +176,7 @@ void TextRenderer::draw(const Text& text, const TextPos& pos) {
     }
 }
 
-void TextRenderer::end() {
+EPIX_API void TextRenderer::end() {
     if (!ctx.has_value()) return;
     auto& device = *ctx.value().device;
     flush();
@@ -185,7 +185,7 @@ void TextRenderer::end() {
     ctx.reset();
 }
 
-void systems::vulkan::insert_ft2_library(
+EPIX_API void systems::vulkan::insert_ft2_library(
     Command command, Query<Get<Device>, With<RenderContext>> query
 ) {
     if (!query.single().has_value()) return;
@@ -232,7 +232,7 @@ void systems::vulkan::insert_ft2_library(
     logger->info("inserted ft2 library");
 }
 
-void systems::vulkan::create_renderer(
+EPIX_API void systems::vulkan::create_renderer(
     Command command,
     Query<Get<Device, Queue, CommandPool>, With<RenderContext>> query,
     Res<FontPlugin> font_plugin,
@@ -553,7 +553,7 @@ void systems::vulkan::create_renderer(
     command.spawn(text_renderer);
 }
 
-void systems::vulkan::draw_text(
+EPIX_API void systems::vulkan::draw_text(
     Query<Get<TextRenderer>> text_renderer_query,
     Query<Get<Text, TextPos>> text_query,
     ResMut<resources::vulkan::FT2Library> ft2_library,
@@ -575,7 +575,7 @@ void systems::vulkan::draw_text(
     text_renderer.end();
 }
 
-void systems::vulkan::destroy_renderer(
+EPIX_API void systems::vulkan::destroy_renderer(
     Query<Get<Device>, With<RenderContext>> query,
     ResMut<resources::vulkan::FT2Library> ft2_library,
     Query<Get<TextRenderer>> text_renderer_query

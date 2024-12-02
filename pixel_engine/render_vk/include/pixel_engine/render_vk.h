@@ -10,7 +10,7 @@ namespace render_vk {
 using namespace prelude;
 struct RenderVKPlugin : Plugin {
     bool vsync = false;
-    void build(App& app) override;
+    EPIX_API void build(App& app) override;
 };
 }  // namespace render_vk
 }  // namespace pixel_engine

@@ -19,7 +19,7 @@ using namespace pixel_engine::render_vk::systems;
 static std::shared_ptr<spdlog::logger> logger =
     spdlog::default_logger()->clone("render_vk");
 
-void systems::create_context(
+EPIX_API void systems::create_context(
     Command cmd,
     Query<
         Get<window::components::Window>,
@@ -52,7 +52,7 @@ void systems::create_context(
     cmd.spawn(cmd_buffer, fence, ContextCommandBuffer{});
 }
 
-void systems::recreate_swap_chain(
+EPIX_API void systems::recreate_swap_chain(
     Query<Get<PhysicalDevice, Device, Surface, Swapchain>, With<RenderContext>>
         query
 ) {
@@ -64,7 +64,7 @@ void systems::recreate_swap_chain(
     swap_chain.recreate(physical_device, device, surface);
 }
 
-void systems::get_next_image(
+EPIX_API void systems::get_next_image(
     Query<Get<Device, Swapchain, CommandPool, Queue>, With<RenderContext>>
         query,
     Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
@@ -121,7 +121,7 @@ void systems::get_next_image(
     queue->submit(submit_info, cmd_fence);
 }
 
-void systems::present_frame(
+EPIX_API void systems::present_frame(
     Query<Get<Swapchain, Queue, Device, CommandPool>, With<RenderContext>>
         query,
     Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
@@ -166,7 +166,7 @@ void systems::present_frame(
     } catch (std::exception& e) {}
 }
 
-void systems::destroy_context(
+EPIX_API void systems::destroy_context(
     Command cmd,
     Query<
         Get<Instance, Device, Surface, Swapchain, CommandPool>,

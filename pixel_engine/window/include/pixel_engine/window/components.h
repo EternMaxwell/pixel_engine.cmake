@@ -22,11 +22,12 @@ struct WindowDescription {
     std::vector<std::pair<int, int>> hints;
 
    public:
-    WindowDescription& set_title(std::string title);
-    WindowDescription& set_size(int width, int height);
-    WindowDescription& set_vsync(bool vsync);
-    WindowDescription& add_hint(int hint, int value);
-    WindowDescription& set_hints(std::vector<std::pair<int, int>> hints);
+    EPIX_API WindowDescription& set_title(std::string title);
+    EPIX_API WindowDescription& set_size(int width, int height);
+    EPIX_API WindowDescription& set_vsync(bool vsync);
+    EPIX_API WindowDescription& add_hint(int hint, int value);
+    EPIX_API WindowDescription& set_hints(std::vector<std::pair<int, int>> hints
+    );
 };
 
 struct Window {
@@ -56,30 +57,30 @@ struct Window {
     std::optional<dvec2> m_cursor_move;
 
    public:
-    const dvec2& get_cursor() const;
-    const std::optional<dvec2>& get_cursor_move() const;
-    const ivec2& get_pos() const;
-    const extent& get_size() const;
-    GLFWwindow* get_handle() const;
-    void context_current();
-    void detach_context();
-    void show();
-    void hide();
-    bool vsync() const;
-    bool should_close() const;
-    void destroy();
-    void set_cursor(double x, double y);
-    bool focused() const;
-    bool is_fullscreen() const;
-    void set_fullscreen();
-    void fullscreen_off();
-    void toggle_fullscreen();
+    EPIX_API const dvec2& get_cursor() const;
+    EPIX_API const std::optional<dvec2>& get_cursor_move() const;
+    EPIX_API const ivec2& get_pos() const;
+    EPIX_API const extent& get_size() const;
+    EPIX_API GLFWwindow* get_handle() const;
+    EPIX_API void context_current();
+    EPIX_API void detach_context();
+    EPIX_API void show();
+    EPIX_API void hide();
+    EPIX_API bool vsync() const;
+    EPIX_API bool should_close() const;
+    EPIX_API void destroy();
+    EPIX_API void set_cursor(double x, double y);
+    EPIX_API bool focused() const;
+    EPIX_API bool is_fullscreen() const;
+    EPIX_API void set_fullscreen();
+    EPIX_API void fullscreen_off();
+    EPIX_API void toggle_fullscreen();
 };
 
-std::optional<Window> create_window(const WindowDescription& desc);
-void update_cursor(Window& window);
-void update_size(Window& window);
-void update_pos(Window& window);
+EPIX_API std::optional<Window> create_window(const WindowDescription& desc);
+EPIX_API void update_cursor(Window& window);
+EPIX_API void update_size(Window& window);
+EPIX_API void update_pos(Window& window);
 }  // namespace components
 }  // namespace window
 }  // namespace pixel_engine

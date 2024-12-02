@@ -22,28 +22,28 @@ using namespace window::components;
 
 struct ContextCommandBuffer {};
 
-void create_context(
+EPIX_API void create_context(
     Command cmd,
     Query<
         Get<window::components::Window>,
         With<window::components::PrimaryWindow>> query,
     Res<RenderVKPlugin> plugin
 );
-void recreate_swap_chain(
+EPIX_API void recreate_swap_chain(
     Query<Get<PhysicalDevice, Device, Surface, Swapchain>, With<RenderContext>>
         query
 );
-void get_next_image(
+EPIX_API void get_next_image(
     Query<Get<Device, Swapchain, CommandPool, Queue>, With<RenderContext>>
         query,
     Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
 );
-void present_frame(
+EPIX_API void present_frame(
     Query<Get<Swapchain, Queue, Device, CommandPool>, With<RenderContext>>
         query,
     Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
 );
-void destroy_context(
+EPIX_API void destroy_context(
     Command cmd,
     Query<
         Get<Instance, Device, Surface, Swapchain, CommandPool>,

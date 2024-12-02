@@ -17,11 +17,12 @@ using namespace pixel_engine::render_vk::components;
 static std::shared_ptr<spdlog::logger> sprite_logger =
     spdlog::default_logger()->clone("sprite");
 
-void systems::insert_sprite_server_vk(Command cmd) {
+EPIX_API void systems::insert_sprite_server_vk(Command cmd) {
     cmd.insert_resource(SpriteServerVK{});
 }
 
-Entity SpriteServerVK::load_image(Command& cmd, const std::string& _path) {
+EPIX_API Entity
+SpriteServerVK::load_image(Command& cmd, const std::string& _path) {
     std::string path = std::filesystem::absolute(_path).string();
     auto image       = images.find(path);
     if (image != images.end()) {
@@ -33,20 +34,21 @@ Entity SpriteServerVK::load_image(Command& cmd, const std::string& _path) {
     }
 }
 
-Entity SpriteServerVK::create_sampler(
+EPIX_API Entity SpriteServerVK::create_sampler(
     Command& cmd, vk::SamplerCreateInfo create_info, const std::string& name
 ) {
     auto sampler = samplers.find(name);
     if (sampler != samplers.end()) {
         return sampler->second;
     } else {
-        auto sampler_handle = cmd.spawn(SamplerCreating{create_info, name}).id();
-        samplers[name]      = sampler_handle;
+        auto sampler_handle =
+            cmd.spawn(SamplerCreating{create_info, name}).id();
+        samplers[name] = sampler_handle;
         return sampler_handle;
     }
 }
 
-Entity SpriteServerVK::get_sampler(const std::string& name) {
+EPIX_API Entity SpriteServerVK::get_sampler(const std::string& name) {
     auto sampler = samplers.find(name);
     if (sampler != samplers.end()) {
         return sampler->second;
@@ -55,7 +57,7 @@ Entity SpriteServerVK::get_sampler(const std::string& name) {
     }
 }
 
-void systems::loading_actual_image(
+EPIX_API void systems::loading_actual_image(
     Command cmd,
     Query<Get<Entity, ImageLoading>> query,
     Query<Get<Device, CommandPool, Queue>, With<RenderContext>> ctx_query,
@@ -190,7 +192,7 @@ void systems::loading_actual_image(
     }
 }
 
-void systems::creating_actual_sampler(
+EPIX_API void systems::creating_actual_sampler(
     Command cmd,
     Query<Get<Entity, SamplerCreating>> query,
     Query<Get<Device>, With<RenderContext>> ctx_query,
@@ -223,7 +225,7 @@ void systems::creating_actual_sampler(
     }
 }
 
-void systems::destroy_sprite_server_vk_images(
+EPIX_API void systems::destroy_sprite_server_vk_images(
     ResMut<SpriteServerVK> sprite_server,
     Query<Get<Image, ImageView>, With<ImageIndex>> query,
     Query<Get<Device, CommandPool, Queue>, With<RenderContext>> ctx_query
@@ -237,7 +239,7 @@ void systems::destroy_sprite_server_vk_images(
     }
 }
 
-void systems::destroy_sprite_server_vk_samplers(
+EPIX_API void systems::destroy_sprite_server_vk_samplers(
     ResMut<SpriteServerVK> sprite_server,
     Query<Get<Sampler>, With<SamplerIndex>> query,
     Query<Get<Device>, With<RenderContext>> ctx_query
@@ -250,7 +252,7 @@ void systems::destroy_sprite_server_vk_samplers(
     }
 }
 
-void SpritePluginVK::build(App& app) {
+EPIX_API void SpritePluginVK::build(App& app) {
     app.add_system(PreStartup, insert_sprite_server_vk);
     app.add_system(Startup, create_sprite_renderer_vk);
     app.add_system(PostStartup, create_sprite_depth_vk);

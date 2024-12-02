@@ -7,41 +7,47 @@ using namespace pixel_engine::world::sand::components;
 static std::shared_ptr<spdlog::logger> elem_registry_logger =
     spdlog::default_logger()->clone("elem_registry");
 
-ElemRegistry::ElemRegistry() {}
-ElemRegistry::ElemRegistry(const ElemRegistry& other)
+EPIX_API ElemRegistry::ElemRegistry() {}
+EPIX_API ElemRegistry::ElemRegistry(const ElemRegistry& other)
     : elemId_map(other.elemId_map), elements(other.elements) {}
-ElemRegistry::ElemRegistry(ElemRegistry&& other)
+EPIX_API ElemRegistry::ElemRegistry(ElemRegistry&& other)
     : elemId_map(std::move(other.elemId_map)),
       elements(std::move(other.elements)) {}
-ElemRegistry& ElemRegistry::operator=(const ElemRegistry& other) {
+EPIX_API ElemRegistry& ElemRegistry::operator=(const ElemRegistry& other) {
     elemId_map = other.elemId_map;
     elements   = other.elements;
     return *this;
 }
-ElemRegistry& ElemRegistry::operator=(ElemRegistry&& other) {
+EPIX_API ElemRegistry& ElemRegistry::operator=(ElemRegistry&& other) {
     elemId_map = std::move(other.elemId_map);
     elements   = std::move(other.elements);
     return *this;
 }
 
-int ElemRegistry::register_elem(const std::string& name, const Element& elem) {
+EPIX_API int ElemRegistry::register_elem(
+    const std::string& name, const Element& elem
+) {
     std::lock_guard<std::mutex> lock(mutex);
     uint32_t id      = elements.size();
     elemId_map[name] = id;
     elements.emplace_back(elem);
     return id;
 }
-int ElemRegistry::elem_id(const std::string& name) {
+EPIX_API int ElemRegistry::elem_id(const std::string& name) {
     std::lock_guard<std::mutex> lock(mutex);
     return elemId_map.at(name);
 }
-const Element& ElemRegistry::get_elem(const std::string& name) {
+EPIX_API const Element& ElemRegistry::get_elem(const std::string& name) {
     std::lock_guard<std::mutex> lock(mutex);
     return elements.at(elemId_map.at(name));
 }
-const Element& ElemRegistry::get_elem(int id) const { return elements[id]; }
-const Element& ElemRegistry::operator[](int id) const { return get_elem(id); }
-void ElemRegistry::add_equiv(
+EPIX_API const Element& ElemRegistry::get_elem(int id) const {
+    return elements[id];
+}
+EPIX_API const Element& ElemRegistry::operator[](int id) const {
+    return get_elem(id);
+}
+EPIX_API void ElemRegistry::add_equiv(
     const std::string& name, const std::string& equiv
 ) {
     std::lock_guard<std::mutex> lock(mutex);

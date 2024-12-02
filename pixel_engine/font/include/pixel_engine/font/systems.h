@@ -23,16 +23,16 @@ using namespace prelude;
 using namespace font::components;
 using namespace render_vk::components;
 using namespace font::resources;
-void insert_ft2_library(
+EPIX_API void insert_ft2_library(
     Command command, Query<Get<Device>, With<RenderContext>> query
 );
-void create_renderer(
+EPIX_API void create_renderer(
     Command command,
     Query<Get<Device, Queue, CommandPool>, With<RenderContext>> query,
     Res<FontPlugin> font_plugin,
     ResMut<resources::vulkan::FT2Library> ft2_library
 );
-void draw_text(
+EPIX_API void draw_text(
     Query<Get<TextRenderer>> text_renderer_query,
     Query<Get<Text, TextPos>> text_query,
     ResMut<resources::vulkan::FT2Library> ft2_library,
@@ -40,7 +40,7 @@ void draw_text(
         swapchain_query,
     Res<FontPlugin> font_plugin
 );
-void destroy_renderer(
+EPIX_API void destroy_renderer(
     Query<Get<Device>, With<RenderContext>> query,
     ResMut<resources::vulkan::FT2Library> ft2_library,
     Query<Get<TextRenderer>> text_renderer_query
@@ -50,8 +50,10 @@ namespace ogl {
 using namespace prelude;
 using namespace font::components;
 using namespace font::resources;
-void create_text_renderer(Command command);
-void destroy_text_renderer(Query<Get<TextRendererGl>> text_renderer_query);
+EPIX_API void create_text_renderer(Command command);
+EPIX_API void destroy_text_renderer(
+    Query<Get<TextRendererGl>> text_renderer_query
+);
 }  // namespace ogl
 }  // namespace systems
 }  // namespace font

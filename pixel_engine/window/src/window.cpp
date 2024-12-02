@@ -7,11 +7,11 @@ using namespace pixel_engine::window::events;
 using namespace pixel_engine::window;
 using namespace pixel_engine::prelude;
 
-WindowDescription& WindowPlugin::primary_desc() {
+EPIX_API WindowDescription& WindowPlugin::primary_desc() {
     return primary_window_description;
 }
 
-void pixel_engine::window::WindowPlugin::build(App& app) {
+EPIX_API void pixel_engine::window::WindowPlugin::build(App& app) {
     app.enable_loop();
     app.add_event<events::AnyWindowClose>();
     app.add_event<events::NoWindowExists>();

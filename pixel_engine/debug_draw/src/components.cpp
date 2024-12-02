@@ -3,7 +3,7 @@
 #include "pixel_engine/render/debug.h"
 
 namespace pixel_engine::render::debug::vulkan::components {
-void LineDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
+EPIX_API void LineDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
     context = Context{device, queue};
     reset_cmd();
     framebuffer.destroy(device);
@@ -30,7 +30,7 @@ void LineDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
     context->mapped_vertex_buffer = (DebugVertex*)vertex_buffer.map(device);
     context->extent               = swapchain.extent;
 }
-void LineDrawer::flush() {
+EPIX_API void LineDrawer::flush() {
     if (!context.has_value()) return;
     if (context->vertex_count == 0 || context->model_count == 0) return;
     auto& ctx    = context.value();
@@ -83,7 +83,7 @@ void LineDrawer::flush() {
     ctx.vertex_count = 0;
     ctx.model_count  = 0;
 }
-void LineDrawer::end() {
+EPIX_API void LineDrawer::end() {
     if (!context.has_value()) return;
     flush();
     auto& ctx = context.value();
@@ -91,7 +91,7 @@ void LineDrawer::end() {
     vertex_buffer.unmap(*ctx.device);
     context.reset();
 }
-void LineDrawer::setModel(const glm::mat4& model) {
+EPIX_API void LineDrawer::setModel(const glm::mat4& model) {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     if (ctx.model_count >= max_model_count) {
@@ -101,13 +101,13 @@ void LineDrawer::setModel(const glm::mat4& model) {
     ctx.mapped_model_buffer[ctx.model_count] = model;
     ctx.model_count++;
 }
-void LineDrawer::reset_cmd() {
+EPIX_API void LineDrawer::reset_cmd() {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     (*ctx.device)->waitForFences(*fence, VK_TRUE, UINT64_MAX);
     command_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 }
-void LineDrawer::drawLine(
+EPIX_API void LineDrawer::drawLine(
     const glm::vec3& start, const glm::vec3& end, const glm::vec4& color
 ) {
     if (!context.has_value()) return;
@@ -128,7 +128,7 @@ void LineDrawer::drawLine(
     };
     ctx.vertex_count++;
 }
-void PointDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
+EPIX_API void PointDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
     context = Context{device, queue};
     reset_cmd();
     framebuffer.destroy(device);
@@ -155,7 +155,7 @@ void PointDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
     context->mapped_vertex_buffer = (DebugVertex*)vertex_buffer.map(device);
     context->extent               = swapchain.extent;
 }
-void PointDrawer::flush() {
+EPIX_API void PointDrawer::flush() {
     if (!context.has_value()) return;
     if (context->vertex_count == 0 || context->model_count == 0) return;
     auto& ctx    = context.value();
@@ -208,7 +208,7 @@ void PointDrawer::flush() {
     ctx.vertex_count = 0;
     ctx.model_count  = 0;
 }
-void PointDrawer::end() {
+EPIX_API void PointDrawer::end() {
     if (!context.has_value()) return;
     flush();
     auto& ctx = context.value();
@@ -216,7 +216,7 @@ void PointDrawer::end() {
     vertex_buffer.unmap(*ctx.device);
     context.reset();
 }
-void PointDrawer::setModel(const glm::mat4& model) {
+EPIX_API void PointDrawer::setModel(const glm::mat4& model) {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     if (ctx.model_count >= max_model_count) {
@@ -228,13 +228,13 @@ void PointDrawer::setModel(const glm::mat4& model) {
     ctx.mapped_model_buffer[ctx.model_count] = model;
     ctx.model_count++;
 }
-void PointDrawer::reset_cmd() {
+EPIX_API void PointDrawer::reset_cmd() {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     (*ctx.device)->waitForFences(*fence, VK_TRUE, UINT64_MAX);
     command_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 }
-void PointDrawer::drawPoint(const glm::vec3& pos, const glm::vec4& color) {
+EPIX_API void PointDrawer::drawPoint(const glm::vec3& pos, const glm::vec4& color) {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     if (ctx.model_count == 0) setModel(glm::mat4(1.0f));
@@ -249,7 +249,7 @@ void PointDrawer::drawPoint(const glm::vec3& pos, const glm::vec4& color) {
     };
     ctx.vertex_count++;
 }
-void TriangleDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
+EPIX_API void TriangleDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
     context = Context{device, queue};
     reset_cmd();
     framebuffer.destroy(device);
@@ -276,7 +276,7 @@ void TriangleDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
     context->mapped_vertex_buffer = (DebugVertex*)vertex_buffer.map(device);
     context->extent               = swapchain.extent;
 }
-void TriangleDrawer::flush() {
+EPIX_API void TriangleDrawer::flush() {
     if (!context.has_value()) return;
     if (context->vertex_count == 0 || context->model_count == 0) return;
     auto& ctx    = context.value();
@@ -329,7 +329,7 @@ void TriangleDrawer::flush() {
     ctx.vertex_count = 0;
     ctx.model_count  = 0;
 }
-void TriangleDrawer::end() {
+EPIX_API void TriangleDrawer::end() {
     if (!context.has_value()) return;
     flush();
     auto& ctx = context.value();
@@ -337,7 +337,7 @@ void TriangleDrawer::end() {
     vertex_buffer.unmap(*ctx.device);
     context.reset();
 }
-void TriangleDrawer::setModel(const glm::mat4& model) {
+EPIX_API void TriangleDrawer::setModel(const glm::mat4& model) {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     if (ctx.model_count >= max_model_count) {
@@ -347,13 +347,13 @@ void TriangleDrawer::setModel(const glm::mat4& model) {
     ctx.mapped_model_buffer[ctx.model_count] = model;
     ctx.model_count++;
 }
-void TriangleDrawer::reset_cmd() {
+EPIX_API void TriangleDrawer::reset_cmd() {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     (*ctx.device)->waitForFences(*fence, VK_TRUE, UINT64_MAX);
     command_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 }
-void TriangleDrawer::drawTriangle(
+EPIX_API void TriangleDrawer::drawTriangle(
     const glm::vec3& v0,
     const glm::vec3& v1,
     const glm::vec3& v2,

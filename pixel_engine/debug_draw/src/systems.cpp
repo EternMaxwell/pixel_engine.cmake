@@ -6,7 +6,7 @@ namespace pixel_engine::render::debug::vulkan {
 using namespace pixel_engine::prelude;
 using namespace pixel_engine::render::debug::vulkan;
 using namespace pixel_engine::render::debug::vulkan::components;
-void systems::create_line_drawer(
+EPIX_API void systems::create_line_drawer(
     Query<Get<Device, CommandPool>, With<RenderContext>> query,
     Command cmd,
     Res<DebugRenderPlugin> plugin
@@ -255,7 +255,7 @@ void systems::create_line_drawer(
     fragment_shader_module.destroy(device);
 }
 
-void systems::destroy_line_drawer(
+EPIX_API void systems::destroy_line_drawer(
     Query<Get<Device>, With<RenderContext>> device_query,
     Query<Get<LineDrawer>> query
 ) {
@@ -276,7 +276,7 @@ void systems::destroy_line_drawer(
     drawer.fence.destroy(device);
     if (drawer.framebuffer) drawer.framebuffer.destroy(device);
 }
-void systems::create_point_drawer(
+EPIX_API void systems::create_point_drawer(
     Query<Get<Device, CommandPool>, With<RenderContext>> query,
     Command cmd,
     Res<DebugRenderPlugin> plugin
@@ -523,7 +523,7 @@ void systems::create_point_drawer(
     fragment_shader_module.destroy(device);
 }
 
-void systems::destroy_point_drawer(
+EPIX_API void systems::destroy_point_drawer(
     Query<Get<Device>, With<RenderContext>> device_query,
     Query<Get<PointDrawer>> query
 ) {
@@ -545,7 +545,7 @@ void systems::destroy_point_drawer(
     if (drawer.framebuffer) drawer.framebuffer.destroy(device);
 }
 
-void systems::create_triangle_drawer(
+EPIX_API void systems::create_triangle_drawer(
     Query<Get<Device, CommandPool>, With<RenderContext>> query,
     Command cmd,
     Res<DebugRenderPlugin> plugin
@@ -792,7 +792,7 @@ void systems::create_triangle_drawer(
     fragment_shader_module.destroy(device);
 }
 
-void systems::destroy_triangle_drawer(
+EPIX_API void systems::destroy_triangle_drawer(
     Query<Get<Device>, With<RenderContext>> device_query,
     Query<Get<TriangleDrawer>> query
 ) {

@@ -39,12 +39,15 @@ target_link_libraries (pixel_engine PUBLIC pixel_engine::window)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::input)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::render::vulkan)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::render::debug)
+target_link_libraries (pixel_engine PUBLIC pixel_engine::imgui)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::render::font)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::render::sprite)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::render::pixel)
 target_link_libraries (pixel_engine PUBLIC pixel_engine::world::sand)
 
 # BUILD SHARED
+# ADD IMGUI SOURCES AND INCLUDES
+set(ENGINE_SOURCES ${ENGINE_SOURCES} ${IMGUI_SOURCES})
 add_library(pixel_engine_shared SHARED ${ENGINE_SOURCES})
 target_compile_definitions(pixel_engine_shared PRIVATE EPIX_BUILD_SHARED)
 target_include_directories(pixel_engine_shared PUBLIC ${ENGINE_INCLUDES})

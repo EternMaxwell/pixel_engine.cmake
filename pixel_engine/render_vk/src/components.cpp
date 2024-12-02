@@ -98,7 +98,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(
     return vk::False;
 }
 
-Instance Instance::create(
+EPIX_API Instance Instance::create(
     const char* app_name,
     uint32_t app_version,
     std::shared_ptr<spdlog::logger> logger
@@ -196,7 +196,7 @@ Instance Instance::create(
     return instance;
 }
 
-void Instance::destroy() {
+EPIX_API void Instance::destroy() {
     if (debug_messenger) {
         auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
             instance.getProcAddr("vkDestroyDebugUtilsMessengerEXT")
@@ -208,13 +208,13 @@ void Instance::destroy() {
     instance.destroy();
 }
 
-Instance::operator vk::Instance() const { return instance; }
-Instance::operator VkInstance() const { return instance; }
-bool Instance::operator!() const { return !instance; }
-vk::Instance* Instance::operator->() { return &instance; }
-vk::Instance& Instance::operator*() { return instance; }
+EPIX_API Instance::operator vk::Instance() const { return instance; }
+EPIX_API Instance::operator VkInstance() const { return instance; }
+EPIX_API bool Instance::operator!() const { return !instance; }
+EPIX_API vk::Instance* Instance::operator->() { return &instance; }
+EPIX_API vk::Instance& Instance::operator*() { return instance; }
 
-PhysicalDevice PhysicalDevice::create(Instance instance) {
+EPIX_API PhysicalDevice PhysicalDevice::create(Instance instance) {
     PhysicalDevice physical_device;
     auto physical_devices = instance->enumeratePhysicalDevices();
     if (physical_devices.size() == 0) {
@@ -225,13 +225,21 @@ PhysicalDevice PhysicalDevice::create(Instance instance) {
     return physical_device;
 }
 
-PhysicalDevice::operator vk::PhysicalDevice() const { return physical_device; }
-PhysicalDevice::operator VkPhysicalDevice() const { return physical_device; }
-bool PhysicalDevice::operator!() const { return !physical_device; }
-vk::PhysicalDevice* PhysicalDevice::operator->() { return &physical_device; }
-vk::PhysicalDevice& PhysicalDevice::operator*() { return physical_device; }
+EPIX_API PhysicalDevice::operator vk::PhysicalDevice() const {
+    return physical_device;
+}
+EPIX_API PhysicalDevice::operator VkPhysicalDevice() const {
+    return physical_device;
+}
+EPIX_API bool PhysicalDevice::operator!() const { return !physical_device; }
+EPIX_API vk::PhysicalDevice* PhysicalDevice::operator->() {
+    return &physical_device;
+}
+EPIX_API vk::PhysicalDevice& PhysicalDevice::operator*() {
+    return physical_device;
+}
 
-Device Device::create(
+EPIX_API Device Device::create(
     Instance& instance,
     PhysicalDevice& physical_device,
     vk::QueueFlags queue_flags
@@ -323,30 +331,30 @@ Device Device::create(
     return device;
 }
 
-void Device::destroy() {
+EPIX_API void Device::destroy() {
     vmaDestroyAllocator(allocator);
     device.destroy();
 }
 
-Device::operator vk::Device() const { return device; }
-Device::operator VkDevice() const { return device; }
-bool Device::operator!() const { return !device; }
-vk::Device* Device::operator->() { return &device; }
-vk::Device& Device::operator*() { return device; }
+EPIX_API Device::operator vk::Device() const { return device; }
+EPIX_API Device::operator VkDevice() const { return device; }
+EPIX_API bool Device::operator!() const { return !device; }
+EPIX_API vk::Device* Device::operator->() { return &device; }
+EPIX_API vk::Device& Device::operator*() { return device; }
 
-Queue Queue::create(Device& device) {
+EPIX_API Queue Queue::create(Device& device) {
     Queue queue;
     queue.queue = device->getQueue(device.queue_family_index, 0);
     return queue;
 }
 
-Queue::operator vk::Queue() const { return queue; }
-Queue::operator VkQueue() const { return queue; }
-bool Queue::operator!() const { return !queue; }
-vk::Queue* Queue::operator->() { return &queue; }
-vk::Queue& Queue::operator*() { return queue; }
+EPIX_API Queue::operator vk::Queue() const { return queue; }
+EPIX_API Queue::operator VkQueue() const { return queue; }
+EPIX_API bool Queue::operator!() const { return !queue; }
+EPIX_API vk::Queue* Queue::operator->() { return &queue; }
+EPIX_API vk::Queue& Queue::operator*() { return queue; }
 
-CommandPool CommandPool::create(Device& device) {
+EPIX_API CommandPool CommandPool::create(Device& device) {
     auto command_pool_info =
         vk::CommandPoolCreateInfo()
             .setQueueFamilyIndex(device.queue_family_index)
@@ -356,18 +364,17 @@ CommandPool CommandPool::create(Device& device) {
     return command_pool;
 }
 
-void CommandPool::destroy(Device device) {
+EPIX_API void CommandPool::destroy(Device device) {
     device->destroyCommandPool(command_pool);
 }
-CommandPool::operator vk::CommandPool() const { return command_pool; }
-CommandPool::operator VkCommandPool() const { return command_pool; }
-bool CommandPool::operator!() const { return !command_pool; }
-vk::CommandPool* CommandPool::operator->() { return &command_pool; }
-vk::CommandPool& CommandPool::operator*() { return command_pool; }
+EPIX_API CommandPool::operator vk::CommandPool() const { return command_pool; }
+EPIX_API CommandPool::operator VkCommandPool() const { return command_pool; }
+EPIX_API bool CommandPool::operator!() const { return !command_pool; }
+EPIX_API vk::CommandPool* CommandPool::operator->() { return &command_pool; }
+EPIX_API vk::CommandPool& CommandPool::operator*() { return command_pool; }
 
-CommandBuffer CommandBuffer::allocate_primary(
-    Device& device, CommandPool& command_pool
-) {
+EPIX_API CommandBuffer
+CommandBuffer::allocate_primary(Device& device, CommandPool& command_pool) {
     auto command_buffer = device->allocateCommandBuffers(
         vk::CommandBufferAllocateInfo()
             .setCommandPool(command_pool)
@@ -376,9 +383,8 @@ CommandBuffer CommandBuffer::allocate_primary(
     )[0];
     return CommandBuffer{command_buffer};
 }
-CommandBuffer CommandBuffer::allocate_secondary(
-    Device& device, CommandPool& command_pool
-) {
+EPIX_API CommandBuffer
+CommandBuffer::allocate_secondary(Device& device, CommandPool& command_pool) {
     auto command_buffer = device->allocateCommandBuffers(
         vk::CommandBufferAllocateInfo()
             .setCommandPool(command_pool)
@@ -387,7 +393,7 @@ CommandBuffer CommandBuffer::allocate_secondary(
     )[0];
     return CommandBuffer{command_buffer};
 }
-std::vector<CommandBuffer> CommandBuffer::allocate_primary(
+EPIX_API std::vector<CommandBuffer> CommandBuffer::allocate_primary(
     Device& device, CommandPool& command_pool, uint32_t count
 ) {
     auto command_buffers = device->allocateCommandBuffers(
@@ -402,7 +408,7 @@ std::vector<CommandBuffer> CommandBuffer::allocate_primary(
     }
     return buffers;
 }
-std::vector<CommandBuffer> CommandBuffer::allocate_secondary(
+EPIX_API std::vector<CommandBuffer> CommandBuffer::allocate_secondary(
     Device& device, CommandPool& command_pool, uint32_t count
 ) {
     auto command_buffers = device->allocateCommandBuffers(
@@ -418,69 +424,82 @@ std::vector<CommandBuffer> CommandBuffer::allocate_secondary(
     return buffers;
 }
 
-void CommandBuffer::free(Device& device, CommandPool& command_pool) {
+EPIX_API void CommandBuffer::free(Device& device, CommandPool& command_pool) {
     device->freeCommandBuffers(command_pool, command_buffer);
 }
-CommandBuffer::operator vk::CommandBuffer() const { return command_buffer; }
-CommandBuffer::operator VkCommandBuffer() const { return command_buffer; }
-bool CommandBuffer::operator!() const { return !command_buffer; }
-vk::CommandBuffer* CommandBuffer::operator->() { return &command_buffer; }
-vk::CommandBuffer& CommandBuffer::operator*() { return command_buffer; }
+EPIX_API CommandBuffer::operator vk::CommandBuffer() const {
+    return command_buffer;
+}
+EPIX_API CommandBuffer::operator VkCommandBuffer() const {
+    return command_buffer;
+}
+EPIX_API bool CommandBuffer::operator!() const { return !command_buffer; }
+EPIX_API vk::CommandBuffer* CommandBuffer::operator->() {
+    return &command_buffer;
+}
+EPIX_API vk::CommandBuffer& CommandBuffer::operator*() {
+    return command_buffer;
+}
 
-AllocationCreateInfo::AllocationCreateInfo() { create_info = {}; }
-AllocationCreateInfo::AllocationCreateInfo(
+EPIX_API AllocationCreateInfo::AllocationCreateInfo() { create_info = {}; }
+EPIX_API AllocationCreateInfo::AllocationCreateInfo(
     const VmaMemoryUsage& usage, const VmaAllocationCreateFlags& flags
 ) {
     create_info.usage = usage;
     create_info.flags = flags;
 }
 
-AllocationCreateInfo::operator VmaAllocationCreateInfo() const {
+EPIX_API AllocationCreateInfo::operator VmaAllocationCreateInfo() const {
     return create_info;
 }
-AllocationCreateInfo& AllocationCreateInfo::setUsage(VmaMemoryUsage usage) {
+EPIX_API AllocationCreateInfo& AllocationCreateInfo::setUsage(
+    VmaMemoryUsage usage
+) {
     create_info.usage = usage;
     return *this;
 }
-AllocationCreateInfo& AllocationCreateInfo::setFlags(
+EPIX_API AllocationCreateInfo& AllocationCreateInfo::setFlags(
     VmaAllocationCreateFlags flags
 ) {
     create_info.flags = flags;
     return *this;
 }
-AllocationCreateInfo& AllocationCreateInfo::setRequiredFlags(
+EPIX_API AllocationCreateInfo& AllocationCreateInfo::setRequiredFlags(
     VkMemoryPropertyFlags flags
 ) {
     create_info.requiredFlags = flags;
     return *this;
 }
-AllocationCreateInfo& AllocationCreateInfo::setPreferredFlags(
+EPIX_API AllocationCreateInfo& AllocationCreateInfo::setPreferredFlags(
     VkMemoryPropertyFlags flags
 ) {
     create_info.preferredFlags = flags;
     return *this;
 }
-AllocationCreateInfo& AllocationCreateInfo::setMemoryTypeBits(uint32_t bits) {
+EPIX_API AllocationCreateInfo& AllocationCreateInfo::setMemoryTypeBits(
+    uint32_t bits
+) {
     create_info.memoryTypeBits = bits;
     return *this;
 }
-AllocationCreateInfo& AllocationCreateInfo::setPool(VmaPool pool) {
+EPIX_API AllocationCreateInfo& AllocationCreateInfo::setPool(VmaPool pool) {
     create_info.pool = pool;
     return *this;
 }
-AllocationCreateInfo& AllocationCreateInfo::setPUserData(void* data) {
+EPIX_API AllocationCreateInfo& AllocationCreateInfo::setPUserData(void* data) {
     create_info.pUserData = data;
     return *this;
 }
-AllocationCreateInfo& AllocationCreateInfo::setPriority(float priority) {
+EPIX_API AllocationCreateInfo& AllocationCreateInfo::setPriority(float priority
+) {
     create_info.priority = priority;
     return *this;
 }
-VmaAllocationCreateInfo& AllocationCreateInfo::operator*() {
+EPIX_API VmaAllocationCreateInfo& AllocationCreateInfo::operator*() {
     return create_info;
 }
 
-Buffer Buffer::create(
+EPIX_API Buffer Buffer::create(
     Device& device,
     vk::BufferCreateInfo create_info,
     AllocationCreateInfo alloc_info
@@ -493,7 +512,7 @@ Buffer Buffer::create(
     );
     return buffer;
 }
-Buffer Buffer::create_device(
+EPIX_API Buffer Buffer::create_device(
     Device& device, uint64_t size, vk::BufferUsageFlags usage
 ) {
     return create(
@@ -506,9 +525,8 @@ Buffer Buffer::create_device(
             .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
     );
 }
-Buffer Buffer::create_host(
-    Device& device, uint64_t size, vk::BufferUsageFlags usage
-) {
+EPIX_API Buffer
+Buffer::create_host(Device& device, uint64_t size, vk::BufferUsageFlags usage) {
     return create(
         device,
         vk::BufferCreateInfo().setSize(size).setUsage(usage).setSharingMode(
@@ -520,24 +538,24 @@ Buffer Buffer::create_host(
     );
 }
 
-void Buffer::destroy(Device& device) {
+EPIX_API void Buffer::destroy(Device& device) {
     vmaDestroyBuffer(device.allocator, buffer, allocation);
 }
-void* Buffer::map(Device& device) {
+EPIX_API void* Buffer::map(Device& device) {
     void* data;
     vmaMapMemory(device.allocator, allocation, &data);
     return data;
 }
-void Buffer::unmap(Device& device) {
+EPIX_API void Buffer::unmap(Device& device) {
     vmaUnmapMemory(device.allocator, allocation);
 }
-Buffer::operator vk::Buffer() const { return buffer; }
-Buffer::operator VkBuffer() const { return buffer; }
-bool Buffer::operator!() const { return !buffer; }
-vk::Buffer* Buffer::operator->() { return &buffer; }
-vk::Buffer& Buffer::operator*() { return buffer; }
+EPIX_API Buffer::operator vk::Buffer() const { return buffer; }
+EPIX_API Buffer::operator VkBuffer() const { return buffer; }
+EPIX_API bool Buffer::operator!() const { return !buffer; }
+EPIX_API vk::Buffer* Buffer::operator->() { return &buffer; }
+EPIX_API vk::Buffer& Buffer::operator*() { return buffer; }
 
-Image Image::create(
+EPIX_API Image Image::create(
     Device& device,
     vk::ImageCreateInfo create_info,
     AllocationCreateInfo alloc_info
@@ -550,7 +568,7 @@ Image Image::create(
     );
     return image;
 }
-Image Image::create_1d(
+EPIX_API Image Image::create_1d(
     Device& device,
     uint32_t width,
     uint32_t levels,
@@ -576,7 +594,7 @@ Image Image::create_1d(
             .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
     );
 }
-Image Image::create_2d(
+EPIX_API Image Image::create_2d(
     Device& device,
     uint32_t width,
     uint32_t height,
@@ -603,7 +621,7 @@ Image Image::create_2d(
             .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
     );
 }
-Image Image::create_3d(
+EPIX_API Image Image::create_3d(
     Device& device,
     uint32_t width,
     uint32_t height,
@@ -632,23 +650,22 @@ Image Image::create_3d(
     );
 }
 
-void Image::destroy(Device& device) {
+EPIX_API void Image::destroy(Device& device) {
     vmaDestroyImage(device.allocator, image, allocation);
 }
-Image::operator vk::Image() const { return image; }
-Image::operator VkImage() const { return image; }
-bool Image::operator!() const { return !image; }
-vk::Image* Image::operator->() { return &image; }
-vk::Image& Image::operator*() { return image; }
+EPIX_API Image::operator vk::Image() const { return image; }
+EPIX_API Image::operator VkImage() const { return image; }
+EPIX_API bool Image::operator!() const { return !image; }
+EPIX_API vk::Image* Image::operator->() { return &image; }
+EPIX_API vk::Image& Image::operator*() { return image; }
 
-ImageView ImageView::create(
-    Device& device, vk::ImageViewCreateInfo create_info
-) {
+EPIX_API ImageView
+ImageView::create(Device& device, vk::ImageViewCreateInfo create_info) {
     ImageView image_view;
     image_view.image_view = device->createImageView(create_info);
     return image_view;
 }
-ImageView ImageView::create_1d(
+EPIX_API ImageView ImageView::create_1d(
     Device& device,
     Image& image,
     vk::Format format,
@@ -669,7 +686,7 @@ ImageView ImageView::create_1d(
             ))
     );
 }
-ImageView ImageView::create_1d(
+EPIX_API ImageView ImageView::create_1d(
     Device& device,
     Image& image,
     vk::Format format,
@@ -677,7 +694,7 @@ ImageView ImageView::create_1d(
 ) {
     return create_1d(device, image, format, aspect_flags, 0, 1, 0, 1);
 }
-ImageView ImageView::create_2d(
+EPIX_API ImageView ImageView::create_2d(
     Device& device,
     Image& image,
     vk::Format format,
@@ -698,7 +715,7 @@ ImageView ImageView::create_2d(
             ))
     );
 }
-ImageView ImageView::create_2d(
+EPIX_API ImageView ImageView::create_2d(
     Device& device,
     Image& image,
     vk::Format format,
@@ -706,7 +723,7 @@ ImageView ImageView::create_2d(
 ) {
     return create_2d(device, image, format, aspect_flags, 0, 1, 0, 1);
 }
-ImageView ImageView::create_3d(
+EPIX_API ImageView ImageView::create_3d(
     Device& device,
     Image& image,
     vk::Format format,
@@ -727,7 +744,7 @@ ImageView ImageView::create_3d(
             ))
     );
 }
-ImageView ImageView::create_3d(
+EPIX_API ImageView ImageView::create_3d(
     Device& device,
     Image& image,
     vk::Format format,
@@ -736,21 +753,22 @@ ImageView ImageView::create_3d(
     return create_3d(device, image, format, aspect_flags, 0, 1, 0, 1);
 }
 
-void ImageView::destroy(Device& device) {
+EPIX_API void ImageView::destroy(Device& device) {
     device->destroyImageView(image_view);
 }
-ImageView::operator vk::ImageView() const { return image_view; }
-ImageView::operator VkImageView() const { return image_view; }
-bool ImageView::operator!() const { return !image_view; }
-vk::ImageView* ImageView::operator->() { return &image_view; }
-vk::ImageView& ImageView::operator*() { return image_view; }
+EPIX_API ImageView::operator vk::ImageView() const { return image_view; }
+EPIX_API ImageView::operator VkImageView() const { return image_view; }
+EPIX_API bool ImageView::operator!() const { return !image_view; }
+EPIX_API vk::ImageView* ImageView::operator->() { return &image_view; }
+EPIX_API vk::ImageView& ImageView::operator*() { return image_view; }
 
-Sampler Sampler::create(Device& device, vk::SamplerCreateInfo create_info) {
+EPIX_API Sampler
+Sampler::create(Device& device, vk::SamplerCreateInfo create_info) {
     Sampler sampler;
     sampler.sampler = device->createSampler(create_info);
     return sampler;
 }
-Sampler Sampler::create(
+EPIX_API Sampler Sampler::create(
     Device& device,
     vk::Filter min_filter,
     vk::Filter mag_filter,
@@ -777,14 +795,16 @@ Sampler Sampler::create(
     );
 }
 
-void Sampler::destroy(Device& device) { device->destroySampler(sampler); }
-Sampler::operator vk::Sampler() const { return sampler; }
-Sampler::operator VkSampler() const { return sampler; }
-bool Sampler::operator!() const { return !sampler; }
-vk::Sampler* Sampler::operator->() { return &sampler; }
-vk::Sampler& Sampler::operator*() { return sampler; }
+EPIX_API void Sampler::destroy(Device& device) {
+    device->destroySampler(sampler);
+}
+EPIX_API Sampler::operator vk::Sampler() const { return sampler; }
+EPIX_API Sampler::operator VkSampler() const { return sampler; }
+EPIX_API bool Sampler::operator!() const { return !sampler; }
+EPIX_API vk::Sampler* Sampler::operator->() { return &sampler; }
+EPIX_API vk::Sampler& Sampler::operator*() { return sampler; }
 
-DescriptorSetLayout DescriptorSetLayout::create(
+EPIX_API DescriptorSetLayout DescriptorSetLayout::create(
     Device& device, vk::DescriptorSetLayoutCreateInfo create_info
 ) {
     DescriptorSetLayout descriptor_set_layout;
@@ -792,7 +812,7 @@ DescriptorSetLayout DescriptorSetLayout::create(
         device->createDescriptorSetLayout(create_info);
     return descriptor_set_layout;
 }
-DescriptorSetLayout DescriptorSetLayout::create(
+EPIX_API DescriptorSetLayout DescriptorSetLayout::create(
     Device& device, const std::vector<vk::DescriptorSetLayoutBinding>& bindings
 ) {
     return create(
@@ -800,31 +820,33 @@ DescriptorSetLayout DescriptorSetLayout::create(
     );
 }
 
-void DescriptorSetLayout::destroy(Device& device) {
+EPIX_API void DescriptorSetLayout::destroy(Device& device) {
     device->destroyDescriptorSetLayout(descriptor_set_layout);
 }
-DescriptorSetLayout::operator vk::DescriptorSetLayout() const {
+EPIX_API DescriptorSetLayout::operator vk::DescriptorSetLayout() const {
     return descriptor_set_layout;
 }
-DescriptorSetLayout::operator VkDescriptorSetLayout() const {
+EPIX_API DescriptorSetLayout::operator VkDescriptorSetLayout() const {
     return descriptor_set_layout;
 }
-bool DescriptorSetLayout::operator!() const { return !descriptor_set_layout; }
-vk::DescriptorSetLayout* DescriptorSetLayout::operator->() {
+EPIX_API bool DescriptorSetLayout::operator!() const {
+    return !descriptor_set_layout;
+}
+EPIX_API vk::DescriptorSetLayout* DescriptorSetLayout::operator->() {
     return &descriptor_set_layout;
 }
-vk::DescriptorSetLayout& DescriptorSetLayout::operator*() {
+EPIX_API vk::DescriptorSetLayout& DescriptorSetLayout::operator*() {
     return descriptor_set_layout;
 }
 
-PipelineLayout PipelineLayout::create(
+EPIX_API PipelineLayout PipelineLayout::create(
     Device& device, vk::PipelineLayoutCreateInfo create_info
 ) {
     PipelineLayout pipeline_layout;
     pipeline_layout.pipeline_layout = device->createPipelineLayout(create_info);
     return pipeline_layout;
 }
-PipelineLayout PipelineLayout::create(
+EPIX_API PipelineLayout PipelineLayout::create(
     Device& device, DescriptorSetLayout& descriptor_set_layout
 ) {
     return create(
@@ -832,7 +854,7 @@ PipelineLayout PipelineLayout::create(
         vk::PipelineLayoutCreateInfo().setSetLayouts(*descriptor_set_layout)
     );
 }
-PipelineLayout PipelineLayout::create(
+EPIX_API PipelineLayout PipelineLayout::create(
     Device& device,
     DescriptorSetLayout& descriptor_set_layout,
     vk::PushConstantRange& push_constant_range
@@ -843,7 +865,7 @@ PipelineLayout PipelineLayout::create(
                     .setPushConstantRanges(push_constant_range)
     );
 }
-PipelineLayout PipelineLayout::create(
+EPIX_API PipelineLayout PipelineLayout::create(
     Device& device,
     std::vector<DescriptorSetLayout>& descriptor_set_layouts,
     std::vector<vk::PushConstantRange>& push_constant_ranges
@@ -860,16 +882,24 @@ PipelineLayout PipelineLayout::create(
     );
 }
 
-void PipelineLayout::destroy(Device& device) {
+EPIX_API void PipelineLayout::destroy(Device& device) {
     device->destroyPipelineLayout(pipeline_layout);
 }
-PipelineLayout::operator vk::PipelineLayout() const { return pipeline_layout; }
-PipelineLayout::operator VkPipelineLayout() const { return pipeline_layout; }
-bool PipelineLayout::operator!() const { return !pipeline_layout; }
-vk::PipelineLayout* PipelineLayout::operator->() { return &pipeline_layout; }
-vk::PipelineLayout& PipelineLayout::operator*() { return pipeline_layout; }
+EPIX_API PipelineLayout::operator vk::PipelineLayout() const {
+    return pipeline_layout;
+}
+EPIX_API PipelineLayout::operator VkPipelineLayout() const {
+    return pipeline_layout;
+}
+EPIX_API bool PipelineLayout::operator!() const { return !pipeline_layout; }
+EPIX_API vk::PipelineLayout* PipelineLayout::operator->() {
+    return &pipeline_layout;
+}
+EPIX_API vk::PipelineLayout& PipelineLayout::operator*() {
+    return pipeline_layout;
+}
 
-Pipeline Pipeline::create(
+EPIX_API Pipeline Pipeline::create(
     Device& device,
     vk::PipelineCache pipeline_cache,
     vk::GraphicsPipelineCreateInfo create_info
@@ -879,12 +909,11 @@ Pipeline Pipeline::create(
         device->createGraphicsPipeline(pipeline_cache, create_info).value;
     return pipeline;
 }
-Pipeline Pipeline::create(
-    Device& device, vk::GraphicsPipelineCreateInfo create_info
-) {
+EPIX_API Pipeline
+Pipeline::create(Device& device, vk::GraphicsPipelineCreateInfo create_info) {
     return create(device, vk::PipelineCache(), create_info);
 }
-Pipeline Pipeline::create(
+EPIX_API Pipeline Pipeline::create(
     Device& device,
     vk::PipelineCache pipeline_cache,
     vk::ComputePipelineCreateInfo create_info
@@ -894,20 +923,21 @@ Pipeline Pipeline::create(
         device->createComputePipeline(pipeline_cache, create_info).value;
     return pipeline;
 }
-Pipeline Pipeline::create(
-    Device& device, vk::ComputePipelineCreateInfo create_info
-) {
+EPIX_API Pipeline
+Pipeline::create(Device& device, vk::ComputePipelineCreateInfo create_info) {
     return create(device, vk::PipelineCache(), create_info);
 }
 
-void Pipeline::destroy(Device& device) { device->destroyPipeline(pipeline); }
-Pipeline::operator vk::Pipeline() const { return pipeline; }
-Pipeline::operator VkPipeline() const { return pipeline; }
-bool Pipeline::operator!() const { return !pipeline; }
-vk::Pipeline* Pipeline::operator->() { return &pipeline; }
-vk::Pipeline& Pipeline::operator*() { return pipeline; }
+EPIX_API void Pipeline::destroy(Device& device) {
+    device->destroyPipeline(pipeline);
+}
+EPIX_API Pipeline::operator vk::Pipeline() const { return pipeline; }
+EPIX_API Pipeline::operator VkPipeline() const { return pipeline; }
+EPIX_API bool Pipeline::operator!() const { return !pipeline; }
+EPIX_API vk::Pipeline* Pipeline::operator->() { return &pipeline; }
+EPIX_API vk::Pipeline& Pipeline::operator*() { return pipeline; }
 
-DescriptorPool DescriptorPool::create(
+EPIX_API DescriptorPool DescriptorPool::create(
     Device& device, vk::DescriptorPoolCreateInfo create_info
 ) {
     DescriptorPool descriptor_pool;
@@ -915,16 +945,24 @@ DescriptorPool DescriptorPool::create(
     return descriptor_pool;
 }
 
-void DescriptorPool::destroy(Device& device) {
+EPIX_API void DescriptorPool::destroy(Device& device) {
     device->destroyDescriptorPool(descriptor_pool);
 }
-DescriptorPool::operator vk::DescriptorPool() const { return descriptor_pool; }
-DescriptorPool::operator VkDescriptorPool() const { return descriptor_pool; }
-bool DescriptorPool::operator!() const { return !descriptor_pool; }
-vk::DescriptorPool* DescriptorPool::operator->() { return &descriptor_pool; }
-vk::DescriptorPool& DescriptorPool::operator*() { return descriptor_pool; }
+EPIX_API DescriptorPool::operator vk::DescriptorPool() const {
+    return descriptor_pool;
+}
+EPIX_API DescriptorPool::operator VkDescriptorPool() const {
+    return descriptor_pool;
+}
+EPIX_API bool DescriptorPool::operator!() const { return !descriptor_pool; }
+EPIX_API vk::DescriptorPool* DescriptorPool::operator->() {
+    return &descriptor_pool;
+}
+EPIX_API vk::DescriptorPool& DescriptorPool::operator*() {
+    return descriptor_pool;
+}
 
-DescriptorSet DescriptorSet::create(
+EPIX_API DescriptorSet DescriptorSet::create(
     Device& device, vk::DescriptorSetAllocateInfo allocate_info
 ) {
     DescriptorSet descriptor_set;
@@ -932,7 +970,7 @@ DescriptorSet DescriptorSet::create(
         device->allocateDescriptorSets(allocate_info)[0];
     return descriptor_set;
 }
-DescriptorSet DescriptorSet::create(
+EPIX_API DescriptorSet DescriptorSet::create(
     Device& device,
     DescriptorPool& descriptor_pool,
     vk::DescriptorSetLayout descriptor_set_layout
@@ -942,7 +980,7 @@ DescriptorSet DescriptorSet::create(
         .setSetLayouts(descriptor_set_layout);
     return create(device, allocate_info);
 }
-std::vector<DescriptorSet> DescriptorSet::create(
+EPIX_API std::vector<DescriptorSet> DescriptorSet::create(
     Device& device,
     DescriptorPool& descriptor_pool,
     std::vector<DescriptorSetLayout>& descriptor_set_layouts
@@ -964,44 +1002,55 @@ std::vector<DescriptorSet> DescriptorSet::create(
     return sets;
 }
 
-void DescriptorSet::destroy(Device& device, DescriptorPool& descriptor_pool) {
+EPIX_API void DescriptorSet::destroy(
+    Device& device, DescriptorPool& descriptor_pool
+) {
     device->freeDescriptorSets(descriptor_pool, descriptor_set);
 }
-DescriptorSet::operator vk::DescriptorSet() const { return descriptor_set; }
-DescriptorSet::operator VkDescriptorSet() const { return descriptor_set; }
-bool DescriptorSet::operator!() const { return !descriptor_set; }
-vk::DescriptorSet* DescriptorSet::operator->() { return &descriptor_set; }
-vk::DescriptorSet& DescriptorSet::operator*() { return descriptor_set; }
+EPIX_API DescriptorSet::operator vk::DescriptorSet() const {
+    return descriptor_set;
+}
+EPIX_API DescriptorSet::operator VkDescriptorSet() const {
+    return descriptor_set;
+}
+EPIX_API bool DescriptorSet::operator!() const { return !descriptor_set; }
+EPIX_API vk::DescriptorSet* DescriptorSet::operator->() {
+    return &descriptor_set;
+}
+EPIX_API vk::DescriptorSet& DescriptorSet::operator*() {
+    return descriptor_set;
+}
 
-Fence Fence::create(Device& device, vk::FenceCreateInfo create_info) {
+EPIX_API Fence Fence::create(Device& device, vk::FenceCreateInfo create_info) {
     Fence fence;
     fence.fence = device->createFence(create_info);
     return fence;
 }
 
-void Fence::destroy(Device& device) { device->destroyFence(fence); }
-Fence::operator vk::Fence() const { return fence; }
-Fence::operator VkFence() const { return fence; }
-bool Fence::operator!() const { return !fence; }
-vk::Fence* Fence::operator->() { return &fence; }
-vk::Fence& Fence::operator*() { return fence; }
+EPIX_API void Fence::destroy(Device& device) { device->destroyFence(fence); }
+EPIX_API Fence::operator vk::Fence() const { return fence; }
+EPIX_API Fence::operator VkFence() const { return fence; }
+EPIX_API bool Fence::operator!() const { return !fence; }
+EPIX_API vk::Fence* Fence::operator->() { return &fence; }
+EPIX_API vk::Fence& Fence::operator*() { return fence; }
 
-Semaphore Semaphore::create(
-    Device& device, vk::SemaphoreCreateInfo create_info
-) {
+EPIX_API Semaphore
+Semaphore::create(Device& device, vk::SemaphoreCreateInfo create_info) {
     Semaphore semaphore;
     semaphore.semaphore = device->createSemaphore(create_info);
     return semaphore;
 }
 
-void Semaphore::destroy(Device& device) { device->destroySemaphore(semaphore); }
-Semaphore::operator vk::Semaphore() const { return semaphore; }
-Semaphore::operator VkSemaphore() const { return semaphore; }
-bool Semaphore::operator!() const { return !semaphore; }
-vk::Semaphore* Semaphore::operator->() { return &semaphore; }
-vk::Semaphore& Semaphore::operator*() { return semaphore; }
+EPIX_API void Semaphore::destroy(Device& device) {
+    device->destroySemaphore(semaphore);
+}
+EPIX_API Semaphore::operator vk::Semaphore() const { return semaphore; }
+EPIX_API Semaphore::operator VkSemaphore() const { return semaphore; }
+EPIX_API bool Semaphore::operator!() const { return !semaphore; }
+EPIX_API vk::Semaphore* Semaphore::operator->() { return &semaphore; }
+EPIX_API vk::Semaphore& Semaphore::operator*() { return semaphore; }
 
-Surface Surface::create(Instance& instance, GLFWwindow* window) {
+EPIX_API Surface Surface::create(Instance& instance, GLFWwindow* window) {
     Surface surface_component;
     if (glfwCreateWindowSurface(
             instance, window, nullptr,
@@ -1013,16 +1062,16 @@ Surface Surface::create(Instance& instance, GLFWwindow* window) {
     return surface_component;
 }
 
-void Surface::destroy(Instance& instance) {
+EPIX_API void Surface::destroy(Instance& instance) {
     instance->destroySurfaceKHR(surface);
 }
-Surface::operator vk::SurfaceKHR() const { return surface; }
-Surface::operator VkSurfaceKHR() const { return surface; }
-bool Surface::operator!() const { return !surface; }
-vk::SurfaceKHR* Surface::operator->() { return &surface; }
-vk::SurfaceKHR& Surface::operator*() { return surface; }
+EPIX_API Surface::operator vk::SurfaceKHR() const { return surface; }
+EPIX_API Surface::operator VkSurfaceKHR() const { return surface; }
+EPIX_API bool Surface::operator!() const { return !surface; }
+EPIX_API vk::SurfaceKHR* Surface::operator->() { return &surface; }
+EPIX_API vk::SurfaceKHR& Surface::operator*() { return surface; }
 
-Swapchain Swapchain::create(
+EPIX_API Swapchain Swapchain::create(
     PhysicalDevice& physical_device,
     Device& device,
     Surface& surface,
@@ -1111,7 +1160,7 @@ Swapchain Swapchain::create(
     return swapchain;
 }
 
-void Swapchain::recreate(
+EPIX_API void Swapchain::recreate(
     PhysicalDevice& physical_device, Device& device, Surface& surface
 ) {
     if (extent ==
@@ -1179,7 +1228,7 @@ void Swapchain::recreate(
         );
     }
 }
-void Swapchain::destroy(Device& device) {
+EPIX_API void Swapchain::destroy(Device& device) {
     for (int i = 0; i < 2; i++) {
         device->destroyFence(in_flight_fence[i]);
     }
@@ -1188,10 +1237,10 @@ void Swapchain::destroy(Device& device) {
     }
     device->destroySwapchainKHR(swapchain);
 }
-Swapchain::operator vk::SwapchainKHR() const { return swapchain; }
-Swapchain::operator VkSwapchainKHR() const { return swapchain; }
-Swapchain::operator vk::SwapchainKHR&() { return swapchain; }
-Image Swapchain::next_image(Device& device) {
+EPIX_API Swapchain::operator vk::SwapchainKHR() const { return swapchain; }
+EPIX_API Swapchain::operator VkSwapchainKHR() const { return swapchain; }
+EPIX_API Swapchain::operator vk::SwapchainKHR&() { return swapchain; }
+EPIX_API Image Swapchain::next_image(Device& device) {
     current_frame = (current_frame + 1) % 2;
     image_index =
         device
@@ -1201,52 +1250,52 @@ Image Swapchain::next_image(Device& device) {
             .value;
     return Image{.image = images[image_index]};
 }
-Image Swapchain::current_image() const {
+EPIX_API Image Swapchain::current_image() const {
     return Image{.image = images[image_index]};
 }
-ImageView Swapchain::current_image_view() const {
+EPIX_API ImageView Swapchain::current_image_view() const {
     return image_views[image_index];
 }
-vk::Fence& Swapchain::fence() { return in_flight_fence[current_frame]; }
-bool Swapchain::operator!() const { return !swapchain; }
-vk::SwapchainKHR* Swapchain::operator->() { return &swapchain; }
-vk::SwapchainKHR& Swapchain::operator*() { return swapchain; }
+EPIX_API vk::Fence& Swapchain::fence() {
+    return in_flight_fence[current_frame];
+}
+EPIX_API bool Swapchain::operator!() const { return !swapchain; }
+EPIX_API vk::SwapchainKHR* Swapchain::operator->() { return &swapchain; }
+EPIX_API vk::SwapchainKHR& Swapchain::operator*() { return swapchain; }
 
-RenderPass RenderPass::create(
-    Device& device, vk::RenderPassCreateInfo create_info
-) {
+EPIX_API RenderPass
+RenderPass::create(Device& device, vk::RenderPassCreateInfo create_info) {
     RenderPass render_pass;
     render_pass.render_pass = device->createRenderPass(create_info);
     return render_pass;
 }
 
-void RenderPass::destroy(Device& device) {
+EPIX_API void RenderPass::destroy(Device& device) {
     device->destroyRenderPass(render_pass);
 }
-RenderPass::operator vk::RenderPass() const { return render_pass; }
-RenderPass::operator VkRenderPass() const { return render_pass; }
-bool RenderPass::operator!() const { return !render_pass; }
-vk::RenderPass* RenderPass::operator->() { return &render_pass; }
-vk::RenderPass& RenderPass::operator*() { return render_pass; }
+EPIX_API RenderPass::operator vk::RenderPass() const { return render_pass; }
+EPIX_API RenderPass::operator VkRenderPass() const { return render_pass; }
+EPIX_API bool RenderPass::operator!() const { return !render_pass; }
+EPIX_API vk::RenderPass* RenderPass::operator->() { return &render_pass; }
+EPIX_API vk::RenderPass& RenderPass::operator*() { return render_pass; }
 
-Framebuffer Framebuffer::create(
-    Device& device, vk::FramebufferCreateInfo create_info
-) {
+EPIX_API Framebuffer
+Framebuffer::create(Device& device, vk::FramebufferCreateInfo create_info) {
     Framebuffer framebuffer;
     framebuffer.framebuffer = device->createFramebuffer(create_info);
     return framebuffer;
 }
 
-void Framebuffer::destroy(Device& device) {
+EPIX_API void Framebuffer::destroy(Device& device) {
     device->destroyFramebuffer(framebuffer);
 }
-Framebuffer::operator vk::Framebuffer() const { return framebuffer; }
-Framebuffer::operator VkFramebuffer() const { return framebuffer; }
-bool Framebuffer::operator!() const { return !framebuffer; }
-vk::Framebuffer* Framebuffer::operator->() { return &framebuffer; }
-vk::Framebuffer& Framebuffer::operator*() { return framebuffer; }
+EPIX_API Framebuffer::operator vk::Framebuffer() const { return framebuffer; }
+EPIX_API Framebuffer::operator VkFramebuffer() const { return framebuffer; }
+EPIX_API bool Framebuffer::operator!() const { return !framebuffer; }
+EPIX_API vk::Framebuffer* Framebuffer::operator->() { return &framebuffer; }
+EPIX_API vk::Framebuffer& Framebuffer::operator*() { return framebuffer; }
 
-ShaderModule ShaderModule::create(
+EPIX_API ShaderModule ShaderModule::create(
     Device& device, const vk::ShaderModuleCreateInfo& create_info
 ) {
     ShaderModule shader_module;
@@ -1254,48 +1303,62 @@ ShaderModule ShaderModule::create(
     return shader_module;
 }
 
-void ShaderModule::destroy(Device& device) {
+EPIX_API void ShaderModule::destroy(Device& device) {
     device->destroyShaderModule(shader_module);
 }
-ShaderModule::operator vk::ShaderModule() const { return shader_module; }
-ShaderModule::operator VkShaderModule() const { return shader_module; }
-bool ShaderModule::operator!() const { return !shader_module; }
-vk::ShaderModule* ShaderModule::operator->() { return &shader_module; }
-vk::ShaderModule& ShaderModule::operator*() { return shader_module; }
+EPIX_API ShaderModule::operator vk::ShaderModule() const {
+    return shader_module;
+}
+EPIX_API ShaderModule::operator VkShaderModule() const { return shader_module; }
+EPIX_API bool ShaderModule::operator!() const { return !shader_module; }
+EPIX_API vk::ShaderModule* ShaderModule::operator->() { return &shader_module; }
+EPIX_API vk::ShaderModule& ShaderModule::operator*() { return shader_module; }
 
-PipelineCache PipelineCache::create(Device& device) {
+EPIX_API PipelineCache PipelineCache::create(Device& device) {
     PipelineCache pipeline_cache;
     pipeline_cache.pipeline_cache = device->createPipelineCache({});
     return pipeline_cache;
 }
 
-void PipelineCache::destroy(Device& device) {
+EPIX_API void PipelineCache::destroy(Device& device) {
     device->destroyPipelineCache(pipeline_cache);
 }
-PipelineCache::operator vk::PipelineCache() const { return pipeline_cache; }
-PipelineCache::operator VkPipelineCache() const { return pipeline_cache; }
-bool PipelineCache::operator!() const { return !pipeline_cache; }
-vk::PipelineCache* PipelineCache::operator->() { return &pipeline_cache; }
-vk::PipelineCache& PipelineCache::operator*() { return pipeline_cache; }
+EPIX_API PipelineCache::operator vk::PipelineCache() const {
+    return pipeline_cache;
+}
+EPIX_API PipelineCache::operator VkPipelineCache() const {
+    return pipeline_cache;
+}
+EPIX_API bool PipelineCache::operator!() const { return !pipeline_cache; }
+EPIX_API vk::PipelineCache* PipelineCache::operator->() {
+    return &pipeline_cache;
+}
+EPIX_API vk::PipelineCache& PipelineCache::operator*() {
+    return pipeline_cache;
+}
 
-RenderTarget& RenderTarget::set_extent(uint32_t width, uint32_t height) {
+EPIX_API RenderTarget& RenderTarget::set_extent(
+    uint32_t width, uint32_t height
+) {
     extent = vk::Extent2D(width, height);
     return *this;
 }
 
-RenderTarget& RenderTarget::add_color_image(Image& image, vk::Format format) {
+EPIX_API RenderTarget& RenderTarget::add_color_image(
+    Image& image, vk::Format format
+) {
     color_attachments.emplace_back(image, ImageView{}, format);
     return *this;
 }
 
-RenderTarget& RenderTarget::add_color_image(
+EPIX_API RenderTarget& RenderTarget::add_color_image(
     Image& image, ImageView& image_view, vk::Format format
 ) {
     color_attachments.emplace_back(image, image_view, format);
     return *this;
 }
 
-RenderTarget& RenderTarget::add_color_image(
+EPIX_API RenderTarget& RenderTarget::add_color_image(
     Device& device, Image& image, vk::Format format
 ) {
     auto image_view = ImageView::create(
@@ -1321,19 +1384,21 @@ RenderTarget& RenderTarget::add_color_image(
     return *this;
 }
 
-RenderTarget& RenderTarget::set_depth_image(Image& image, vk::Format format) {
+EPIX_API RenderTarget& RenderTarget::set_depth_image(
+    Image& image, vk::Format format
+) {
     depth_attachment = {image, ImageView{}, format};
     return *this;
 }
 
-RenderTarget& RenderTarget::set_depth_image(
+EPIX_API RenderTarget& RenderTarget::set_depth_image(
     Image& image, ImageView& image_view, vk::Format format
 ) {
     depth_attachment = {image, image_view, format};
     return *this;
 }
 
-RenderTarget& RenderTarget::set_depth_image(
+EPIX_API RenderTarget& RenderTarget::set_depth_image(
     Device& device, Image& image, vk::Format format
 ) {
     auto image_view = ImageView::create(
@@ -1359,7 +1424,7 @@ RenderTarget& RenderTarget::set_depth_image(
     return *this;
 }
 
-RenderTarget& RenderTarget::complete(Device& device) {
+EPIX_API RenderTarget& RenderTarget::complete(Device& device) {
     for (auto&& [image, view, format] : color_attachments) {
         if (!view) {
             view = ImageView::create(
