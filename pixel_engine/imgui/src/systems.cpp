@@ -46,6 +46,7 @@ EPIX_API void systems::init_imgui(
     pool_info.setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet);
     imgui_context->descriptor_pool = DescriptorPool::create(device, pool_info);
     ImGui::CreateContext();
+    imgui_context->context = ImGui::GetCurrentContext();
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForVulkan(window.get_handle(), true);
     ImGui_ImplVulkan_InitInfo init_info = {};

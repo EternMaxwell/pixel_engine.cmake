@@ -3,7 +3,6 @@
 #define GLFW_INCLUDE_VULKAN
 #endif
 #include <GLFW/glfw3.h>
-
 #include <box2d/box2d.h>
 #include <pixel_engine/imgui.h>
 
@@ -631,12 +630,16 @@ void create_dynamic_from_click(
     Query<
         Get<const Window,
             const ButtonInput<MouseButton>,
-            const ButtonInput<KeyCode>>> window_query
+            const ButtonInput<KeyCode>>> window_query,
+    ResMut<pixel_engine::imgui::ImGuiContext> imgui_context
 ) {
     if (!world_query.single().has_value()) return;
     if (!window_query.single().has_value()) return;
     auto [window, mouse_input, key_input] = window_query.single().value();
-    if (ImGui::GetIO().WantCaptureMouse) return;
+    if (imgui_context.has_value()) {
+        ImGui::SetCurrentContext(imgui_context->context);
+        if (ImGui::GetIO().WantCaptureMouse) return;
+    }
     if (!mouse_input.pressed(pixel_engine::input::MouseButton1) &&
         !key_input.just_pressed(pixel_engine::input::KeySpace))
         return;
