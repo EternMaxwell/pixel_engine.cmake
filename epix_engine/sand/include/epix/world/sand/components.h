@@ -24,6 +24,22 @@ struct CellDef {
     };
     glm::vec4 color;
 
+    CellDef(const CellDef& other)
+        : identifier(other.identifier), color(other.color) {
+        if (identifier == DefIdentifier::Name) {
+            new (&elem_name) std::string(other.elem_name);
+        } else {
+            elem_id = other.elem_id;
+        }
+    }
+    CellDef(CellDef&& other)
+        : identifier(other.identifier), color(other.color) {
+        if (identifier == DefIdentifier::Name) {
+            new (&elem_name) std::string(std::move(other.elem_name));
+        } else {
+            elem_id = other.elem_id;
+        }
+    }
     CellDef(const std::string& name, const glm::vec4& color)
         : identifier(DefIdentifier::Name), elem_name(name), color(color) {}
     CellDef(int id, const glm::vec4& color)
@@ -37,6 +53,10 @@ struct CellDef {
 struct Cell {
     int elem_id     = -1;
     glm::vec4 color = glm::vec4(0.0f);
+
+    bool valid() const { return elem_id >= 0; }
+    operator bool() const { return valid(); }
+    bool operator!() const { return !valid(); }
 };
 struct ElemRegistry {
    private:
@@ -83,6 +103,7 @@ struct Simulation {
             return *this;
         }
         Cell& get(int x, int y) { return cells[y * width + x]; }
+        const Cell& get(int x, int y) const { return cells[y * width + x]; }
         Cell& create(
             int x, int y, const CellDef& def, ElemRegistry& m_registry
         ) {
@@ -124,6 +145,7 @@ struct Simulation {
                 return std::hash<int>()(k.x) ^ std::hash<int>()(k.y);
             }
         };
+
         spp::sparse_hash_map<glm::ivec2, Chunk, ivec2_hash> chunks;
 
         void load_chunk(int x, int y, const Chunk& chunk) {
@@ -149,12 +171,30 @@ struct Simulation {
             return chunks.find(glm::ivec2(x, y)) != chunks.end();
         }
         Chunk& get_chunk(int x, int y) { return chunks.at(glm::ivec2(x, y)); }
+        const Chunk& get_chunk(int x, int y) const {
+            return chunks.at(glm::ivec2(x, y));
+        }
+
+        auto begin() { return chunks.begin(); }
+        const auto begin() const { return chunks.begin(); }
+        auto end() { return chunks.end(); }
+        const auto end() const { return chunks.end(); }
     };
 
    private:
     ElemRegistry m_registry;
     const int m_chunk_size;
     ChunkMap m_chunk_map;
+
+    Cell& create_def(int x, int y, const CellDef& def) {
+        assert(contains(x, y));
+        int chunk_x = x / m_chunk_size;
+        int chunk_y = y / m_chunk_size;
+        int cell_x  = x % m_chunk_size;
+        int cell_y  = y % m_chunk_size;
+        return m_chunk_map.get_chunk(chunk_x, chunk_y)
+            .create(cell_x, cell_y, def, m_registry);
+    }
 
    public:
     Simulation(const ElemRegistry& registry, int chunk_size = 64)
@@ -163,7 +203,9 @@ struct Simulation {
         : m_registry(std::move(registry)), m_chunk_size(chunk_size) {}
 
     ElemRegistry& registry() { return m_registry; }
-
+    const ElemRegistry& registry() const { return m_registry; }
+    ChunkMap& chunk_map() { return m_chunk_map; }
+    const ChunkMap& chunk_map() const { return m_chunk_map; }
     void load_chunk(int x, int y, const Chunk& chunk) {
         m_chunk_map.load_chunk(x, y, chunk);
     }
@@ -185,14 +227,9 @@ struct Simulation {
         const Element& elem = m_registry.get_elem(cell.elem_id);
         return {cell, elem};
     }
-    Cell& create(int x, int y, const CellDef& def) {
-        assert(contains(x, y));
-        int chunk_x = x / m_chunk_size;
-        int chunk_y = y / m_chunk_size;
-        int cell_x  = x % m_chunk_size;
-        int cell_y  = y % m_chunk_size;
-        return m_chunk_map.get_chunk(chunk_x, chunk_y)
-            .create(cell_x, cell_y, def, m_registry);
+    template <typename... Args>
+    Cell& create(int x, int y, Args&&... args) {
+        return create_def(x, y, CellDef(std::forward<Args>(args)...));
     }
     void update() {
         std::vector<glm::ivec2> chunks_to_update;

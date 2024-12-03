@@ -121,7 +121,7 @@ EPIX_API Instance Instance::create(
         glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
     auto instance_extensions = vk::enumerateInstanceExtensionProperties();
-    logger->info("Creating Vulkan Instance");
+    logger->debug("Creating Vulkan Instance");
 
     std::vector<const char*> extensions;
     for (auto& extension : instance_extensions) {
@@ -153,12 +153,12 @@ EPIX_API Instance Instance::create(
     for (auto& layer : layers) {
         instance_layers_info += std::format("\t{}\n", layer);
     }
-    logger->info(instance_layers_info);
+    logger->debug(instance_layers_info);
     std::string instance_extensions_info = "Instance Extensions:\n";
     for (auto& extension : extensions) {
         instance_extensions_info += std::format("\t{}\n", extension);
     }
-    logger->info(instance_extensions_info);
+    logger->debug(instance_extensions_info);
 
     instance.instance = vk::createInstance(instance_info);
 #if !defined(NDEBUG)
@@ -295,7 +295,7 @@ EPIX_API Device Device::create(
     for (auto& extension : device_extensions) {
         device_extensions_info += std::format("\t{}\n", extension);
     }
-    instance.logger->info(device_extensions_info);
+    instance.logger->debug(device_extensions_info);
 
     auto dynamic_rendering_features =
         vk::PhysicalDeviceDynamicRenderingFeaturesKHR().setDynamicRendering(
@@ -1129,7 +1129,7 @@ EPIX_API Swapchain Swapchain::create(
         .setClipped(VK_TRUE);
     swapchain.swapchain = device->createSwapchainKHR(create_info);
     swapchain.images    = device->getSwapchainImagesKHR(swapchain.swapchain);
-    spdlog::info("Swapchain Image Count: {}", swapchain.images.size());
+    // spdlog::info("Swapchain Image Count: {}", swapchain.images.size());
     swapchain.image_views.resize(swapchain.images.size());
     for (int i = 0; i < swapchain.images.size(); i++) {
         swapchain.image_views[i] = ImageView::create(

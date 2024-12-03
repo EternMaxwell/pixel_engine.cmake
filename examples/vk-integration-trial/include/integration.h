@@ -1005,9 +1005,11 @@ void update_mouse_joint(
 
 glm::vec4 sand_gen_color() { return {0.8f, 0.8f, 0.0f, 1.0f}; }
 
+using namespace epix::world::sand;
+using namespace epix::world::sand::components;
+
 void create_simulation(Command command) {
-    using namespace epix::world::sand;
-    using namespace epix::world::sand::components;
+    spdlog::info("Creating falling sand simulation");
 
     ElemRegistry registry;
     registry.register_elem(
@@ -1015,8 +1017,77 @@ void create_simulation(Command command) {
     );
     Simulation simulation(std::move(registry), 64);
     simulation.load_chunk(0, 0);
+    simulation.create(0, 0, "sand", glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
     command.spawn(std::move(simulation));
 }
+
+void update_simulation(Query<Get<Simulation>> query) {
+    if (!query.single().has_value()) return;
+    auto [simulation] = query.single().value();
+    simulation.update();
+}
+
+void render_simulation(
+    Query<Get<const Simulation>> query,
+    Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
+    Query<Get<epix::render::pixel::components::PixelRenderer>> renderer_query
+) {
+    using namespace epix::render::pixel::components;
+    if (!query.single().has_value()) return;
+    if (!context_query.single().has_value()) return;
+    if (!renderer_query.single().has_value()) return;
+    auto [device, swap_chain, queue] = context_query.single().value();
+    auto [renderer]                  = renderer_query.single().value();
+    auto [simulation]                = query.single().value();
+    PixelUniformBuffer uniform_buffer;
+    uniform_buffer.proj = glm::ortho(
+        -static_cast<float>(swap_chain.extent.width) / 2.0f,
+        static_cast<float>(swap_chain.extent.width) / 2.0f,
+        static_cast<float>(swap_chain.extent.height) / 2.0f,
+        -static_cast<float>(swap_chain.extent.height) / 2.0f, 1000.0f, -1000.0f
+    );
+    uniform_buffer.view = glm::scale(glm::mat4(1.0f), {4.0f, 4.0f, 1.0f});
+    renderer.begin(device, swap_chain, queue, uniform_buffer);
+    for (auto&& [pos, chunk] : simulation.chunk_map()) {
+        glm::mat4 model =
+            glm::translate(glm::mat4(1.0f), {pos.x * 64, pos.y * 64, 0.0f});
+        renderer.set_model(model);
+        for (int i = 0; i < chunk.size().x; i++) {
+            for (int j = 0; j < chunk.size().y; j++) {
+                auto& elem = chunk.get(i, j);
+                if (elem) renderer.draw(elem.color, {i + pos.x, j + pos.y});
+            }
+        }
+    }
+    renderer.end();
+}
+
+struct Box2dTestPlugin : Plugin {
+    void build(App& app) override {
+        auto window_plugin = app.get_plugin<WindowPlugin>();
+        // window_plugin->primary_window_vsync = false;
+
+        using namespace epix;
+
+        app.enable_loop();
+        app.insert_state(SimulateState::Running);
+        app.add_system(
+               Startup, create_b2d_world, create_ground, create_dynamic,
+               create_pixel_block_with_collision
+        )
+            .chain();
+        app.add_system(PreUpdate, update_b2d_world)
+            .in_state(SimulateState::Running);
+        app.add_system(
+            Update, destroy_too_far_bodies, create_dynamic_from_click,
+            update_mouse_joint, toggle_simulation
+        );
+        app.add_system(Render, render_pixel_block);
+        app.add_system(PostRender, render_bodies)
+            .before(epix::render_vk::systems::present_frame);
+        app.add_system(Exit, destroy_b2d_world);
+    }
+};
 
 struct VK_TrialPlugin : Plugin {
     void build(App& app) override {
@@ -1029,26 +1100,10 @@ struct VK_TrialPlugin : Plugin {
         // app.add_system(Startup, create_text);
         // app.add_system(Startup, create_pixel_block);
         // app.add_system(Render, draw_lines);
-        app.insert_state(SimulateState::Running);
-        app.add_system(
-               Startup, create_b2d_world, create_ground, create_dynamic,
-               create_pixel_block_with_collision, create_simulation
-        )
-            .chain();
-        app.add_system(PreUpdate, update_b2d_world)
-            .in_state(SimulateState::Running);
-        app.add_system(PreUpdate, toggle_full_screen).use_worker("single");
-        app.add_system(
-            Update, destroy_too_far_bodies, create_dynamic_from_click,
-            toggle_simulation, update_mouse_joint
-        );
-        app.add_system(Render, render_pixel_block);
-        app.add_system(
-               PostRender, render_bodies
-               /*, imgui_demo_window, render_pixel_renderer_test */
-        )
-            .before(epix::render_vk::systems::present_frame);
-        app.add_system(Exit, destroy_b2d_world);
+        app.add_plugin(Box2dTestPlugin{});
+        app.add_system(Startup, create_simulation);
+        app.add_system(PreUpdate, toggle_full_screen);
+        app.add_system(Render, render_simulation);
     }
 };
 
