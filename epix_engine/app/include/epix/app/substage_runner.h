@@ -24,6 +24,10 @@ struct SubStageRunner {
     SubStageRunner& operator=(SubStageRunner&& other) = default;
     template <typename StageT, typename... Args>
     SystemNode* add_system(StageT stage, void (*func)(Args...)) {
+        if (auto it = m_systems.find((void*)(func)); it != m_systems.end()) {
+            m_logger->warn("System {:#018x} already present", (size_t)(func));
+            return it->second.get();
+        }
         auto ptr = std::make_shared<SystemNode>(stage, func);
         m_systems.emplace((void*)(func), ptr);
         return ptr.get();

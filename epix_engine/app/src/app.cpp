@@ -97,6 +97,7 @@ EPIX_API App::App()
 }
 EPIX_API void App::build_plugins() {
     for (auto& [ptr, plugin] : m_plugins) {
+        m_logger->debug("Building plugin: {}", ptr.name());
         plugin->build(*this);
         for (auto& [app_ptr, subapp] : *m_sub_apps) {
             subapp->m_world.m_resources.emplace(ptr, plugin);

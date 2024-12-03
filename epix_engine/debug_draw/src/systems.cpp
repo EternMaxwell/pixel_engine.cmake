@@ -6,6 +6,8 @@ namespace epix::render::debug::vulkan {
 using namespace epix::prelude;
 using namespace epix::render::debug::vulkan;
 using namespace epix::render::debug::vulkan::components;
+static std::shared_ptr<spdlog::logger> logger =
+    spdlog::default_logger()->clone("draw_dbg");
 EPIX_API void systems::create_line_drawer(
     Query<Get<Device, CommandPool>, With<RenderContext>> query,
     Command cmd,
@@ -263,6 +265,7 @@ EPIX_API void systems::destroy_line_drawer(
     if (!query.single().has_value()) return;
     auto [device] = device_query.single().value();
     auto [drawer] = query.single().value();
+    logger->debug("Destroy line drawer.");
     device->waitForFences(*drawer.fence, VK_TRUE, UINT64_MAX);
     drawer.render_pass.destroy(device);
     drawer.pipeline.destroy(device);
@@ -531,6 +534,7 @@ EPIX_API void systems::destroy_point_drawer(
     if (!query.single().has_value()) return;
     auto [device] = device_query.single().value();
     auto [drawer] = query.single().value();
+    logger->debug("Destroy point drawer.");
     device->waitForFences(*drawer.fence, VK_TRUE, UINT64_MAX);
     drawer.render_pass.destroy(device);
     drawer.pipeline.destroy(device);
@@ -800,6 +804,7 @@ EPIX_API void systems::destroy_triangle_drawer(
     if (!query.single().has_value()) return;
     auto [device] = device_query.single().value();
     auto [drawer] = query.single().value();
+    logger->debug("Destroy triangle drawer.");
     device->waitForFences(*drawer.fence, VK_TRUE, UINT64_MAX);
     drawer.render_pass.destroy(device);
     drawer.pipeline.destroy(device);

@@ -1100,8 +1100,10 @@ struct VK_TrialPlugin : Plugin {
         // app.add_system(Startup, create_text);
         // app.add_system(Startup, create_pixel_block);
         // app.add_system(Render, draw_lines);
+        app.insert_state(SimulateState::Running);
         app.add_plugin(Box2dTestPlugin{});
         app.add_system(Startup, create_simulation);
+        app.add_system(Update, toggle_simulation);
         app.add_system(PreUpdate, toggle_full_screen);
         app.add_system(Render, render_simulation);
     }
@@ -1110,6 +1112,7 @@ struct VK_TrialPlugin : Plugin {
 void run() {
     App app = App::create();
     app.enable_loop();
+    app.set_log_level(spdlog::level::info);
     app.add_plugin(epix::window::WindowPlugin{});
     app.add_plugin(epix::input::InputPlugin{});
     app.add_plugin(epix::render_vk::RenderVKPlugin{});
