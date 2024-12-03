@@ -202,6 +202,7 @@ struct Simulation {
     Simulation(ElemRegistry&& registry, int chunk_size = 64)
         : m_registry(std::move(registry)), m_chunk_size(chunk_size) {}
 
+    int chunk_size() const { return m_chunk_size; }
     ElemRegistry& registry() { return m_registry; }
     const ElemRegistry& registry() const { return m_registry; }
     ChunkMap& chunk_map() { return m_chunk_map; }
@@ -218,10 +219,10 @@ struct Simulation {
     }
     std::tuple<Cell&, const Element&> get(int x, int y) {
         assert(contains(x, y));
-        int chunk_x = x / m_chunk_size;
-        int chunk_y = y / m_chunk_size;
-        int cell_x  = x % m_chunk_size;
-        int cell_y  = y % m_chunk_size;
+        int chunk_x = x / m_chunk_size - (x < 0);
+        int chunk_y = y / m_chunk_size - (y < 0);
+        int cell_x  = x % m_chunk_size + m_chunk_size * (x < 0);
+        int cell_y  = y % m_chunk_size + m_chunk_size * (y < 0);
         Cell& cell =
             m_chunk_map.get_chunk(chunk_x, chunk_y).get(cell_x, cell_y);
         const Element& elem = m_registry.get_elem(cell.elem_id);
@@ -259,4 +260,5 @@ struct Simulation {
         }
     }
 };
+constexpr int s = (-1) % 64;
 }  // namespace epix::world::sand::components

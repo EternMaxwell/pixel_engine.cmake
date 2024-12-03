@@ -1016,8 +1016,21 @@ void create_simulation(Command command) {
         "sand", Element{"sand", "sand", sand_gen_color, true, 1.0f}
     );
     Simulation simulation(std::move(registry), 64);
-    simulation.load_chunk(0, 0);
-    simulation.create(0, 0, "sand", glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
+    for (int i = -4; i < 4; i++) {
+        for (int j = -4; j < 4; j++) {
+            simulation.load_chunk(i, j);
+        }
+    }
+    for (auto&& [pos, chunk] : simulation.chunk_map()) {
+        for (int i = 0; i < chunk.size().x; i++) {
+            for (int j = 0; j < chunk.size().y; j++) {
+                chunk.create(
+                    i, j, CellDef("sand", glm::vec4(0.8f, 0.8f, 0.0f, .1f)),
+                    simulation.registry()
+                );
+            }
+        }
+    }
     command.spawn(std::move(simulation));
 }
 
@@ -1049,13 +1062,15 @@ void render_simulation(
     uniform_buffer.view = glm::scale(glm::mat4(1.0f), {4.0f, 4.0f, 1.0f});
     renderer.begin(device, swap_chain, queue, uniform_buffer);
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
-        glm::mat4 model =
-            glm::translate(glm::mat4(1.0f), {pos.x * 64, pos.y * 64, 0.0f});
+        glm::mat4 model = glm::translate(
+            glm::mat4(1.0f), {pos.x * simulation.chunk_size(),
+                              pos.y * simulation.chunk_size(), 0.0f}
+        );
         renderer.set_model(model);
         for (int i = 0; i < chunk.size().x; i++) {
             for (int j = 0; j < chunk.size().y; j++) {
                 auto& elem = chunk.get(i, j);
-                if (elem) renderer.draw(elem.color, {i + pos.x, j + pos.y});
+                if (elem) renderer.draw(elem.color, {i, j});
             }
         }
     }
@@ -1105,7 +1120,8 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(Startup, create_simulation);
         app.add_system(Update, toggle_simulation);
         app.add_system(PreUpdate, toggle_full_screen);
-        app.add_system(Render, render_simulation);
+        app.add_system(Render, render_simulation)
+            .before(render_bodies, render_pixel_block);
     }
 };
 
