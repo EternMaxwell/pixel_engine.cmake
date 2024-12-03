@@ -1,9 +1,9 @@
-#include <pixel_engine/app.h>
-#include <pixel_engine/render_ogl.h>
-#include <pixel_engine/window.h>
+#include <epix/app.h>
+#include <epix/render_ogl.h>
+#include <epix/window.h>
 
-using namespace pixel_engine;
-using namespace pixel_engine::prelude;
+using namespace epix;
+using namespace epix::prelude;
 
 int main() {
     App app = App::create();

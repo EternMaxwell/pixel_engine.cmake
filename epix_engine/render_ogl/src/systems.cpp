@@ -1,6 +1,6 @@
-#include "pixel_engine/render_ogl/systems.h"
+#include "epix/render_ogl/systems.h"
 
-using namespace pixel_engine::render::ogl;
+using namespace epix::render::ogl;
 
 EPIX_API void systems::clear_color(Query<Get<window::Window>> query) {
     for (auto [window] : query.iter()) {

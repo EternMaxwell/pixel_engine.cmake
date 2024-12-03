@@ -1,14 +1,14 @@
-#include "pixel_engine/window.h"
-#include "pixel_engine/window/resources.h"
-#include "pixel_engine/window/systems.h"
+#include "epix/window.h"
+#include "epix/window/resources.h"
+#include "epix/window/systems.h"
 #ifndef GLFW_INCLUDE_VULKAN
 #define GLFW_INCLUDE_VULKAN
 #endif
 #include <GLFW/glfw3.h>
 
-using namespace pixel_engine::window::systems;
-using namespace pixel_engine::window;
-using namespace pixel_engine::prelude;
+using namespace epix::window::systems;
+using namespace epix::window;
+using namespace epix::prelude;
 
 EPIX_API void systems::init_glfw() {
     if (!glfwInit()) {

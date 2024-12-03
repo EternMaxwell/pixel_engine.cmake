@@ -3,16 +3,16 @@
 
 #include <filesystem>
 
-#include "pixel_engine/sprite.h"
-#include "pixel_engine/sprite/shaders/fragment_shader.h"
-#include "pixel_engine/sprite/shaders/vertex_shader.h"
+#include "epix/sprite.h"
+#include "epix/sprite/shaders/fragment_shader.h"
+#include "epix/sprite/shaders/vertex_shader.h"
 
-using namespace pixel_engine::sprite;
-using namespace pixel_engine::sprite::components;
-using namespace pixel_engine::sprite::resources;
-using namespace pixel_engine::sprite::systems;
-using namespace pixel_engine::prelude;
-using namespace pixel_engine::render_vk::components;
+using namespace epix::sprite;
+using namespace epix::sprite::components;
+using namespace epix::sprite::resources;
+using namespace epix::sprite::systems;
+using namespace epix::prelude;
+using namespace epix::render_vk::components;
 
 static std::shared_ptr<spdlog::logger> sprite_logger =
     spdlog::default_logger()->clone("sprite");
@@ -262,7 +262,7 @@ EPIX_API void SpritePluginVK::build(App& app) {
         .after(creating_actual_sampler);
     app.add_system(PreRender, update_sprite_depth_vk);
     app.add_system(Render, draw_sprite_2d_vk)
-        .before(pixel_engine::font::systems::vulkan::draw_text);
+        .before(epix::font::systems::vulkan::draw_text);
     app.add_system(
         Exit, destroy_sprite_server_vk_images,
         destroy_sprite_server_vk_samplers, destroy_sprite_depth_vk,

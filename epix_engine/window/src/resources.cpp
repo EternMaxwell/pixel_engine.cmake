@@ -1,8 +1,8 @@
-#include "pixel_engine/window/resources.h"
+#include "epix/window/resources.h"
 
-using namespace pixel_engine::prelude;
-using namespace pixel_engine::window::components;
-using namespace pixel_engine::window::resources;
+using namespace epix::prelude;
+using namespace epix::window::components;
+using namespace epix::window::resources;
 
 EPIX_API void WindowMap::insert(GLFWwindow* window, Entity entity) {
     window_map[window] = entity;

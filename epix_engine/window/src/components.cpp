@@ -1,10 +1,10 @@
-#include "pixel_engine/window/components.h"
-#include "pixel_engine/window/resources.h"
+#include "epix/window/components.h"
+#include "epix/window/resources.h"
 
-using namespace pixel_engine::prelude;
-using namespace pixel_engine::window;
-using namespace pixel_engine::window::components;
-using namespace pixel_engine::window::resources;
+using namespace epix::prelude;
+using namespace epix::window;
+using namespace epix::window::components;
+using namespace epix::window::resources;
 
 EPIX_API WindowDescription& WindowDescription::set_title(std::string title) {
     this->title = title;

@@ -4,16 +4,16 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "pixel_engine/sprite.h"
-#include "pixel_engine/sprite/shaders/fragment_shader.h"
-#include "pixel_engine/sprite/shaders/vertex_shader.h"
+#include "epix/sprite.h"
+#include "epix/sprite/shaders/fragment_shader.h"
+#include "epix/sprite/shaders/vertex_shader.h"
 
-using namespace pixel_engine::sprite;
-using namespace pixel_engine::sprite::components;
-using namespace pixel_engine::sprite::resources;
-using namespace pixel_engine::sprite::systems;
-using namespace pixel_engine::prelude;
-using namespace pixel_engine::render_vk::components;
+using namespace epix::sprite;
+using namespace epix::sprite::components;
+using namespace epix::sprite::resources;
+using namespace epix::sprite::systems;
+using namespace epix::prelude;
+using namespace epix::render_vk::components;
 
 std::shared_ptr<spdlog::logger> sprite_logger =
     spdlog::default_logger()->clone("sprite");

@@ -1,11 +1,11 @@
-#include "pixel_engine/imgui.h"
+#include "epix/imgui.h"
 
-using namespace pixel_engine::prelude;
-using namespace pixel_engine::render_vk::components;
-using namespace pixel_engine::window::components;
-using namespace pixel_engine::imgui;
+using namespace epix::prelude;
+using namespace epix::render_vk::components;
+using namespace epix::window::components;
+using namespace epix::imgui;
 
-namespace pixel_engine::imgui {
+namespace epix::imgui {
 EPIX_API void systems::insert_imgui_ctx(Command cmd) {
     cmd.insert_resource(ImGuiContext{});
 }
@@ -138,4 +138,4 @@ EPIX_API void systems::end_imgui(
     auto submit_info = vk::SubmitInfo().setCommandBuffers(*ctx->command_buffer);
     queue->submit(submit_info, *ctx->fence);
 }
-}  // namespace pixel_engine::imgui
+}  // namespace epix::imgui

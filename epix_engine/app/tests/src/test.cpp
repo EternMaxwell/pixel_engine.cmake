@@ -1,6 +1,6 @@
-#include <pixel_engine/app.h>
+#include <epix/app.h>
 
-using namespace pixel_engine::prelude;
+using namespace epix::prelude;
 
 struct TestRes {
     int v;

@@ -1,6 +1,6 @@
-#include "pixel_engine/render/debug.h"
+#include "epix/render/debug.h"
 
-using namespace pixel_engine::render;
+using namespace epix::render;
 
 EPIX_API void debug::vulkan::DebugRenderPlugin::build(App& app) {
     app.add_system(Startup, systems::create_line_drawer);

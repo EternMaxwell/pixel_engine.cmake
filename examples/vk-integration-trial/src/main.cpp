@@ -1,4 +1,4 @@
-#include <pixel_engine/prelude.h>
+#include <epix/prelude.h>
 #ifndef GLFW_INCLUDE_VULKAN
 #define GLFW_INCLUDE_VULKAN
 #endif

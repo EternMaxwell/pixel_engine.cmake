@@ -1,6 +1,6 @@
-#include "pixel_engine/app.h"
+#include "epix/app.h"
 
-using namespace pixel_engine::app;
+using namespace epix::app;
 
 EPIX_API App* App::SystemInfo::operator->() { return app; }
 EPIX_API App::SystemInfo& App::SystemInfo::chain() {

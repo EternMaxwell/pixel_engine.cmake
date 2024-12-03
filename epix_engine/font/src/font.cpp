@@ -1,14 +1,14 @@
-#include "pixel_engine/font.h"
+#include "epix/font.h"
 
-using namespace pixel_engine;
-using namespace pixel_engine::font;
-using namespace pixel_engine::font::components;
-using namespace pixel_engine::font::resources::vulkan;
+using namespace epix;
+using namespace epix::font;
+using namespace epix::font::components;
+using namespace epix::font::resources::vulkan;
 
 static std::shared_ptr<spdlog::logger> logger =
     spdlog::default_logger()->clone("font");
 
-using namespace pixel_engine::font::resources::tools;
+using namespace epix::font::resources::tools;
 
 EPIX_API const Glyph& GlyphMap::get_glyph(uint32_t index) const {
     if (glyphs->find(index) == glyphs->end()) {

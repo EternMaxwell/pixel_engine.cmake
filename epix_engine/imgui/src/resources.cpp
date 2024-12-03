@@ -1,7 +1,7 @@
-#include "pixel_engine/imgui.h"
+#include "epix/imgui.h"
 
-using namespace pixel_engine::prelude;
-using namespace pixel_engine;
+using namespace epix::prelude;
+using namespace epix;
 
 EPIX_API ImGuiContext* imgui::ImGuiContext::current_context() {
     return context;

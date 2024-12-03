@@ -1,4 +1,4 @@
-﻿#include <pixel_engine/entity.h>
+﻿#include <epix/entity.h>
 
 #include <format>
 #include <iomanip>
@@ -6,7 +6,7 @@
 #include <random>
 
 namespace test_event {
-using namespace pixel_engine;
+using namespace epix;
 using namespace prelude;
 
 struct TestEvent {

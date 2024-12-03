@@ -1,7 +1,7 @@
-﻿#include <pixel_engine/entity.h>
+﻿#include <epix/entity.h>
 
 namespace test_loop {
-using namespace pixel_engine;
+using namespace epix;
 using namespace prelude;
 
 void print_hello(Command command) { std::cout << "Hello, World!" << std::endl; }

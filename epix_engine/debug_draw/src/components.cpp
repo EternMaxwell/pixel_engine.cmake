@@ -1,9 +1,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "pixel_engine/render/debug.h"
+#include "epix/render/debug.h"
 
-namespace pixel_engine::render::debug::vulkan::components {
-EPIX_API void LineDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
+namespace epix::render::debug::vulkan::components {
+EPIX_API void LineDrawer::begin(
+    Device& device, Queue& queue, Swapchain& swapchain
+) {
     context = Context{device, queue};
     reset_cmd();
     framebuffer.destroy(device);
@@ -128,7 +130,9 @@ EPIX_API void LineDrawer::drawLine(
     };
     ctx.vertex_count++;
 }
-EPIX_API void PointDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
+EPIX_API void PointDrawer::begin(
+    Device& device, Queue& queue, Swapchain& swapchain
+) {
     context = Context{device, queue};
     reset_cmd();
     framebuffer.destroy(device);
@@ -234,7 +238,9 @@ EPIX_API void PointDrawer::reset_cmd() {
     (*ctx.device)->waitForFences(*fence, VK_TRUE, UINT64_MAX);
     command_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 }
-EPIX_API void PointDrawer::drawPoint(const glm::vec3& pos, const glm::vec4& color) {
+EPIX_API void PointDrawer::drawPoint(
+    const glm::vec3& pos, const glm::vec4& color
+) {
     if (!context.has_value()) return;
     auto& ctx = context.value();
     if (ctx.model_count == 0) setModel(glm::mat4(1.0f));
@@ -249,7 +255,9 @@ EPIX_API void PointDrawer::drawPoint(const glm::vec3& pos, const glm::vec4& colo
     };
     ctx.vertex_count++;
 }
-EPIX_API void TriangleDrawer::begin(Device& device, Queue& queue, Swapchain& swapchain) {
+EPIX_API void TriangleDrawer::begin(
+    Device& device, Queue& queue, Swapchain& swapchain
+) {
     context = Context{device, queue};
     reset_cmd();
     framebuffer.destroy(device);
@@ -381,4 +389,4 @@ EPIX_API void TriangleDrawer::drawTriangle(
     };
     ctx.vertex_count++;
 }
-}  // namespace pixel_engine::render::debug::vulkan::components
+}  // namespace epix::render::debug::vulkan::components

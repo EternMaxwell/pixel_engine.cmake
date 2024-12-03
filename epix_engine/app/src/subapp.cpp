@@ -1,6 +1,6 @@
-#include "pixel_engine/app/subapp.h"
+#include "epix/app/subapp.h"
 
-using namespace pixel_engine::app;
+using namespace epix::app;
 
 EPIX_API void SubApp::tick_events() {
     for (auto& [ptr, queue] : m_world.m_event_queues) {

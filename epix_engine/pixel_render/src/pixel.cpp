@@ -1,9 +1,9 @@
-#include <pixel_engine/font.h>
+#include <epix/font.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "pixel_engine/render/pixel.h"
+#include "epix/render/pixel.h"
 #include "shaders/block/fragment_shader.h"
 #include "shaders/block/geometry_shader.h"
 #include "shaders/block/vertex_shader.h"
@@ -11,7 +11,7 @@
 #include "shaders/pixel/geometry_shader.h"
 #include "shaders/pixel/vertex_shader.h"
 
-namespace pixel_engine::render::pixel {
+namespace epix::render::pixel {
 EPIX_API void systems::create_pixel_block_pipeline(
     Command command, Query<Get<Device, CommandPool>, With<RenderContext>> query
 ) {
@@ -638,4 +638,4 @@ EPIX_API void PixelRenderPlugin::build(App& app) {
     app.add_system(Exit, systems::destroy_pixel_block_pipeline);
     app.add_system(Exit, systems::destroy_pixel_pipeline);
 }
-}  // namespace pixel_engine::render::pixel
+}  // namespace epix::render::pixel

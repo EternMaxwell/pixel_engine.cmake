@@ -1,6 +1,6 @@
-#include "pixel_engine/app/runner_tools.h"
+#include "epix/app/runner_tools.h"
 
-using namespace pixel_engine::app;
+using namespace epix::app;
 
 EPIX_API bool SystemStage::operator==(const SystemStage& other) const {
     return m_stage == other.m_stage && m_sub_stage == other.m_sub_stage;

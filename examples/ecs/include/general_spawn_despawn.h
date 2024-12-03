@@ -1,4 +1,4 @@
-﻿#include <pixel_engine/entity.h>
+﻿#include <epix/entity.h>
 
 #include <format>
 #include <iomanip>
@@ -6,7 +6,7 @@
 #include <random>
 
 namespace test_spawn_despawn {
-using namespace pixel_engine;
+using namespace epix;
 using namespace prelude;
 
 struct Health {
@@ -23,8 +23,8 @@ struct Position {
     float x, y;
     bool valid;
     Position(Position&& other) : x(other.x), y(other.y), valid(true) {
-        other.x = 0.0f;
-        other.y = 0.0f;
+        other.x     = 0.0f;
+        other.y     = 0.0f;
         other.valid = false;
         std::cout << "Position move constructor" << std::endl;
     }

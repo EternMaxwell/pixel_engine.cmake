@@ -1,6 +1,6 @@
-#include "pixel_engine/app/stage_runner.h"
+#include "epix/app/stage_runner.h"
 
-using namespace pixel_engine::app;
+using namespace epix::app;
 
 EPIX_API StageRunner::StageRunner(
     std::type_index stage,

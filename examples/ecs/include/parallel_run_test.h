@@ -1,6 +1,6 @@
-﻿#include <pixel_engine/entity.h>
+﻿#include <epix/entity.h>
 
-using namespace pixel_engine;
+using namespace epix;
 
 namespace test_parallel_run {
 using namespace prelude;

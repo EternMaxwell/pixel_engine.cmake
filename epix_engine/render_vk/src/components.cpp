@@ -1,9 +1,9 @@
-#include "pixel_engine/render_vk.h"
+#include "epix/render_vk.h"
 
-using namespace pixel_engine;
-using namespace pixel_engine::prelude;
-using namespace pixel_engine::window;
-using namespace pixel_engine::render_vk::components;
+using namespace epix;
+using namespace epix::prelude;
+using namespace epix::window;
+using namespace epix::render_vk::components;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,

@@ -1,4 +1,4 @@
-#include "pixel_engine/render_vk.h"
+#include "epix/render_vk.h"
 
 #ifndef VMA_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
@@ -11,10 +11,10 @@
 #include <GLFW/glfw3.h>
 #include <spdlog/spdlog.h>
 
-using namespace pixel_engine::prelude;
-using namespace pixel_engine::render_vk;
-using namespace pixel_engine::render_vk::components;
-using namespace pixel_engine::render_vk::systems;
+using namespace epix::prelude;
+using namespace epix::render_vk;
+using namespace epix::render_vk::components;
+using namespace epix::render_vk::systems;
 
 static std::shared_ptr<spdlog::logger> logger =
     spdlog::default_logger()->clone("render_vk");

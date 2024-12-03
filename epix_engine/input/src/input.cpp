@@ -1,11 +1,11 @@
 #include <spdlog/spdlog.h>
 
-#include "pixel_engine/input.h"
+#include "epix/input.h"
 
-using namespace pixel_engine;
-using namespace pixel_engine::input;
-using namespace pixel_engine::prelude;
-using namespace pixel_engine::input::systems;
+using namespace epix;
+using namespace epix::input;
+using namespace epix::prelude;
+using namespace epix::input::systems;
 
 static auto logger = spdlog::default_logger()->clone("input");
 
@@ -83,10 +83,10 @@ EPIX_API void systems::update_input(
 }
 
 EPIX_API void systems::output_event(
-    EventReader<pixel_engine::input::events::MouseScroll> scroll_events,
+    EventReader<epix::input::events::MouseScroll> scroll_events,
     Query<Get<ButtonInput<KeyCode>, ButtonInput<MouseButton>, const Window>>
         query,
-    EventReader<pixel_engine::input::events::CursorMove> cursor_move_events
+    EventReader<epix::input::events::CursorMove> cursor_move_events
 ) {
     for (auto event : scroll_events.read()) {
         logger->info("scroll : {}", event.yoffset);

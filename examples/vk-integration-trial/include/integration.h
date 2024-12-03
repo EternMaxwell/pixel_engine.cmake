@@ -1,10 +1,10 @@
-#include <pixel_engine/prelude.h>
+#include <epix/prelude.h>
 #ifndef GLFW_INCLUDE_VULKAN
 #define GLFW_INCLUDE_VULKAN
 #endif
 #include <GLFW/glfw3.h>
 #include <box2d/box2d.h>
-#include <pixel_engine/imgui.h>
+#include <epix/imgui.h>
 
 #include <earcut.hpp>
 #include <random>
@@ -13,11 +13,11 @@
 #include "fragment_shader.h"
 #include "vertex_shader.h"
 
-using namespace pixel_engine::prelude;
-using namespace pixel_engine::window;
-using namespace pixel_engine::render_vk::components;
-using namespace pixel_engine::sprite::components;
-using namespace pixel_engine::sprite::resources;
+using namespace epix::prelude;
+using namespace epix::window;
+using namespace epix::render_vk::components;
+using namespace epix::sprite::components;
+using namespace epix::sprite::resources;
 
 namespace mapbox {
 namespace util {
@@ -403,7 +403,7 @@ struct pixelbin {
     glm::ivec2 size() const { return {width, height}; }
 };
 
-using PixelBlock = pixel_engine::render::pixel::components::PixelBlock;
+using PixelBlock = epix::render::pixel::components::PixelBlock;
 struct PixelBlockWrapper {
     PixelBlock block;
     bool contains(int x, int y) const {
@@ -553,7 +553,7 @@ void create_pixel_block_with_collision(
 void render_pixel_block(
     Query<Get<PixelBlockWrapper, b2BodyId>> query,
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
-    Query<Get<pixel_engine::render::pixel::components::PixelRenderer>>
+    Query<Get<epix::render::pixel::components::PixelRenderer>>
         pixel_renderer_query,
     Query<Get<b2WorldId>> world_query
 ) {
@@ -563,7 +563,7 @@ void render_pixel_block(
     auto [b2_world]                  = world_query.single().value();
     auto [device, swap_chain, queue] = context_query.single().value();
     auto [pixel_renderer]            = pixel_renderer_query.single().value();
-    pixel_engine::render::pixel::components::PixelUniformBuffer uniform_buffer;
+    epix::render::pixel::components::PixelUniformBuffer uniform_buffer;
     uniform_buffer.proj = glm::ortho(
         -(float)swap_chain.extent.width / 2.0f,
         (float)swap_chain.extent.width / 2.0f,
@@ -622,7 +622,7 @@ void create_dynamic(Command command, Query<Get<b2WorldId>> world_query) {
     command.spawn(body);
 }
 
-using namespace pixel_engine::input;
+using namespace epix::input;
 
 void create_dynamic_from_click(
     Command command,
@@ -631,7 +631,7 @@ void create_dynamic_from_click(
         Get<const Window,
             const ButtonInput<MouseButton>,
             const ButtonInput<KeyCode>>> window_query,
-    ResMut<pixel_engine::imgui::ImGuiContext> imgui_context
+    ResMut<epix::imgui::ImGuiContext> imgui_context
 ) {
     if (!world_query.single().has_value()) return;
     if (!window_query.single().has_value()) return;
@@ -640,8 +640,8 @@ void create_dynamic_from_click(
         ImGui::SetCurrentContext(imgui_context->context);
         if (ImGui::GetIO().WantCaptureMouse) return;
     }
-    if (!mouse_input.pressed(pixel_engine::input::MouseButton1) &&
-        !key_input.just_pressed(pixel_engine::input::KeySpace))
+    if (!mouse_input.pressed(epix::input::MouseButton1) &&
+        !key_input.just_pressed(epix::input::KeySpace))
         return;
     auto [world]       = world_query.single().value();
     b2BodyDef body_def = b2DefaultBodyDef();
@@ -666,14 +666,14 @@ void create_dynamic_from_click(
 void toggle_full_screen(Query<Get<Window, ButtonInput<KeyCode>>> query) {
     if (!query.single().has_value()) return;
     auto [window, key_input] = query.single().value();
-    if (key_input.just_pressed(pixel_engine::input::KeyF11)) {
+    if (key_input.just_pressed(epix::input::KeyF11)) {
         window.toggle_fullscreen();
     }
 }
 
 void render_bodies(
     Query<Get<b2BodyId>> query,
-    Query<Get<pixel_engine::render::debug::vulkan::components::LineDrawer>>
+    Query<Get<epix::render::debug::vulkan::components::LineDrawer>>
         line_drawer_query,
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query
 ) {
@@ -771,13 +771,13 @@ void destroy_b2d_world(Query<Get<b2WorldId>> query) {
 
 void create_text(
     Command command,
-    ResMut<pixel_engine::font::resources::vulkan::FT2Library> ft2_library
+    ResMut<epix::font::resources::vulkan::FT2Library> ft2_library
 ) {
     if (!ft2_library.has_value()) return;
-    pixel_engine::font::components::Text text;
+    epix::font::components::Text text;
     auto font_face =
         ft2_library->load_font("../assets/fonts/FiraSans-Bold.ttf");
-    text.font = pixel_engine::font::components::Font{.font_face = font_face};
+    text.font        = epix::font::components::Font{.font_face = font_face};
     text.font.pixels = 32;
     text.text =
         L"Hello, "
@@ -786,12 +786,12 @@ void create_text(
         L"ohiouaewhoiughjwaoigoiehafgioerhiiUWEGHNVIOAHJEDSKGBHJIUAERWHJIUG"
         L"OHoa"
         L"ghweiuo ioweafgioewajiojoiatg huihkljh";
-    command.spawn(text, pixel_engine::font::components::TextPos{100, 500});
-    pixel_engine::font::components::Text text2;
+    command.spawn(text, epix::font::components::TextPos{100, 500});
+    epix::font::components::Text text2;
     font_face = ft2_library->load_font(
         "../assets/fonts/HachicroUndertaleBattleFontRegular-L3zlg.ttf"
     );
-    text2.font = pixel_engine::font::components::Font{.font_face = font_face};
+    text2.font        = epix::font::components::Font{.font_face = font_face};
     text2.font.pixels = 32;
     text2.text =
         L"Hello, "
@@ -799,10 +799,10 @@ void create_text(
         L"ierwhjgiohnweaioulgfhjewjfweg3ioioiwefiowejhoiewfgjoiweaghioweahi"
         L"oawe"
         L"gHJWEAIOUHAWEFGIOULHJEAWio;hWE$gowaejgio";
-    command.spawn(text2, pixel_engine::font::components::TextPos{100, 200});
+    command.spawn(text2, epix::font::components::TextPos{100, 200});
 }
 
-void shuffle_text(Query<Get<pixel_engine::font::components::Text>> text_query) {
+void shuffle_text(Query<Get<epix::font::components::Text>> text_query) {
     for (auto [text] : text_query.iter()) {
         std::random_device rd;
         std::mt19937 g(rd());
@@ -815,7 +815,7 @@ void shuffle_text(Query<Get<pixel_engine::font::components::Text>> text_query) {
 
 void create_pixel_block(Command command) {
     auto block =
-        pixel_engine::render::pixel::components::PixelBlock::create({512, 512});
+        epix::render::pixel::components::PixelBlock::create({512, 512});
     for (size_t i = 0; i < block.size.x; i++) {
         for (size_t j = 0; j < block.size.y; j++) {
             block[{i, j}] = {
@@ -826,15 +826,14 @@ void create_pixel_block(Command command) {
     }
     command.spawn(
         std::move(block),
-        pixel_engine::render::pixel::components::BlockPos2d{
+        epix::render::pixel::components::BlockPos2d{
             .pos = {-1000, -1000, 0}, .scale = {4.0f, 4.0f}
         }
     );
 }
 
 void draw_lines(
-    Query<Get<pixel_engine::render::debug::vulkan::components::LineDrawer>>
-        query,
+    Query<Get<epix::render::debug::vulkan::components::LineDrawer>> query,
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query
 ) {
     if (!query.single().has_value()) return;
@@ -884,17 +883,16 @@ void draw_lines(
     line_drawer.end();
 }
 
-void imgui_demo_window(ResMut<pixel_engine::imgui::ImGuiContext> imgui_context
-) {
+void imgui_demo_window(ResMut<epix::imgui::ImGuiContext> imgui_context) {
     if (!imgui_context.has_value()) return;
     ImGui::ShowDemoWindow();
 }
 
 void render_pixel_renderer_test(
-    Query<Get<pixel_engine::render::pixel::components::PixelRenderer>> query,
+    Query<Get<epix::render::pixel::components::PixelRenderer>> query,
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query
 ) {
-    using namespace pixel_engine::render::pixel::components;
+    using namespace epix::render::pixel::components;
     if (!query.single().has_value()) return;
     if (!context_query.single().has_value()) return;
     auto [device, swap_chain, queue] = context_query.single().value();
@@ -927,7 +925,7 @@ void toggle_simulation(
 ) {
     if (!query.single().has_value()) return;
     auto [key_input] = query.single().value();
-    if (key_input.just_pressed(pixel_engine::input::KeyEscape)) {
+    if (key_input.just_pressed(epix::input::KeyEscape)) {
         if (next_state.has_value()) {
             next_state->set_state(
                 next_state->is_state(SimulateState::Running)
@@ -977,12 +975,12 @@ void update_mouse_joint(
             window.get_size().height / 2 - window.get_cursor().y
         );
         b2MouseJoint_SetTarget(joint.joint, cursor);
-        if (!mouse_input.pressed(pixel_engine::input::MouseButton2)) {
+        if (!mouse_input.pressed(epix::input::MouseButton2)) {
             spdlog::info("Destroy Mouse Joint");
             b2DestroyJoint(joint.joint);
             command.entity(entity).despawn();
         }
-    } else if (mouse_input.just_pressed(pixel_engine::input::MouseButton2) &&
+    } else if (mouse_input.just_pressed(epix::input::MouseButton2) &&
                !ImGui::GetIO().WantCaptureMouse) {
         if (mouse_joint_query.single().has_value()) return;
         b2AABB aabb   = b2AABB();
@@ -1008,8 +1006,8 @@ void update_mouse_joint(
 glm::vec4 sand_gen_color() { return {0.8f, 0.8f, 0.0f, 1.0f}; }
 
 void create_simulation(Command command) {
-    using namespace pixel_engine::world::sand;
-    using namespace pixel_engine::world::sand::components;
+    using namespace epix::world::sand;
+    using namespace epix::world::sand::components;
 
     ElemRegistry registry;
     registry.register_elem(
@@ -1025,7 +1023,7 @@ struct VK_TrialPlugin : Plugin {
         auto window_plugin = app.get_plugin<WindowPlugin>();
         // window_plugin->primary_window_vsync = false;
 
-        using namespace pixel_engine;
+        using namespace epix;
 
         app.enable_loop();
         // app.add_system(Startup, create_text);
@@ -1049,7 +1047,7 @@ struct VK_TrialPlugin : Plugin {
                PostRender, render_bodies
                /*, imgui_demo_window, render_pixel_renderer_test */
         )
-            .before(pixel_engine::render_vk::systems::present_frame);
+            .before(epix::render_vk::systems::present_frame);
         app.add_system(Exit, destroy_b2d_world);
     }
 };
@@ -1057,14 +1055,14 @@ struct VK_TrialPlugin : Plugin {
 void run() {
     App app = App::create();
     app.enable_loop();
-    app.add_plugin(pixel_engine::window::WindowPlugin{});
-    app.add_plugin(pixel_engine::input::InputPlugin{});
-    app.add_plugin(pixel_engine::render_vk::RenderVKPlugin{});
-    app.add_plugin(pixel_engine::render::debug::vulkan::DebugRenderPlugin{});
+    app.add_plugin(epix::window::WindowPlugin{});
+    app.add_plugin(epix::input::InputPlugin{});
+    app.add_plugin(epix::render_vk::RenderVKPlugin{});
+    app.add_plugin(epix::render::debug::vulkan::DebugRenderPlugin{});
     // app.add_plugin(pixel_engine::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});
-    app.add_plugin(pixel_engine::imgui::ImGuiPluginVK{});
-    app.add_plugin(pixel_engine::render::pixel::PixelRenderPlugin{});
+    app.add_plugin(epix::imgui::ImGuiPluginVK{});
+    app.add_plugin(epix::render::pixel::PixelRenderPlugin{});
     // app.add_plugin(pixel_engine::sprite::SpritePluginVK{});
     app.run();
 }

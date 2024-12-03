@@ -1,6 +1,6 @@
-#include "pixel_engine/app/command.h"
+#include "epix/app/command.h"
 
-using namespace pixel_engine::app;
+using namespace epix::app;
 
 EPIX_API EntityCommand::EntityCommand(
     entt::registry* registry,

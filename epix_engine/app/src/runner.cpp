@@ -1,6 +1,6 @@
-#include "pixel_engine/app/runner.h"
+#include "epix/app/runner.h"
 
-using namespace pixel_engine::app;
+using namespace epix::app;
 
 EPIX_API Runner::Runner(
     spp::sparse_hash_map<std::type_index, std::unique_ptr<SubApp>>* sub_apps
@@ -415,6 +415,8 @@ EPIX_API void Runner::update_states() {
     }
 }
 
-EPIX_API void Runner::add_worker(const std::string& name, uint32_t num_threads) {
+EPIX_API void Runner::add_worker(
+    const std::string& name, uint32_t num_threads
+) {
     m_pools->add_pool(name, num_threads);
 }

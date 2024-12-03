@@ -1,11 +1,11 @@
-#include "pixel_engine/render/debug.h"
+#include "epix/render/debug.h"
 #include "shaders/fragment_shader.h"
 #include "shaders/vertex_shader.h"
 
-namespace pixel_engine::render::debug::vulkan {
-using namespace pixel_engine::prelude;
-using namespace pixel_engine::render::debug::vulkan;
-using namespace pixel_engine::render::debug::vulkan::components;
+namespace epix::render::debug::vulkan {
+using namespace epix::prelude;
+using namespace epix::render::debug::vulkan;
+using namespace epix::render::debug::vulkan::components;
 EPIX_API void systems::create_line_drawer(
     Query<Get<Device, CommandPool>, With<RenderContext>> query,
     Command cmd,
@@ -813,4 +813,4 @@ EPIX_API void systems::destroy_triangle_drawer(
     drawer.fence.destroy(device);
     if (drawer.framebuffer) drawer.framebuffer.destroy(device);
 }
-}  // namespace pixel_engine::render::debug::vulkan
+}  // namespace epix::render::debug::vulkan

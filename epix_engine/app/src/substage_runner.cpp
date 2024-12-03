@@ -1,6 +1,6 @@
-#include "pixel_engine/app/substage_runner.h"
+#include "epix/app/substage_runner.h"
 
-using namespace pixel_engine::app;
+using namespace epix::app;
 
 EPIX_API void SubStageRunner::build() {
     // clear previous dependencies if any

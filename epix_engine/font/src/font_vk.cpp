@@ -1,14 +1,14 @@
 #include <unordered_map>
 
-#include "pixel_engine/font.h"
+#include "epix/font.h"
 #include "shaders/fragment_shader.h"
 #include "shaders/geometry_shader.h"
 #include "shaders/vertex_shader.h"
 
-using namespace pixel_engine;
-using namespace pixel_engine::font;
-using namespace pixel_engine::font::components;
-using namespace pixel_engine::font::systems;
+using namespace epix;
+using namespace epix::font;
+using namespace epix::font::components;
+using namespace epix::font::systems;
 using namespace systems::vulkan;
 
 static std::shared_ptr<spdlog::logger> logger =

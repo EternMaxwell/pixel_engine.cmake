@@ -1,8 +1,8 @@
 #include <spdlog/spdlog.h>
 
-#include "pixel_engine/world/sand/components.h"
+#include "epix/world/sand/components.h"
 
-using namespace pixel_engine::world::sand::components;
+using namespace epix::world::sand::components;
 
 static std::shared_ptr<spdlog::logger> elem_registry_logger =
     spdlog::default_logger()->clone("elem_registry");

@@ -1,7 +1,7 @@
-#include "pixel_engine/render_vk.h"
+#include "epix/render_vk.h"
 
-using namespace pixel_engine::prelude;
-using namespace pixel_engine::render_vk;
+using namespace epix::prelude;
+using namespace epix::render_vk;
 
 EPIX_API void RenderVKPlugin::build(App& app) {
     auto window_plugin = app.get_plugin<window::WindowPlugin>();

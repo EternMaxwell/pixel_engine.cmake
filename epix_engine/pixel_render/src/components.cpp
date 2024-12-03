@@ -1,8 +1,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "pixel_engine/render/pixel/components.h"
+#include "epix/render/pixel/components.h"
 
-namespace pixel_engine::render::pixel {
+namespace epix::render::pixel {
 namespace components {
 EPIX_API PixelBlock PixelBlock::create(glm::uvec2 size) {
     PixelBlock block;
@@ -458,4 +458,4 @@ EPIX_API void PixelRenderer::flush() {
     }
 }
 }  // namespace components
-}  // namespace pixel_engine::render::pixel
+}  // namespace epix::render::pixel

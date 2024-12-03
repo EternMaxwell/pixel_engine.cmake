@@ -1,17 +1,17 @@
-#include "pixel_engine/window.h"
-#include "pixel_engine/window/systems.h"
+#include "epix/window.h"
+#include "epix/window/systems.h"
 
-using namespace pixel_engine::window::systems;
-using namespace pixel_engine::window::events;
+using namespace epix::window::systems;
+using namespace epix::window::events;
 
-using namespace pixel_engine::window;
-using namespace pixel_engine::prelude;
+using namespace epix::window;
+using namespace epix::prelude;
 
 EPIX_API WindowDescription& WindowPlugin::primary_desc() {
     return primary_window_description;
 }
 
-EPIX_API void pixel_engine::window::WindowPlugin::build(App& app) {
+EPIX_API void epix::window::WindowPlugin::build(App& app) {
     app.enable_loop();
     app.add_event<events::AnyWindowClose>();
     app.add_event<events::NoWindowExists>();

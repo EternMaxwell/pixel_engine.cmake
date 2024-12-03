@@ -1,9 +1,9 @@
-#include "pixel_engine/input.h"
+#include "epix/input.h"
 
-using namespace pixel_engine;
-using namespace pixel_engine::input;
-using namespace pixel_engine::prelude;
-using namespace pixel_engine::input::components;
+using namespace epix;
+using namespace epix::input;
+using namespace epix::prelude;
+using namespace epix::input::components;
 
 EPIX_API size_t KeyHash::operator()(const KeyCode& key) const {
     return std::hash<int>()(static_cast<int>(key));

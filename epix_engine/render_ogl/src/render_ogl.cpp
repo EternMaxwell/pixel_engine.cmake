@@ -1,6 +1,6 @@
-#include "pixel_engine/render_ogl.h"
+#include "epix/render_ogl.h"
 
-namespace pixel_engine::render::ogl {
+namespace epix::render::ogl {
 EPIX_API void RenderGlPlugin::build(App& app) {
     app.add_system(PreStartup, systems::context_creation)
         .use_worker("single")
@@ -15,4 +15,4 @@ EPIX_API void RenderGlPlugin::build(App& app) {
         .after(systems::context_creation);
     app.add_system(PostRender, systems::swap_buffers).use_worker("single");
 }
-}  // namespace pixel_engine::render::ogl
+}  // namespace epix::render::ogl
