@@ -15,7 +15,7 @@ target_link_libraries (${PROJNAME} PRIVATE VulkanMemoryAllocator)
 target_link_libraries (${PROJNAME} PRIVATE box2d)
 target_link_libraries (${PROJNAME} PRIVATE earcut.hpp)
 
-target_link_libraries (${PROJNAME} PRIVATE pixel_engine_shared)
+target_link_libraries (${PROJNAME} PRIVATE epix_engine_shared)
 target_compile_definitions(${PROJNAME} PRIVATE EPIX_SHARED)
 add_custom_command(TARGET ${PROJNAME} POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy 

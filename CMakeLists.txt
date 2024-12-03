@@ -5,7 +5,7 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-project ("pixel_engine.cmake")
+project ("epix_engine.cmake")
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -34,5 +34,5 @@ add_subdirectory (libs/vma)
 add_subdirectory (libs/imgui)
 add_subdirectory (libs/box2d)
 add_subdirectory (libs/earcut.hpp)
-add_subdirectory (pixel_engine)
+add_subdirectory (epix_engine)
 add_subdirectory (examples)
