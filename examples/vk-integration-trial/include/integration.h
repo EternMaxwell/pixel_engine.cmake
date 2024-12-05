@@ -1003,8 +1003,6 @@ void update_mouse_joint(
     }
 }
 
-glm::vec4 sand_gen_color() { return {0.8f, 0.8f, 0.0f, 1.0f}; }
-
 using namespace epix::world::sand;
 using namespace epix::world::sand::components;
 
@@ -1013,31 +1011,104 @@ void create_simulation(Command command) {
 
     ElemRegistry registry;
     registry.register_elem(
-        "sand", Element{"sand", "sand", sand_gen_color, true, 1.0f}
+        "sand",
+        Element{
+            "sand", "sand", Element::GravType::POWDER,
+            []() {
+                static std::random_device rd;
+                static std::mt19937 gen(rd());
+                static std::uniform_real_distribution<float> dis(0.8f, 0.9f);
+                float r = dis(gen);
+                return glm::vec4(r, r, 0.0f, 1.0f);
+            },
+            1.0f
+        }
+    );
+    registry.register_elem(
+        "water",
+        Element{
+            "water", "water", Element::GravType::LIQUID,
+            []() { return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }, 1.0f
+        }
+    );
+    registry.register_elem(
+        "wall",
+        Element{
+            "wall", "wall", Element::GravType::SOLID,
+            []() {
+                static std::random_device rd;
+                static std::mt19937 gen(rd());
+                static std::uniform_real_distribution<float> dis(0.28f, 0.32f);
+                float r = dis(gen);
+                return glm::vec4(r, r, r, 1.0f);
+            },
+            1.0f
+        }
     );
     Simulation simulation(std::move(registry), 64);
-    for (int i = -4; i < 4; i++) {
-        for (int j = -4; j < 4; j++) {
+    const int simulation_size = 1;
+    for (int i = -simulation_size; i < simulation_size; i++) {
+        for (int j = -simulation_size; j < simulation_size; j++) {
             simulation.load_chunk(i, j);
         }
     }
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
         for (int i = 0; i < chunk.size().x; i++) {
             for (int j = 0; j < chunk.size().y; j++) {
-                chunk.create(
-                    i, j, CellDef("sand", glm::vec4(0.8f, 0.8f, 0.0f, .1f)),
-                    simulation.registry()
-                );
+                static std::random_device rd;
+                static std::mt19937 gen(rd());
+                static std::uniform_int_distribution<int> dis(0, 10);
+                int res = dis(gen);
+                if (res == 9)
+                    chunk.create(i, j, CellDef("sand"), simulation.registry());
+                else if (res == 8)
+                    chunk.create(i, j, CellDef("wall"), simulation.registry());
+                else if (res == 7)
+                    chunk.create(i, j, CellDef("water"), simulation.registry());
             }
         }
     }
     command.spawn(std::move(simulation));
 }
 
-void update_simulation(Query<Get<Simulation>> query) {
+struct RepeatTimer {
+    double interval;
+    double last_time;
+
+    RepeatTimer(double interval) : interval(interval), last_time() {
+        last_time = std::chrono::duration<double>(
+                        std::chrono::system_clock::now().time_since_epoch()
+        )
+                        .count();
+    }
+    int tick() {
+        auto current_time =
+            std::chrono::duration<double>(
+                std::chrono::system_clock::now().time_since_epoch()
+            )
+                .count();
+        if (current_time - last_time > interval) {
+            int count = (current_time - last_time) / interval;
+            last_time += count * interval;
+            return count;
+        }
+        return 0;
+    }
+};
+
+void update_simulation(
+    Query<Get<Simulation>> query, Local<std::optional<RepeatTimer>> timer
+) {
     if (!query) return;
+    if (!timer->has_value()) {
+        *timer = RepeatTimer(1.0 / 30.0);
+    }
     auto [simulation] = query.single();
-    simulation.update();
+    auto count        = timer->value().tick();
+    for (int i = 0; i < count; i++) {
+        simulation.update();
+        return;
+    }
 }
 
 void render_simulation(
@@ -1075,6 +1146,55 @@ void render_simulation(
         }
     }
     renderer.end();
+}
+
+void render_simulation_chunk_outline(
+    Query<Get<const Simulation>> query,
+    Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
+    Query<Get<epix::render::debug::vulkan::components::LineDrawer>>
+        line_drawer_query
+) {
+    using namespace epix::render::debug::vulkan::components;
+    if (!query) return;
+    if (!context_query) return;
+    if (!line_drawer_query) return;
+    auto [device, swap_chain, queue] = context_query.single();
+    auto [line_drawer]               = line_drawer_query.single();
+    auto [simulation]                = query.single();
+    line_drawer.begin(device, queue, swap_chain);
+    float scale = 4.0f;
+    float alpha = 0.3f;
+    for (auto&& [pos, chunk] : simulation.chunk_map()) {
+        glm::mat4 model = glm::translate(
+            glm::mat4(1.0f), {pos.x * simulation.chunk_size() * scale,
+                              pos.y * simulation.chunk_size() * scale, 0.0f}
+        );
+        model = glm::scale(model, {scale, scale, 1.0f});
+        line_drawer.setModel(model);
+        line_drawer.drawLine(
+            {0.0f, 0.0f, 0.0f},
+            {0.0f, static_cast<float>(simulation.chunk_size()), 0.0f},
+            {1.0f, 1.0f, 1.0f, alpha}
+        );
+        line_drawer.drawLine(
+            {0.0f, 0.0f, 0.0f},
+            {static_cast<float>(simulation.chunk_size()), 0.0f, 0.0f},
+            {1.0f, 1.0f, 1.0f, alpha}
+        );
+        line_drawer.drawLine(
+            {static_cast<float>(simulation.chunk_size()), 0.0f, 0.0f},
+            {static_cast<float>(simulation.chunk_size()),
+             static_cast<float>(simulation.chunk_size()), 0.0f},
+            {1.0f, 1.0f, 1.0f, alpha}
+        );
+        line_drawer.drawLine(
+            {0.0f, static_cast<float>(simulation.chunk_size()), 0.0f},
+            {static_cast<float>(simulation.chunk_size()),
+             static_cast<float>(simulation.chunk_size()), 0.0f},
+            {1.0f, 1.0f, 1.0f, alpha}
+        );
+    }
+    line_drawer.end();
 }
 
 struct Box2dTestPlugin : Plugin {
@@ -1116,11 +1236,15 @@ struct VK_TrialPlugin : Plugin {
         // app.add_system(Startup, create_pixel_block);
         // app.add_system(Render, draw_lines);
         app.insert_state(SimulateState::Running);
-        app.add_plugin(Box2dTestPlugin{});
+        // app.add_plugin(Box2dTestPlugin{});
         app.add_system(Startup, create_simulation);
         app.add_system(Update, toggle_simulation);
+        app.add_system(Update, update_simulation)
+            .in_state(SimulateState::Running);
         app.add_system(PreUpdate, toggle_full_screen);
-        app.add_system(Render, render_simulation)
+        app.add_system(
+               Render, render_simulation, render_simulation_chunk_outline
+        )
             .before(render_bodies, render_pixel_block);
     }
 };

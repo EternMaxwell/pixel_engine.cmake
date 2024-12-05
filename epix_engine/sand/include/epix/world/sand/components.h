@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <mutex>
+#include <random>
 
 #include "epix/common.h"
 
@@ -12,8 +13,18 @@ namespace epix::world::sand::components {
 struct Element {
     std::string name;
     std::string description;
-    glm::vec4 (*gen_color)();
-    bool movable;
+    /**
+     * @brief GravType is an enum class that defines how the element reacts to
+     * gravity. Powder won't spread out as much as liquid, and gas will rise to
+     * the top.
+     */
+    enum class GravType {
+        POWDER,
+        LIQUID,
+        SOLID,
+        GAS,
+    } grav_type = GravType::SOLID;
+    std::function<glm::vec4()> color_gen;
     float density;
 };
 struct CellDef {
@@ -22,28 +33,48 @@ struct CellDef {
         std::string elem_name;
         int elem_id;
     };
-    glm::vec4 color;
 
-    CellDef(const CellDef& other)
-        : identifier(other.identifier), color(other.color) {
+    CellDef(const CellDef& other) : identifier(other.identifier) {
         if (identifier == DefIdentifier::Name) {
             new (&elem_name) std::string(other.elem_name);
         } else {
             elem_id = other.elem_id;
         }
     }
-    CellDef(CellDef&& other)
-        : identifier(other.identifier), color(other.color) {
+    CellDef(CellDef&& other) : identifier(other.identifier) {
         if (identifier == DefIdentifier::Name) {
             new (&elem_name) std::string(std::move(other.elem_name));
         } else {
             elem_id = other.elem_id;
         }
     }
-    CellDef(const std::string& name, const glm::vec4& color)
-        : identifier(DefIdentifier::Name), elem_name(name), color(color) {}
-    CellDef(int id, const glm::vec4& color)
-        : identifier(DefIdentifier::Id), elem_id(id), color(color) {}
+    CellDef& operator=(const CellDef& other) {
+        if (identifier == DefIdentifier::Name) {
+            elem_name.~basic_string();
+        }
+        identifier = other.identifier;
+        if (identifier == DefIdentifier::Name) {
+            new (&elem_name) std::string(other.elem_name);
+        } else {
+            elem_id = other.elem_id;
+        }
+        return *this;
+    }
+    CellDef& operator=(CellDef&& other) {
+        if (identifier == DefIdentifier::Name) {
+            elem_name.~basic_string();
+        }
+        identifier = other.identifier;
+        if (identifier == DefIdentifier::Name) {
+            new (&elem_name) std::string(std::move(other.elem_name));
+        } else {
+            elem_id = other.elem_id;
+        }
+        return *this;
+    }
+    CellDef(const std::string& name)
+        : identifier(DefIdentifier::Name), elem_name(name) {}
+    CellDef(int id) : identifier(DefIdentifier::Id), elem_id(id) {}
     ~CellDef() {
         if (identifier == DefIdentifier::Name) {
             elem_name.~basic_string();
@@ -111,7 +142,10 @@ struct Simulation {
             cell.elem_id = def.identifier == CellDef::DefIdentifier::Name
                                ? m_registry.elem_id(def.elem_name)
                                : def.elem_id;
-            cell.color   = def.color;
+            if (cell.elem_id < 0) {
+                return cell;
+            }
+            cell.color = m_registry.get_elem(cell.elem_id).color_gen();
             return cell;
         }
         operator bool() const { return width && height && !cells.empty(); }
@@ -142,7 +176,9 @@ struct Simulation {
     struct ChunkMap {
         struct ivec2_hash {
             std::size_t operator()(const glm::ivec2& k) const {
-                return std::hash<int>()(k.x) ^ std::hash<int>()(k.y);
+                return std::hash<uint64_t>()(
+                    (static_cast<uint64_t>(k.x) << 32) | k.y
+                );
             }
         };
 
@@ -187,11 +223,11 @@ struct Simulation {
     ChunkMap m_chunk_map;
 
     Cell& create_def(int x, int y, const CellDef& def) {
-        assert(contains(x, y));
-        int chunk_x = x / m_chunk_size;
-        int chunk_y = y / m_chunk_size;
-        int cell_x  = x % m_chunk_size;
-        int cell_y  = y % m_chunk_size;
+        assert(valid(x, y));
+        int chunk_x = x / m_chunk_size - (x < 0);
+        int chunk_y = y / m_chunk_size - (y < 0);
+        int cell_x  = x % m_chunk_size + m_chunk_size * (x < 0);
+        int cell_y  = y % m_chunk_size + m_chunk_size * (y < 0);
         return m_chunk_map.get_chunk(chunk_x, chunk_y)
             .create(cell_x, cell_y, def, m_registry);
     }
@@ -214,25 +250,60 @@ struct Simulation {
         m_chunk_map.load_chunk(x, y, std::move(chunk));
     }
     void load_chunk(int x, int y) { m_chunk_map.load_chunk(x, y); }
-    bool contains(int x, int y) const {
-        return m_chunk_map.contains(x / m_chunk_size, y / m_chunk_size);
+    std::pair<int, int> to_chunk_pos(int x, int y) const {
+        std::pair<int, int> pos;
+        if (x < 0) {
+            pos.first = (x + 1) / m_chunk_size - 1;
+        } else {
+            pos.first = x / m_chunk_size;
+        }
+        if (y < 0) {
+            pos.second = (y + 1) / m_chunk_size - 1;
+        } else {
+            pos.second = y / m_chunk_size;
+        }
+        return pos;
+    }
+    std::pair<int, int> to_in_chunk_pos(int x, int y) const {
+        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
+        return {x - chunk_x * m_chunk_size, y - chunk_y * m_chunk_size};
+    }
+    bool contain_cell(int x, int y) const {
+        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
+        auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
+        return m_chunk_map.contains(chunk_x, chunk_y) &&
+               m_chunk_map.get_chunk(chunk_x, chunk_y).contains(cell_x, cell_y);
+    }
+    bool valid(int x, int y) const {
+        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
+        return m_chunk_map.contains(chunk_x, chunk_y);
     }
     std::tuple<Cell&, const Element&> get(int x, int y) {
-        assert(contains(x, y));
-        int chunk_x = x / m_chunk_size - (x < 0);
-        int chunk_y = y / m_chunk_size - (y < 0);
-        int cell_x  = x % m_chunk_size + m_chunk_size * (x < 0);
-        int cell_y  = y % m_chunk_size + m_chunk_size * (y < 0);
+        assert(contain_cell(x, y));
+        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
+        auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
         Cell& cell =
             m_chunk_map.get_chunk(chunk_x, chunk_y).get(cell_x, cell_y);
         const Element& elem = m_registry.get_elem(cell.elem_id);
         return {cell, elem};
     }
+    Cell& get_cell(int x, int y) {
+        assert(valid(x, y));
+        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
+        auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
+        return m_chunk_map.get_chunk(chunk_x, chunk_y).get(cell_x, cell_y);
+    }
+    const Element& get_elem(int x, int y) {
+        assert(contain_cell(x, y));
+        auto id = get_cell(x, y).elem_id;
+        assert(id >= 0);
+        return m_registry.get_elem(id);
+    }
     template <typename... Args>
     Cell& create(int x, int y, Args&&... args) {
         return create_def(x, y, CellDef(std::forward<Args>(args)...));
     }
-    void update() {
+    void update(int steps = 1) {
         std::vector<glm::ivec2> chunks_to_update;
         for (auto& [pos, chunk] : m_chunk_map.chunks) {
             chunks_to_update.push_back(pos);
@@ -243,21 +314,71 @@ struct Simulation {
                 return a.y < b.y || (a.y == b.y && a.x < b.x);
             }
         );
-        for (auto& pos : chunks_to_update) {
-            auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
-            for (int y = 0; y < chunk.height; y++) {
-                for (int x = 0; x < chunk.width; x++) {
-                    Cell& cell = chunk.get(x, y);
-                    if (cell.elem_id < 0) {
-                        continue;
-                    }
-                    const Element& elem = m_registry.get_elem(cell.elem_id);
-                    if (!elem.movable) {
-                        continue;
+        for (int i = 0; i < steps; i++)
+            for (auto& pos : chunks_to_update) {
+                auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
+                for (int y = 0; y < chunk.height; y++) {
+                    for (int x = 0; x < chunk.width; x++) {
+                        Cell& cell = chunk.get(x, y);
+                        if (!cell) continue;
+                        static std::random_device rd;
+                        static std::mt19937 gen(rd());
+                        static std::uniform_int_distribution<int> dis(0, 1);
+                        const Element& elem = m_registry.get_elem(cell.elem_id);
+                        auto cx             = pos.x * m_chunk_size + x;
+                        auto cy             = pos.y * m_chunk_size + y;
+                        if ((x == 0 || x == chunk.width - 1 || y == 0 ||
+                             y == chunk.height - 1) &&
+                            !valid(cx, cy)) {
+                            cell.color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+                            continue;
+                        } else if (cell.color ==
+                                   glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)) {
+                            cell.color = elem.color_gen(
+                            );  // reset color to element color
+                        }
+                        if (elem.grav_type == Element::GravType::POWDER) {
+                            int dir = 2 * dis(gen) - 1;
+                            // try go down
+                            if (valid(cx, cy - 1) &&
+                                (!get_cell(cx, cy - 1) ||
+                                 get_elem(cx, cy - 1).grav_type ==
+                                     Element::GravType::LIQUID)) {
+                                std::swap(cell, get_cell(cx, cy - 1));
+                            } else if (valid(cx - dir, cy - 1) &&
+                                       (!get_cell(cx - dir, cy - 1) ||
+                                        get_elem(cx - dir, cy - 1).grav_type ==
+                                            Element::GravType::LIQUID)) {
+                                std::swap(cell, get_cell(cx - dir, cy - 1));
+                            } else if (valid(cx + dir, cy - 1) &&
+                                       (!get_cell(cx + dir, cy - 1) ||
+                                        get_elem(cx + dir, cy - 1).grav_type ==
+                                            Element::GravType::LIQUID)) {
+                                std::swap(cell, get_cell(cx + dir, cy - 1));
+                            }
+                        } else if (elem.grav_type ==
+                                   Element::GravType::LIQUID) {
+                            int dir = 2 * dis(gen) - 1;
+                            // try go down
+                            if (valid(cx, cy - 1) && !get_cell(cx, cy - 1)) {
+                                std::swap(cell, get_cell(cx, cy - 1));
+                            } else if (valid(cx - dir, cy - 1) &&
+                                       !get_cell(cx - dir, cy - 1)) {
+                                std::swap(cell, get_cell(cx - dir, cy - 1));
+                            } else if (valid(cx + dir, cy - 1) &&
+                                       !get_cell(cx + dir, cy - 1)) {
+                                std::swap(cell, get_cell(cx + dir, cy - 1));
+                            } else if (valid(cx - dir, cy) &&
+                                       !get_cell(cx - dir, cy)) {
+                                std::swap(cell, get_cell(cx - dir, cy));
+                            } else if (valid(cx + dir, cy) &&
+                                       !get_cell(cx + dir, cy)) {
+                                std::swap(cell, get_cell(cx + dir, cy));
+                            }
+                        }
                     }
                 }
             }
-        }
     }
 };
 constexpr int s = (-1) % 64;
