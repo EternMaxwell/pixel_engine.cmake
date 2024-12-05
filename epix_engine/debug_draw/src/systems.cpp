@@ -13,8 +13,8 @@ EPIX_API void systems::create_line_drawer(
     Command cmd,
     Res<DebugRenderPlugin> plugin
 ) {
-    if (!query.single().has_value()) return;
-    auto [device, command_pool] = query.single().value();
+    if (!query) return;
+    auto [device, command_pool] = query.single();
     LineDrawer drawer{
         .max_vertex_count = plugin->max_vertex_count,
         .max_model_count  = plugin->max_model_count
@@ -261,10 +261,10 @@ EPIX_API void systems::destroy_line_drawer(
     Query<Get<Device>, With<RenderContext>> device_query,
     Query<Get<LineDrawer>> query
 ) {
-    if (!device_query.single().has_value()) return;
-    if (!query.single().has_value()) return;
-    auto [device] = device_query.single().value();
-    auto [drawer] = query.single().value();
+    if (!device_query) return;
+    if (!query) return;
+    auto [device] = device_query.single();
+    auto [drawer] = query.single();
     logger->debug("Destroy line drawer.");
     device->waitForFences(*drawer.fence, VK_TRUE, UINT64_MAX);
     drawer.render_pass.destroy(device);
@@ -284,8 +284,8 @@ EPIX_API void systems::create_point_drawer(
     Command cmd,
     Res<DebugRenderPlugin> plugin
 ) {
-    if (!query.single().has_value()) return;
-    auto [device, command_pool] = query.single().value();
+    if (!query) return;
+    auto [device, command_pool] = query.single();
     PointDrawer drawer{
         .max_vertex_count = plugin->max_vertex_count,
         .max_model_count  = plugin->max_model_count
@@ -530,10 +530,10 @@ EPIX_API void systems::destroy_point_drawer(
     Query<Get<Device>, With<RenderContext>> device_query,
     Query<Get<PointDrawer>> query
 ) {
-    if (!device_query.single().has_value()) return;
-    if (!query.single().has_value()) return;
-    auto [device] = device_query.single().value();
-    auto [drawer] = query.single().value();
+    if (!device_query) return;
+    if (!query) return;
+    auto [device] = device_query.single();
+    auto [drawer] = query.single();
     logger->debug("Destroy point drawer.");
     device->waitForFences(*drawer.fence, VK_TRUE, UINT64_MAX);
     drawer.render_pass.destroy(device);
@@ -554,8 +554,8 @@ EPIX_API void systems::create_triangle_drawer(
     Command cmd,
     Res<DebugRenderPlugin> plugin
 ) {
-    if (!query.single().has_value()) return;
-    auto [device, command_pool] = query.single().value();
+    if (!query) return;
+    auto [device, command_pool] = query.single();
     TriangleDrawer drawer{
         .max_vertex_count = plugin->max_vertex_count,
         .max_model_count  = plugin->max_model_count
@@ -800,10 +800,10 @@ EPIX_API void systems::destroy_triangle_drawer(
     Query<Get<Device>, With<RenderContext>> device_query,
     Query<Get<TriangleDrawer>> query
 ) {
-    if (!device_query.single().has_value()) return;
-    if (!query.single().has_value()) return;
-    auto [device] = device_query.single().value();
-    auto [drawer] = query.single().value();
+    if (!device_query) return;
+    if (!query) return;
+    auto [device] = device_query.single();
+    auto [drawer] = query.single();
     logger->debug("Destroy triangle drawer.");
     device->waitForFences(*drawer.fence, VK_TRUE, UINT64_MAX);
     drawer.render_pass.destroy(device);

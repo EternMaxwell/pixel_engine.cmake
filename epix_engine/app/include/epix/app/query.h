@@ -92,12 +92,12 @@ class QueryBase<Get<Qus...>, With<Ins...>, Without<Exs...>> {
      */
     auto single() {
         // auto start = *(iter().begin());
-        if (iter().begin() != iter().end()) {
-            return std::optional(*(iter().begin()));
-        } else {
-            return std::optional<decltype(*(iter().begin()))>{};
-        }
+        if (iter().begin() == iter().end()) throw std::bad_optional_access();
+        return *(iter().begin());
     }
+
+    operator bool() { return iter().begin() != iter().end(); }
+    bool operator!() { return iter().begin() == iter().end(); }
 
     void for_each(std::function<void(Qus&...)> func) { m_view.each(func); }
 };
@@ -176,12 +176,12 @@ class QueryBase<Get<Entity, Qus...>, With<Ins...>, Without<Exs...>> {
      */
     auto single() {
         // auto start = *(iter().begin());
-        if (iter().begin() != iter().end()) {
-            return std::optional(*(iter().begin()));
-        } else {
-            return std::optional<decltype(*(iter().begin()))>{};
-        }
+        if (iter().begin() == iter().end()) throw std::bad_optional_access();
+        return *(iter().begin());
     }
+
+    operator bool() { return iter().begin() != iter().end(); }
+    bool operator!() { return iter().begin() == iter().end(); }
 
     void for_each(std::function<void(Entity, Qus&...)> func) {
         m_view.each(func);
@@ -211,6 +211,8 @@ struct Extract<Get<Gets...>, With<Withs...>, Without<Withouts...>> {
     Extract(type&& query) : query(query) {}
     auto iter() { return query.iter(); }
     auto single() { return query.single(); }
+    operator bool() { return query; }
+    bool operator!() { return !query; }
     void for_each(std::function<void(typename type::iterator::value_type)> func
     ) {
         query.for_each(func);
@@ -235,6 +237,8 @@ struct Extract<Get<Entity, Gets...>, With<Withs...>, Without<Withouts...>> {
     Extract(type&& query) : query(query) {}
     auto iter() { return query.iter(); }
     auto single() { return query.single(); }
+    operator bool() { return query; }
+    bool operator!() { return !query; }
     void for_each(std::function<void(typename type::iterator::value_type)> func
     ) {
         query.for_each(func);
@@ -260,6 +264,8 @@ struct Query {
     Query(type&& query) : query(query) {}
     auto iter() { return query.iter(); }
     auto single() { return query.single(); }
+    operator bool() { return query; }
+    bool operator!() { return !query; }
     void for_each(std::function<void(typename type::iterator::value_type)> func
     ) {
         query.for_each(func);

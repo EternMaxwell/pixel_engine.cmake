@@ -16,11 +16,11 @@ EPIX_API void systems::init_imgui(
     Query<Get<Window>, With<PrimaryWindow>> window_query,
     ResMut<ImGuiContext> imgui_context
 ) {
-    if (!context_query.single().has_value()) return;
-    if (!window_query.single().has_value()) return;
+    if (!context_query) return;
+    if (!window_query) return;
     auto [instance, physical_device, device, queue, command_pool] =
-        context_query.single().value();
-    auto [window] = window_query.single().value();
+        context_query.single();
+    auto [window] = window_query.single();
     vk::RenderPassCreateInfo render_pass_info;
     vk::AttachmentDescription color_attachment;
     color_attachment.setFormat(vk::Format::eB8G8R8A8Srgb);
@@ -76,8 +76,8 @@ EPIX_API void systems::deinit_imgui(
     Query<Get<Device, CommandPool>, With<RenderContext>> context_query,
     ResMut<ImGuiContext> imgui_context
 ) {
-    if (!context_query.single().has_value()) return;
-    auto [device, command_pool] = context_query.single().value();
+    if (!context_query) return;
+    auto [device, command_pool] = context_query.single();
     device->waitForFences(*imgui_context->fence, VK_TRUE, UINT64_MAX);
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
@@ -92,8 +92,8 @@ EPIX_API void systems::begin_imgui(
     ResMut<ImGuiContext> ctx,
     Query<Get<Device, Queue, Swapchain>, With<RenderContext>> query
 ) {
-    if (!query.single().has_value()) return;
-    auto [device, queue, swapchain] = query.single().value();
+    if (!query) return;
+    auto [device, queue, swapchain] = query.single();
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -102,8 +102,8 @@ EPIX_API void systems::end_imgui(
     ResMut<ImGuiContext> ctx,
     Query<Get<Device, Queue, Swapchain>, With<RenderContext>> query
 ) {
-    if (!query.single().has_value()) return;
-    auto [device, queue, swapchain] = query.single().value();
+    if (!query) return;
+    auto [device, queue, swapchain] = query.single();
     ImGui::Render();
     device->waitForFences(*ctx->fence, VK_TRUE, UINT64_MAX);
     device->resetFences(*ctx->fence);

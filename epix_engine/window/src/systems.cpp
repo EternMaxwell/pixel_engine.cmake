@@ -148,8 +148,8 @@ EPIX_API void systems::poll_events(
     Local<std::future<void>> future,
     Query<Get<Window>, With<PrimaryWindow>> query
 ) {
-    if (!query.single().has_value()) return;
-    auto [window] = query.single().value();
+    if (!query) return;
+    auto [window] = query.single();
     if (!future->valid() || future->wait_for(std::chrono::milliseconds(0)) ==
                                 std::future_status::ready) {
         (*future) = pool->submit_task([]() { glfwPollEvents(); });

@@ -26,10 +26,10 @@ EPIX_API void systems::create_context(
         With<window::components::PrimaryWindow>> query,
     Res<RenderVKPlugin> plugin
 ) {
-    if (!query.single().has_value()) {
+    if (!query) {
         return;
     }
-    auto [window] = query.single().value();
+    auto [window] = query.single();
     Instance instance =
         Instance::create("Pixel Engine", VK_MAKE_VERSION(0, 1, 0), logger);
     PhysicalDevice physical_device = PhysicalDevice::create(instance);
@@ -56,11 +56,10 @@ EPIX_API void systems::recreate_swap_chain(
     Query<Get<PhysicalDevice, Device, Surface, Swapchain>, With<RenderContext>>
         query
 ) {
-    if (!query.single().has_value()) {
+    if (!query) {
         return;
     }
-    auto [physical_device, device, surface, swap_chain] =
-        query.single().value();
+    auto [physical_device, device, surface, swap_chain] = query.single();
     swap_chain.recreate(physical_device, device, surface);
 }
 
@@ -69,10 +68,10 @@ EPIX_API void systems::get_next_image(
         query,
     Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
 ) {
-    if (!query.single().has_value()) return;
-    if (!cmd_query.single().has_value()) return;
-    auto [cmd_buffer, cmd_fence]                   = cmd_query.single().value();
-    auto [device, swap_chain, command_pool, queue] = query.single().value();
+    if (!query) return;
+    if (!cmd_query) return;
+    auto [cmd_buffer, cmd_fence]                   = cmd_query.single();
+    auto [device, swap_chain, command_pool, queue] = query.single();
     auto image = swap_chain.next_image(device);
     device->waitForFences(*cmd_fence, VK_TRUE, UINT64_MAX);
     device->resetFences(*cmd_fence);
@@ -126,10 +125,10 @@ EPIX_API void systems::present_frame(
         query,
     Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
 ) {
-    if (!query.single().has_value()) return;
-    if (!cmd_query.single().has_value()) return;
-    auto [cmd_buffer, cmd_fence]                   = cmd_query.single().value();
-    auto [swap_chain, queue, device, command_pool] = query.single().value();
+    if (!query) return;
+    if (!cmd_query) return;
+    auto [cmd_buffer, cmd_fence]                   = cmd_query.single();
+    auto [swap_chain, queue, device, command_pool] = query.single();
     device->waitForFences(*cmd_fence, VK_TRUE, UINT64_MAX);
     device->resetFences(*cmd_fence);
     cmd_buffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
@@ -173,11 +172,10 @@ EPIX_API void systems::destroy_context(
         With<RenderContext>> query,
     Query<Get<CommandBuffer, Fence>, With<ContextCommandBuffer>> cmd_query
 ) {
-    if (!query.single().has_value()) return;
-    if (!cmd_query.single().has_value()) return;
-    auto [cmd_buffer, cmd_fence] = cmd_query.single().value();
-    auto [instance, device, surface, swap_chain, command_pool] =
-        query.single().value();
+    if (!query) return;
+    if (!cmd_query) return;
+    auto [cmd_buffer, cmd_fence] = cmd_query.single();
+    auto [instance, device, surface, swap_chain, command_pool] = query.single();
     device->waitIdle();
     swap_chain.destroy(device);
     surface.destroy(instance);

@@ -22,8 +22,8 @@ EPIX_API void systems::create_sprite_renderer_vk(
     Command cmd,
     Query<Get<Device, CommandPool, Queue>, With<RenderContext>> ctx_query
 ) {
-    if (!ctx_query.single().has_value()) return;
-    auto [device, command_pool, queue] = ctx_query.single().value();
+    if (!ctx_query) return;
+    auto [device, command_pool, queue] = ctx_query.single();
     vk::DescriptorSetLayoutCreateInfo descriptor_set_layout_create_info;
     vk::DescriptorSetLayoutBinding descriptor_set_layout_bindings[4] = {
         vk::DescriptorSetLayoutBinding()
@@ -362,10 +362,10 @@ EPIX_API void systems::update_image_bindings(
     Query<Get<SpriteRenderer>> renderer_query,
     Query<Get<Device>, With<RenderContext>> ctx_query
 ) {
-    if (!renderer_query.single().has_value()) return;
-    if (!ctx_query.single().has_value()) return;
-    auto [device]   = ctx_query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    if (!renderer_query) return;
+    if (!ctx_query) return;
+    auto [device]   = ctx_query.single();
+    auto [renderer] = renderer_query.single();
     for (auto [update] : query.iter()) {
         auto [image_view, image_index_t] = image_query.get(update.image_view);
         auto image_index                 = image_index_t.index;
@@ -389,10 +389,10 @@ EPIX_API void systems::update_sampler_bindings(
     Query<Get<SpriteRenderer>> renderer_query,
     Query<Get<Device>, With<RenderContext>> ctx_query
 ) {
-    if (!renderer_query.single().has_value()) return;
-    if (!ctx_query.single().has_value()) return;
-    auto [device]   = ctx_query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    if (!renderer_query) return;
+    if (!ctx_query) return;
+    auto [device]   = ctx_query.single();
+    auto [renderer] = renderer_query.single();
     for (auto [update] : query.iter()) {
         auto [sampler, sampler_index_t] = sampler_query.get(update.sampler);
         auto sampler_index              = sampler_index_t.index;
@@ -415,9 +415,9 @@ EPIX_API void systems::create_sprite_depth_vk(
         ctx_query,
     Query<Get<Image, ImageView>, With<SpriteDepth, SpriteDepthExtent>> query
 ) {
-    if (!ctx_query.single().has_value()) return;
-    auto [device, command_pool, queue, swapchain] = ctx_query.single().value();
-    if (query.single().has_value()) return;
+    if (!ctx_query) return;
+    auto [device, command_pool, queue, swapchain] = ctx_query.single();
+    if (query) return;
     vk::ImageCreateInfo depth_image_create_info;
     depth_image_create_info.setImageType(vk::ImageType::e2D)
         .setFormat(vk::Format::eD32Sfloat)
@@ -457,10 +457,10 @@ EPIX_API void systems::update_sprite_depth_vk(
     Query<Get<ImageView, Image, SpriteDepthExtent>, With<SpriteDepth>> query,
     Query<Get<Device, Swapchain>, With<RenderContext>> ctx_query
 ) {
-    if (!ctx_query.single().has_value()) return;
-    if (!query.single().has_value()) return;
-    auto [image_view, image, extent] = query.single().value();
-    auto [device, swapchain]         = ctx_query.single().value();
+    if (!ctx_query) return;
+    if (!query) return;
+    auto [image_view, image, extent] = query.single();
+    auto [device, swapchain]         = ctx_query.single();
     if (extent.width != swapchain.extent.width ||
         extent.height != swapchain.extent.height) {
         vk::ImageCreateInfo depth_image_create_info;
@@ -508,8 +508,8 @@ EPIX_API void systems::destroy_sprite_depth_vk(
     Query<Get<ImageView, Image>, With<SpriteDepth, SpriteDepthExtent>>
         depth_query
 ) {
-    if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    if (!query) return;
+    auto [device] = query.single();
     for (auto [image_view, image] : depth_query.iter()) {
         image_view.destroy(device);
         image.destroy(device);
@@ -526,12 +526,12 @@ EPIX_API void systems::draw_sprite_2d_vk(
     Query<Get<ImageView>, With<SpriteDepth, Image, SpriteDepthExtent>>
         depth_query
 ) {
-    if (!renderer_query.single().has_value()) return;
-    if (!ctx_query.single().has_value()) return;
-    if (!depth_query.single().has_value()) return;
-    auto [depth_image_view] = depth_query.single().value();
-    auto [device, command_pool, queue, swapchain] = ctx_query.single().value();
-    auto [renderer]           = renderer_query.single().value();
+    if (!renderer_query) return;
+    if (!ctx_query) return;
+    if (!depth_query) return;
+    auto [depth_image_view] = depth_query.single();
+    auto [device, command_pool, queue, swapchain] = ctx_query.single();
+    auto [renderer]           = renderer_query.single();
     void* uniform_buffer_data = renderer.sprite_uniform_buffer.map(device);
     glm::mat4* uniform_buffer = static_cast<glm::mat4*>(uniform_buffer_data);
     uniform_buffer[1]         = glm::ortho(
@@ -724,10 +724,10 @@ EPIX_API void systems::destroy_sprite_renderer_vk(
     Query<Get<SpriteRenderer>> renderer_query,
     Query<Get<Device>, With<RenderContext>> query
 ) {
-    if (!renderer_query.single().has_value()) return;
-    if (!query.single().has_value()) return;
-    auto [device]   = query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    if (!renderer_query) return;
+    if (!query) return;
+    auto [device]   = query.single();
+    auto [renderer] = renderer_query.single();
     renderer.sprite_descriptor_set_layout.destroy(device);
     renderer.sprite_descriptor_pool.destroy(device);
     renderer.sprite_render_pass.destroy(device);

@@ -15,8 +15,8 @@ namespace epix::render::pixel {
 EPIX_API void systems::create_pixel_block_pipeline(
     Command command, Query<Get<Device, CommandPool>, With<RenderContext>> query
 ) {
-    if (!query.single().has_value()) return;
-    auto [device, command_pool] = query.single().value();
+    if (!query) return;
+    auto [device, command_pool] = query.single();
 
     // BUFFER CREATION
     vk::BufferCreateInfo vertex_buffer_info;
@@ -296,8 +296,8 @@ EPIX_API void systems::create_pixel_block_pipeline(
 EPIX_API void systems::create_pixel_pipeline(
     Command command, Query<Get<Device, CommandPool>, With<RenderContext>> query
 ) {
-    if (!query.single().has_value()) return;
-    auto [device, command_pool] = query.single().value();
+    if (!query) return;
+    auto [device, command_pool] = query.single();
 
     // BUFFER CREATION
     vk::BufferCreateInfo vertex_buffer_info;
@@ -570,10 +570,10 @@ EPIX_API void systems::draw_pixel_blocks_vk(
     Query<Get<PixelBlockRenderer>> renderer_query,
     Query<Get<const PixelBlock, const BlockPos2d>> pixel_block_query
 ) {
-    if (!renderer_query.single().has_value()) return;
-    if (!query.single().has_value()) return;
-    auto [device, command_pool, swapchain, queue] = query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    if (!renderer_query) return;
+    if (!query) return;
+    auto [device, command_pool, swapchain, queue] = query.single();
+    auto [renderer]                               = renderer_query.single();
     PixelUniformBuffer uniform_buffer;
     uniform_buffer.view = glm::mat4(1.0f);
     uniform_buffer.proj = glm::ortho(
@@ -592,10 +592,10 @@ EPIX_API void systems::destroy_pixel_block_pipeline(
     Query<Get<Device>, With<RenderContext>> query,
     Query<Get<PixelBlockRenderer>> renderer_query
 ) {
-    if (!query.single().has_value()) return;
-    if (!renderer_query.single().has_value()) return;
-    auto [device]   = query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    if (!query) return;
+    if (!renderer_query) return;
+    auto [device]   = query.single();
+    auto [renderer] = renderer_query.single();
     renderer.render_pass.destroy(device);
     renderer.graphics_pipeline.destroy(device);
     renderer.pipeline_layout.destroy(device);
@@ -613,10 +613,10 @@ EPIX_API void systems::destroy_pixel_pipeline(
     Query<Get<Device>, With<RenderContext>> query,
     Query<Get<PixelRenderer>> renderer_query
 ) {
-    if (!query.single().has_value()) return;
-    if (!renderer_query.single().has_value()) return;
-    auto [device]   = query.single().value();
-    auto [renderer] = renderer_query.single().value();
+    if (!query) return;
+    if (!renderer_query) return;
+    auto [device]   = query.single();
+    auto [renderer] = renderer_query.single();
     renderer.render_pass.destroy(device);
     renderer.graphics_pipeline.destroy(device);
     renderer.pipeline_layout.destroy(device);

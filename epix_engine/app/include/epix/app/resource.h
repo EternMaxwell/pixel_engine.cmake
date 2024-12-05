@@ -18,6 +18,9 @@ struct Res {
      */
     bool has_value() { return m_res != nullptr; }
 
+    operator bool() { return has_value(); }
+    bool operator!() { return !has_value(); }
+
     const ResT& operator*() { return *m_res; }
     const ResT* operator->() { return m_res; }
 };
@@ -35,6 +38,9 @@ struct ResMut {
      * @brief Check if the resource has a value.
      */
     bool has_value() { return m_res != nullptr; }
+
+    operator bool() { return has_value(); }
+    bool operator!() { return !has_value(); }
 
     ResT& operator*() { return *m_res; }
     ResT* operator->() { return m_res; }

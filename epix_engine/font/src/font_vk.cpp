@@ -188,8 +188,8 @@ EPIX_API void TextRenderer::end() {
 EPIX_API void systems::vulkan::insert_ft2_library(
     Command command, Query<Get<Device>, With<RenderContext>> query
 ) {
-    if (!query.single().has_value()) return;
-    auto [device] = query.single().value();
+    if (!query) return;
+    auto [device] = query.single();
     resources::vulkan::FT2Library ft2_library;
     logger->info("inserting ft2 library");
     if (FT_Init_FreeType(&ft2_library.library)) {
@@ -238,9 +238,9 @@ EPIX_API void systems::vulkan::create_renderer(
     Res<FontPlugin> font_plugin,
     ResMut<resources::vulkan::FT2Library> ft2_library
 ) {
-    if (!query.single().has_value()) return;
+    if (!query) return;
     logger->info("create text renderer");
-    auto [device, queue, command_pool] = query.single().value();
+    auto [device, queue, command_pool] = query.single();
     auto canvas_width                  = font_plugin->canvas_width;
     auto canvas_height                 = font_plugin->canvas_height;
     TextRenderer text_renderer;
@@ -561,11 +561,10 @@ EPIX_API void systems::vulkan::draw_text(
         swapchain_query,
     Res<FontPlugin> font_plugin
 ) {
-    if (!text_renderer_query.single().has_value()) return;
-    if (!swapchain_query.single().has_value()) return;
-    auto [device, queue, command_pool, swapchain] =
-        swapchain_query.single().value();
-    auto [text_renderer] = text_renderer_query.single().value();
+    if (!text_renderer_query) return;
+    if (!swapchain_query) return;
+    auto [device, queue, command_pool, swapchain] = swapchain_query.single();
+    auto [text_renderer] = text_renderer_query.single();
     text_renderer.begin(
         &device, &swapchain, &queue, &command_pool, ft2_library
     );
@@ -580,10 +579,10 @@ EPIX_API void systems::vulkan::destroy_renderer(
     ResMut<resources::vulkan::FT2Library> ft2_library,
     Query<Get<TextRenderer>> text_renderer_query
 ) {
-    if (!text_renderer_query.single().has_value()) return;
-    if (!query.single().has_value()) return;
-    auto [device]        = query.single().value();
-    auto [text_renderer] = text_renderer_query.single().value();
+    if (!text_renderer_query) return;
+    if (!query) return;
+    auto [device]        = query.single();
+    auto [text_renderer] = text_renderer_query.single();
     device->waitForFences(*text_renderer.fence, VK_TRUE, UINT64_MAX);
     logger->debug("destroy text renderer");
     ft2_library->clear_font_textures(device);

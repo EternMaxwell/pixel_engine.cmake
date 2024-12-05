@@ -467,8 +467,8 @@ std::vector<glm::ivec2> douglas_peucker(
 void create_pixel_block_with_collision(
     Command command, Query<Get<b2WorldId>> world_query
 ) {
-    if (!world_query.single().has_value()) return;
-    auto [world] = world_query.single().value();
+    if (!world_query) return;
+    auto [world] = world_query.single();
     auto m_block = PixelBlockWrapper(64, 64);
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -557,12 +557,12 @@ void render_pixel_block(
         pixel_renderer_query,
     Query<Get<b2WorldId>> world_query
 ) {
-    if (!context_query.single().has_value()) return;
-    if (!pixel_renderer_query.single().has_value()) return;
-    if (!world_query.single().has_value()) return;
-    auto [b2_world]                  = world_query.single().value();
-    auto [device, swap_chain, queue] = context_query.single().value();
-    auto [pixel_renderer]            = pixel_renderer_query.single().value();
+    if (!context_query) return;
+    if (!pixel_renderer_query) return;
+    if (!world_query) return;
+    auto [b2_world]                  = world_query.single();
+    auto [device, swap_chain, queue] = context_query.single();
+    auto [pixel_renderer]            = pixel_renderer_query.single();
     epix::render::pixel::components::PixelUniformBuffer uniform_buffer;
     uniform_buffer.proj = glm::ortho(
         -(float)swap_chain.extent.width / 2.0f,
@@ -594,8 +594,8 @@ void render_pixel_block(
 }
 
 void create_ground(Command command, Query<Get<b2WorldId>> world_query) {
-    if (!world_query.single().has_value()) return;
-    auto [world]         = world_query.single().value();
+    if (!world_query) return;
+    auto [world]         = world_query.single();
     b2BodyDef body_def   = b2DefaultBodyDef();
     body_def.type        = b2BodyType::b2_staticBody;
     body_def.position    = {0.0f, -100.0f};
@@ -607,8 +607,8 @@ void create_ground(Command command, Query<Get<b2WorldId>> world_query) {
 }
 
 void create_dynamic(Command command, Query<Get<b2WorldId>> world_query) {
-    if (!world_query.single().has_value()) return;
-    auto [world]          = world_query.single().value();
+    if (!world_query) return;
+    auto [world]          = world_query.single();
     b2BodyDef body_def    = b2DefaultBodyDef();
     body_def.type         = b2BodyType::b2_dynamicBody;
     body_def.position     = {0.0f, 100.0f};
@@ -633,9 +633,9 @@ void create_dynamic_from_click(
             const ButtonInput<KeyCode>>> window_query,
     ResMut<epix::imgui::ImGuiContext> imgui_context
 ) {
-    if (!world_query.single().has_value()) return;
-    if (!window_query.single().has_value()) return;
-    auto [window, mouse_input, key_input] = window_query.single().value();
+    if (!world_query) return;
+    if (!window_query) return;
+    auto [window, mouse_input, key_input] = window_query.single();
     if (imgui_context.has_value()) {
         ImGui::SetCurrentContext(imgui_context->context);
         if (ImGui::GetIO().WantCaptureMouse) return;
@@ -643,7 +643,7 @@ void create_dynamic_from_click(
     if (!mouse_input.pressed(epix::input::MouseButton1) &&
         !key_input.just_pressed(epix::input::KeySpace))
         return;
-    auto [world]       = world_query.single().value();
+    auto [world]       = world_query.single();
     b2BodyDef body_def = b2DefaultBodyDef();
     body_def.type      = b2BodyType::b2_dynamicBody;
     body_def.position  = {
@@ -664,8 +664,8 @@ void create_dynamic_from_click(
 }
 
 void toggle_full_screen(Query<Get<Window, ButtonInput<KeyCode>>> query) {
-    if (!query.single().has_value()) return;
-    auto [window, key_input] = query.single().value();
+    if (!query) return;
+    auto [window, key_input] = query.single();
     if (key_input.just_pressed(epix::input::KeyF11)) {
         window.toggle_fullscreen();
     }
@@ -677,10 +677,10 @@ void render_bodies(
         line_drawer_query,
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query
 ) {
-    if (!line_drawer_query.single().has_value()) return;
-    if (!context_query.single().has_value()) return;
-    auto [device, swap_chain, queue] = context_query.single().value();
-    auto [line_drawer]               = line_drawer_query.single().value();
+    if (!line_drawer_query) return;
+    if (!context_query) return;
+    auto [device, swap_chain, queue] = context_query.single();
+    auto [line_drawer]               = line_drawer_query.single();
     line_drawer.begin(device, queue, swap_chain);
     for (auto [body] : query.iter()) {
         if (!b2Body_IsValid(body)) continue;
@@ -724,8 +724,8 @@ void render_bodies(
 void update_b2d_world(
     Query<Get<b2WorldId>> world_query, Local<std::optional<double>> last_time
 ) {
-    if (!world_query.single().has_value()) return;
-    auto [world] = world_query.single().value();
+    if (!world_query) return;
+    auto [world] = world_query.single();
     if (!last_time->has_value()) {
         *last_time = std::chrono::duration<double>(
                          std::chrono::system_clock::now().time_since_epoch()
@@ -750,8 +750,8 @@ void destroy_too_far_bodies(
     Query<Get<b2WorldId>> world_query,
     Command command
 ) {
-    if (!world_query.single().has_value()) return;
-    auto [world] = world_query.single().value();
+    if (!world_query) return;
+    auto [world] = world_query.single();
     for (auto [entity, body] : query.iter()) {
         auto position = b2Body_GetPosition(body);
         if (position.y < -1000.0f || position.y > 1000.0f ||
@@ -836,10 +836,10 @@ void draw_lines(
     Query<Get<epix::render::debug::vulkan::components::LineDrawer>> query,
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query
 ) {
-    if (!query.single().has_value()) return;
-    if (!context_query.single().has_value()) return;
-    auto [device, swap_chain, queue] = context_query.single().value();
-    auto [line_drawer]               = query.single().value();
+    if (!query) return;
+    if (!context_query) return;
+    auto [device, swap_chain, queue] = context_query.single();
+    auto [line_drawer]               = query.single();
     pixelbin bin(5, 5);
     bin.set(1, 1, true);
     bin.set(2, 1, true);
@@ -893,10 +893,10 @@ void render_pixel_renderer_test(
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query
 ) {
     using namespace epix::render::pixel::components;
-    if (!query.single().has_value()) return;
-    if (!context_query.single().has_value()) return;
-    auto [device, swap_chain, queue] = context_query.single().value();
-    auto [renderer]                  = query.single().value();
+    if (!query) return;
+    if (!context_query) return;
+    auto [device, swap_chain, queue] = context_query.single();
+    auto [renderer]                  = query.single();
     PixelUniformBuffer pixel_uniform;
     pixel_uniform.view = glm::mat4(1.0f);
     pixel_uniform.proj = glm::ortho(
@@ -923,8 +923,8 @@ void toggle_simulation(
     ResMut<NextState<SimulateState>> next_state,
     Query<Get<ButtonInput<KeyCode>>, With<PrimaryWindow>> query
 ) {
-    if (!query.single().has_value()) return;
-    auto [key_input] = query.single().value();
+    if (!query) return;
+    auto [key_input] = query.single();
     if (key_input.just_pressed(epix::input::KeyEscape)) {
         if (next_state.has_value()) {
             next_state->set_state(
@@ -964,12 +964,12 @@ void update_mouse_joint(
     Query<Get<Entity, MouseJoint>> mouse_joint_query,
     Query<Get<const Window, const ButtonInput<MouseButton>>> input_query
 ) {
-    if (!world_query.single().has_value()) return;
-    if (!input_query.single().has_value()) return;
-    auto [world]               = world_query.single().value();
-    auto [window, mouse_input] = input_query.single().value();
-    if (mouse_joint_query.single().has_value()) {
-        auto [entity, joint] = mouse_joint_query.single().value();
+    if (!world_query) return;
+    if (!input_query) return;
+    auto [world]               = world_query.single();
+    auto [window, mouse_input] = input_query.single();
+    if (mouse_joint_query) {
+        auto [entity, joint] = mouse_joint_query.single();
         b2Vec2 cursor        = b2Vec2(
             window.get_cursor().x - window.get_size().width / 2,
             window.get_size().height / 2 - window.get_cursor().y
@@ -982,7 +982,7 @@ void update_mouse_joint(
         }
     } else if (mouse_input.just_pressed(epix::input::MouseButton2) &&
                !ImGui::GetIO().WantCaptureMouse) {
-        if (mouse_joint_query.single().has_value()) return;
+        if (mouse_joint_query) return;
         b2AABB aabb   = b2AABB();
         b2Vec2 cursor = b2Vec2(
             window.get_cursor().x - window.get_size().width / 2,
@@ -1035,8 +1035,8 @@ void create_simulation(Command command) {
 }
 
 void update_simulation(Query<Get<Simulation>> query) {
-    if (!query.single().has_value()) return;
-    auto [simulation] = query.single().value();
+    if (!query) return;
+    auto [simulation] = query.single();
     simulation.update();
 }
 
@@ -1046,12 +1046,12 @@ void render_simulation(
     Query<Get<epix::render::pixel::components::PixelRenderer>> renderer_query
 ) {
     using namespace epix::render::pixel::components;
-    if (!query.single().has_value()) return;
-    if (!context_query.single().has_value()) return;
-    if (!renderer_query.single().has_value()) return;
-    auto [device, swap_chain, queue] = context_query.single().value();
-    auto [renderer]                  = renderer_query.single().value();
-    auto [simulation]                = query.single().value();
+    if (!query) return;
+    if (!context_query) return;
+    if (!renderer_query) return;
+    auto [device, swap_chain, queue] = context_query.single();
+    auto [renderer]                  = renderer_query.single();
+    auto [simulation]                = query.single();
     PixelUniformBuffer uniform_buffer;
     uniform_buffer.proj = glm::ortho(
         -static_cast<float>(swap_chain.extent.width) / 2.0f,

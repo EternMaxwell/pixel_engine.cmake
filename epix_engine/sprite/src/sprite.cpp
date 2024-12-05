@@ -63,9 +63,9 @@ EPIX_API void systems::loading_actual_image(
     Query<Get<Device, CommandPool, Queue>, With<RenderContext>> ctx_query,
     ResMut<SpriteServerVK> sprite_server
 ) {
-    if (!query.single().has_value()) return;
-    if (!ctx_query.single().has_value()) return;
-    auto [device, command_pool, queue] = ctx_query.single().value();
+    if (!query) return;
+    if (!ctx_query) return;
+    auto [device, command_pool, queue] = ctx_query.single();
     for (auto [entity, image_loading] : query.iter()) {
         sprite_logger->debug("loading image at path: {}", image_loading.path);
         int width, height, channels;
@@ -198,8 +198,8 @@ EPIX_API void systems::creating_actual_sampler(
     Query<Get<Device>, With<RenderContext>> ctx_query,
     ResMut<SpriteServerVK> sprite_server
 ) {
-    if (!ctx_query.single().has_value()) return;
-    auto [device] = ctx_query.single().value();
+    if (!ctx_query) return;
+    auto [device] = ctx_query.single();
     for (auto [entity, sampler_creating] : query.iter()) {
         sprite_logger->debug(
             "creating sampler with name: {}", sampler_creating.name
@@ -230,8 +230,8 @@ EPIX_API void systems::destroy_sprite_server_vk_images(
     Query<Get<Image, ImageView>, With<ImageIndex>> query,
     Query<Get<Device, CommandPool, Queue>, With<RenderContext>> ctx_query
 ) {
-    if (!ctx_query.single().has_value()) return;
-    auto [device, command_pool, queue] = ctx_query.single().value();
+    if (!ctx_query) return;
+    auto [device, command_pool, queue] = ctx_query.single();
     for (auto&& [path, entity_id] : sprite_server->images) {
         auto [image, image_view] = query.get(entity_id);
         image.destroy(device);
@@ -244,8 +244,8 @@ EPIX_API void systems::destroy_sprite_server_vk_samplers(
     Query<Get<Sampler>, With<SamplerIndex>> query,
     Query<Get<Device>, With<RenderContext>> ctx_query
 ) {
-    if (!ctx_query.single().has_value()) return;
-    auto [device] = ctx_query.single().value();
+    if (!ctx_query) return;
+    auto [device] = ctx_query.single();
     for (auto&& [name, entity_id] : sprite_server->samplers) {
         auto [sampler] = query.get(entity_id);
         sampler.destroy(device);
