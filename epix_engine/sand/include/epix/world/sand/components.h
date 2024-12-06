@@ -26,6 +26,8 @@ struct Element {
     } grav_type = GravType::SOLID;
     std::function<glm::vec4()> color_gen;
     float density;
+    float institute;
+    float friction;
 };
 struct CellDef {
     enum class DefIdentifier { Name, Id } identifier;
@@ -84,6 +86,8 @@ struct CellDef {
 struct Cell {
     int elem_id     = -1;
     glm::vec4 color = glm::vec4(0.0f);
+    glm::vec2 velocity;
+    glm::vec2 inpos;
 
     bool valid() const { return elem_id >= 0; }
     operator bool() const { return valid(); }
@@ -146,6 +150,12 @@ struct Simulation {
                 return cell;
             }
             cell.color = m_registry.get_elem(cell.elem_id).color_gen();
+            static thread_local std::random_device rd;
+            static thread_local std::mt19937 gen(rd());
+            static thread_local std::uniform_real_distribution<float> dis(
+                -0.4f, 0.4f
+            );
+            cell.inpos = {dis(gen), dis(gen)};
             return cell;
         }
         operator bool() const { return width && height && !cells.empty(); }
@@ -303,7 +313,11 @@ struct Simulation {
     Cell& create(int x, int y, Args&&... args) {
         return create_def(x, y, CellDef(std::forward<Args>(args)...));
     }
-    void update(int steps = 1) {
+    std::pair<float, float> get_grav(int x, int y) {
+        assert(valid(x, y));
+        return {0.f, -98.0f};
+    }
+    void update(float delta, int steps = 16) {
         std::vector<glm::ivec2> chunks_to_update;
         for (auto& [pos, chunk] : m_chunk_map.chunks) {
             chunks_to_update.push_back(pos);
@@ -314,6 +328,9 @@ struct Simulation {
                 return a.y < b.y || (a.y == b.y && a.x < b.x);
             }
         );
+        delta /= steps;
+        float dumping = 0.99f;
+        dumping       = std::pow(dumping, 1.0f / steps);
         for (int i = 0; i < steps; i++)
             for (auto& pos : chunks_to_update) {
                 auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
@@ -321,65 +338,121 @@ struct Simulation {
                     for (int x = 0; x < chunk.width; x++) {
                         Cell& cell = chunk.get(x, y);
                         if (!cell) continue;
-                        static std::random_device rd;
-                        static std::mt19937 gen(rd());
-                        static std::uniform_int_distribution<int> dis(0, 1);
+                        static thread_local std::random_device rd;
+                        static thread_local std::mt19937 gen(rd());
+                        static thread_local std::uniform_int_distribution<int>
+                            dir_rand(0, 1);
+                        static thread_local std::uniform_real_distribution<
+                            float>
+                            vel_rand(-.00001f, .00001f);
                         const Element& elem = m_registry.get_elem(cell.elem_id);
                         auto cx             = pos.x * m_chunk_size + x;
                         auto cy             = pos.y * m_chunk_size + y;
-                        if ((x == 0 || x == chunk.width - 1 || y == 0 ||
-                             y == chunk.height - 1) &&
-                            !valid(cx, cy)) {
-                            cell.color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-                            continue;
-                        } else if (cell.color ==
-                                   glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)) {
-                            cell.color = elem.color_gen(
-                            );  // reset color to element color
-                        }
+                        auto [grav_x, grav_y] = get_grav(cx, cy);
                         if (elem.grav_type == Element::GravType::POWDER) {
-                            int dir = 2 * dis(gen) - 1;
-                            // try go down
-                            if (valid(cx, cy - 1) &&
-                                (!get_cell(cx, cy - 1) ||
-                                 get_elem(cx, cy - 1).grav_type ==
-                                     Element::GravType::LIQUID)) {
-                                std::swap(cell, get_cell(cx, cy - 1));
-                            } else if (valid(cx - dir, cy - 1) &&
-                                       (!get_cell(cx - dir, cy - 1) ||
-                                        get_elem(cx - dir, cy - 1).grav_type ==
-                                            Element::GravType::LIQUID)) {
-                                std::swap(cell, get_cell(cx - dir, cy - 1));
-                            } else if (valid(cx + dir, cy - 1) &&
-                                       (!get_cell(cx + dir, cy - 1) ||
-                                        get_elem(cx + dir, cy - 1).grav_type ==
-                                            Element::GravType::LIQUID)) {
-                                std::swap(cell, get_cell(cx + dir, cy - 1));
+                            int dir     = 2 * dir_rand(gen) - 1;
+                            int delta_x = cell.inpos.x +
+                                          (cell.inpos.x > 0 ? 0.5f : -0.5f);
+                            int delta_y = cell.inpos.y +
+                                          (cell.inpos.y > 0 ? 0.5f : -0.5f);
+                            cell.inpos.x -= delta_x;
+                            cell.inpos.y -= delta_y;
+                            if (delta_x == 0 && delta_y == 0) {
+                                cell.velocity.x += grav_x * delta;
+                                cell.velocity.y += grav_y * delta;
+                                cell.inpos += cell.velocity * delta;
+                                cell.velocity.x += vel_rand(gen) * delta;
+                                cell.velocity.y += vel_rand(gen) * delta;
+                                cell.velocity *= dumping;
+                                continue;
                             }
-                        } else if (elem.grav_type ==
-                                   Element::GravType::LIQUID) {
-                            int dir = 2 * dis(gen) - 1;
-                            // try go down
-                            if (valid(cx, cy - 1) && !get_cell(cx, cy - 1)) {
-                                std::swap(cell, get_cell(cx, cy - 1));
-                            } else if (valid(cx - dir, cy - 1) &&
-                                       !get_cell(cx - dir, cy - 1)) {
-                                std::swap(cell, get_cell(cx - dir, cy - 1));
-                            } else if (valid(cx + dir, cy - 1) &&
-                                       !get_cell(cx + dir, cy - 1)) {
-                                std::swap(cell, get_cell(cx + dir, cy - 1));
-                            } else if (valid(cx - dir, cy) &&
-                                       !get_cell(cx - dir, cy)) {
-                                std::swap(cell, get_cell(cx - dir, cy));
-                            } else if (valid(cx + dir, cy) &&
-                                       !get_cell(cx + dir, cy)) {
-                                std::swap(cell, get_cell(cx + dir, cy));
+                            int tx = cx + std::clamp(delta_x, -1, 1);
+                            int ty = cy + std::clamp(delta_y, -1, 1);
+                            if (valid(tx, ty) && !get_cell(tx, ty)) {
+                                std::swap(cell, get_cell(tx, ty));
+                            } else if (valid(tx, ty) && get_cell(tx, ty)) {
+                                // for (int ttx = tx - 1; ttx <= tx + 1; ttx++)
+                                //     for (int tty = ty - 1; tty <= ty + 1;
+                                //          tty++) {
+                                //         int tx = ttx;
+                                //         int ty = tty;
+                                        if (!valid(tx, ty) || !get_cell(tx, ty))
+                                            continue;
+                                        float cxf = cx + cell.inpos.x;
+                                        float cyf = cy + cell.inpos.y;
+                                        float txf =
+                                            tx + get_cell(tx, ty).inpos.x;
+                                        float tyf =
+                                            ty + get_cell(tx, ty).inpos.y;
+                                        float dx       = txf - cxf;
+                                        float dy       = tyf - cyf;
+                                        float insitute = std::max(
+                                            elem.institute,
+                                            get_elem(tx, ty).institute
+                                        );
+                                        float friction =
+                                            elem.friction *
+                                            get_elem(tx, ty).friction;
+                                        float dvx =
+                                            get_cell(tx, ty).velocity.x -
+                                            cell.velocity.x;
+                                        float dvy =
+                                            get_cell(tx, ty).velocity.y -
+                                            cell.velocity.y;
+                                        if (dvx * dx + dvy * dy < 0) {
+                                            float m1 = elem.density;
+                                            float m2 =
+                                                m_registry
+                                                    .get_elem(
+                                                        get_cell(tx, ty).elem_id
+                                                    )
+                                                    .density;
+                                            float p = (insitute + 1) *
+                                                      (dvx * dx + dvy * dy) /
+                                                      (dx * dx + dy * dy) /
+                                                      (m1 + m2);
+                                            // float friction_p =
+                                            //     std::abs(p) * friction;
+                                            // friction_p = std::min(
+                                            //     friction_p,
+                                            //     std::abs(dvx * dx - dvy * dy)
+                                            //     /
+                                            //         (dx * dx + dy * dy) /
+                                            //         (m1 + m2)
+                                            // );
+                                            // float fx =
+                                            //     dx * friction_p *
+                                            //     ((dvx * dx - dvy * dy) > 0
+                                            //          ? 1
+                                            //          : -1);
+                                            // float fy =
+                                            //     dy * friction_p *
+                                            //     ((dvx * dx - dvy * dy) > 0
+                                            //          ? 1
+                                            //          : -1);
+                                            float fx = 0;
+                                            float fy = 0;
+                                            cell.velocity.x +=
+                                                p * m2 * dx + fx * m2;
+                                            cell.velocity.y +=
+                                                p * m2 * dy + fy * m2;
+                                            get_cell(tx, ty).velocity.x -=
+                                                p * m1 * dx + fx * m1;
+                                            get_cell(tx, ty).velocity.y -=
+                                                p * m1 * dy + fy * m1;
+                                        // }
+                                    }
+                            } else if (!valid(tx, ty)) {
+                                continue;
                             }
+                            cell.velocity.x += grav_x * delta;
+                            cell.velocity.y += grav_y * delta;
+                            cell.inpos += cell.velocity * delta;
+                            cell.velocity *= dumping;
                         }
                     }
                 }
             }
     }
 };
-constexpr int s = (-1) % 64;
 }  // namespace epix::world::sand::components

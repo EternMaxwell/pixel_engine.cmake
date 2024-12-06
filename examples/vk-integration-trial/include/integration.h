@@ -1021,14 +1021,14 @@ void create_simulation(Command command) {
                 float r = dis(gen);
                 return glm::vec4(r, r, 0.0f, 1.0f);
             },
-            1.0f
+            1.0f, .2f, 0.3f
         }
     );
     registry.register_elem(
         "water",
         Element{
             "water", "water", Element::GravType::LIQUID,
-            []() { return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }, 1.0f
+            []() { return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }, 1.0f, .01f, .01f
         }
     );
     registry.register_elem(
@@ -1042,7 +1042,7 @@ void create_simulation(Command command) {
                 float r = dis(gen);
                 return glm::vec4(r, r, r, 1.0f);
             },
-            1.0f
+            1.0f, 0.0f, .6f
         }
     );
     Simulation simulation(std::move(registry), 64);
@@ -1063,8 +1063,9 @@ void create_simulation(Command command) {
                     chunk.create(i, j, CellDef("sand"), simulation.registry());
                 else if (res == 8)
                     chunk.create(i, j, CellDef("wall"), simulation.registry());
-                else if (res == 7)
-                    chunk.create(i, j, CellDef("water"), simulation.registry());
+                // else if (res == 7)
+                //     chunk.create(i, j, CellDef("water"),
+                //     simulation.registry());
             }
         }
     }
@@ -1106,7 +1107,7 @@ void update_simulation(
     auto [simulation] = query.single();
     auto count        = timer->value().tick();
     for (int i = 0; i < count; i++) {
-        simulation.update();
+        simulation.update(timer->value().interval);
         return;
     }
 }
