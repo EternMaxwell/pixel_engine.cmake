@@ -884,8 +884,10 @@ void draw_lines(
 }
 
 void imgui_demo_window(ResMut<epix::imgui::ImGuiContext> imgui_context) {
-    if (!imgui_context.has_value()) return;
-    ImGui::ShowDemoWindow();
+    if (imgui_context.has_value()) {
+        ImGui::SetCurrentContext(imgui_context->context);
+        ImGui::ShowDemoWindow();
+    }
 }
 
 void render_pixel_renderer_test(
@@ -962,7 +964,8 @@ void update_mouse_joint(
     Command command,
     Query<Get<b2WorldId>> world_query,
     Query<Get<Entity, MouseJoint>> mouse_joint_query,
-    Query<Get<const Window, const ButtonInput<MouseButton>>> input_query
+    Query<Get<const Window, const ButtonInput<MouseButton>>> input_query,
+    ResMut<epix::imgui::ImGuiContext> imgui_context
 ) {
     if (!world_query) return;
     if (!input_query) return;
@@ -980,8 +983,11 @@ void update_mouse_joint(
             b2DestroyJoint(joint.joint);
             command.entity(entity).despawn();
         }
-    } else if (mouse_input.just_pressed(epix::input::MouseButton2) &&
-               !ImGui::GetIO().WantCaptureMouse) {
+    } else if (mouse_input.just_pressed(epix::input::MouseButton2)) {
+        if (imgui_context.has_value()) {
+            ImGui::SetCurrentContext(imgui_context->context);
+            if (ImGui::GetIO().WantCaptureMouse) return;
+        }
         if (mouse_joint_query) return;
         b2AABB aabb   = b2AABB();
         b2Vec2 cursor = b2Vec2(
@@ -1021,7 +1027,7 @@ void create_simulation(Command command) {
                 float r = dis(gen);
                 return glm::vec4(r, r, 0.0f, 1.0f);
             },
-            1.0f, .2f, 0.3f
+            1.0f, .0f, 0.3f
         }
     );
     registry.register_elem(
@@ -1052,17 +1058,26 @@ void create_simulation(Command command) {
             simulation.load_chunk(i, j);
         }
     }
+    for (int y = -simulation_size * simulation.chunk_size();
+         y < -simulation_size * simulation.chunk_size() + 12; y++) {
+        for (int x = -simulation_size * simulation.chunk_size();
+             x < simulation_size * simulation.chunk_size(); x++) {
+            if (simulation.valid(x, y))
+                simulation.create(x, y, CellDef("wall"));
+        }
+    }
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
         for (int i = 0; i < chunk.size().x; i++) {
             for (int j = 0; j < chunk.size().y; j++) {
                 static std::random_device rd;
                 static std::mt19937 gen(rd());
-                static std::uniform_int_distribution<int> dis(0, 10);
+                static std::uniform_int_distribution<int> dis(0, 20);
                 int res = dis(gen);
                 if (res == 9)
                     chunk.create(i, j, CellDef("sand"), simulation.registry());
-                else if (res == 8)
-                    chunk.create(i, j, CellDef("wall"), simulation.registry());
+                // else if (res == 8)
+                //     chunk.create(i, j, CellDef("wall"),
+                //     simulation.registry());
                 // else if (res == 7)
                 //     chunk.create(i, j, CellDef("water"),
                 //     simulation.registry());
@@ -1070,6 +1085,48 @@ void create_simulation(Command command) {
         }
     }
     command.spawn(std::move(simulation));
+}
+
+void create_powder_from_click(
+    Query<Get<Simulation>> query,
+    Query<Get<const Window, const ButtonInput<MouseButton>>> window_query,
+    ResMut<epix::imgui::ImGuiContext> imgui_context
+) {
+    if (!query) return;
+    if (!window_query) return;
+    auto [simulation]          = query.single();
+    auto [window, mouse_input] = window_query.single();
+    if (imgui_context.has_value()) {
+        ImGui::SetCurrentContext(imgui_context->context);
+        if (ImGui::GetIO().WantCaptureMouse) return;
+    }
+    if (mouse_input.pressed(epix::input::MouseButton1) ||
+        mouse_input.pressed(epix::input::MouseButton2)) {
+        auto cursor          = window.get_cursor();
+        glm::vec4 cursor_pos = glm::vec4(
+            cursor.x - window.get_size().width / 2,
+            window.get_size().height / 2 - cursor.y, 0.0f, 1.0f
+        );
+        float scale                 = 8.0f;
+        glm::mat4 viewport_to_world = glm::inverse(glm::scale(
+            glm::translate(glm::mat4(1.0f), {0.0f, 0.0f, 0.0f}),
+            {scale, scale, 1.0f}
+        ));
+        glm::vec4 world_pos         = viewport_to_world * cursor_pos;
+        int cell_x                  = static_cast<int>(world_pos.x);
+        int cell_y                  = static_cast<int>(world_pos.y);
+        for (int tx = cell_x - 1; tx < cell_x + 1; tx++) {
+            for (int ty = cell_y - 1; ty < cell_y + 1; ty++) {
+                if (simulation.valid(tx, ty)) {
+                    if (mouse_input.pressed(epix::input::MouseButton1)) {
+                        simulation.create(tx, ty, CellDef("sand"));
+                    } else if (mouse_input.pressed(epix::input::MouseButton2)) {
+                        simulation.remove(tx, ty);
+                    }
+                }
+            }
+        }
+    }
 }
 
 struct RepeatTimer {
@@ -1131,7 +1188,8 @@ void render_simulation(
         static_cast<float>(swap_chain.extent.height) / 2.0f,
         -static_cast<float>(swap_chain.extent.height) / 2.0f, 1000.0f, -1000.0f
     );
-    uniform_buffer.view = glm::scale(glm::mat4(1.0f), {4.0f, 4.0f, 1.0f});
+    float scale         = 8.0f;
+    uniform_buffer.view = glm::scale(glm::mat4(1.0f), {scale, scale, 1.0f});
     renderer.begin(device, swap_chain, queue, uniform_buffer);
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
         glm::mat4 model = glm::translate(
@@ -1149,6 +1207,46 @@ void render_simulation(
     renderer.end();
 }
 
+void render_simulation_cell_vel(
+    Query<Get<const Simulation>> query,
+    Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
+    Query<Get<epix::render::debug::vulkan::components::LineDrawer>>
+        line_drawer_query
+) {
+    using namespace epix::render::debug::vulkan::components;
+    if (!query) return;
+    if (!context_query) return;
+    if (!line_drawer_query) return;
+    auto [device, swap_chain, queue] = context_query.single();
+    auto [line_drawer]               = line_drawer_query.single();
+    auto [simulation]                = query.single();
+    line_drawer.begin(device, queue, swap_chain);
+    float scale = 8.0f;
+    float alpha = 0.3f;
+    for (auto&& [pos, chunk] : simulation.chunk_map()) {
+        glm::mat4 model = glm::translate(
+            glm::mat4(1.0f), {pos.x * simulation.chunk_size() * scale,
+                              pos.y * simulation.chunk_size() * scale, 0.0f}
+        );
+        model = glm::scale(model, {scale, scale, 1.0f});
+        line_drawer.setModel(model);
+        for (int i = 0; i < chunk.size().x; i++) {
+            for (int j = 0; j < chunk.size().y; j++) {
+                auto& elem = chunk.get(i, j);
+                if (elem) {
+                    line_drawer.drawLine(
+                        {.5f + i + elem.inpos.x, .5f + j + elem.inpos.y, 0.0f},
+                        {.5f + i + elem.inpos.x + elem.velocity.x,
+                         .5f + j + elem.inpos.y + elem.velocity.y, 0.0f},
+                        {0.0f, 0.0f, 1.0f, alpha}
+                    );
+                }
+            }
+        }
+    }
+    line_drawer.end();
+}
+
 void render_simulation_chunk_outline(
     Query<Get<const Simulation>> query,
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
@@ -1163,7 +1261,7 @@ void render_simulation_chunk_outline(
     auto [line_drawer]               = line_drawer_query.single();
     auto [simulation]                = query.single();
     line_drawer.begin(device, queue, swap_chain);
-    float scale = 4.0f;
+    float scale = 8.0f;
     float alpha = 0.3f;
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
         glm::mat4 model = glm::translate(
@@ -1200,9 +1298,6 @@ void render_simulation_chunk_outline(
 
 struct Box2dTestPlugin : Plugin {
     void build(App& app) override {
-        auto window_plugin = app.get_plugin<WindowPlugin>();
-        // window_plugin->primary_window_vsync = false;
-
         using namespace epix;
 
         app.enable_loop();
@@ -1227,7 +1322,9 @@ struct Box2dTestPlugin : Plugin {
 
 struct VK_TrialPlugin : Plugin {
     void build(App& app) override {
-        auto window_plugin = app.get_plugin<WindowPlugin>();
+        auto window_plugin                   = app.get_plugin<WindowPlugin>();
+        window_plugin->primary_desc().width  = 1080;
+        window_plugin->primary_desc().height = 1080;
         // window_plugin->primary_window_vsync = false;
 
         using namespace epix;
@@ -1240,12 +1337,15 @@ struct VK_TrialPlugin : Plugin {
         // app.add_plugin(Box2dTestPlugin{});
         app.add_system(Startup, create_simulation);
         app.add_system(Update, toggle_simulation);
-        app.add_system(Update, update_simulation)
+        app.add_system(Update, create_powder_from_click, update_simulation)
+            .chain()
             .in_state(SimulateState::Running);
         app.add_system(PreUpdate, toggle_full_screen);
         app.add_system(
-               Render, render_simulation, render_simulation_chunk_outline
+               Render, render_simulation, render_simulation_chunk_outline,
+               render_simulation_cell_vel
         )
+            .chain()
             .before(render_bodies, render_pixel_block);
     }
 };

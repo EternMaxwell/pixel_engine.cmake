@@ -22,8 +22,19 @@ struct Entity {
     EPIX_API bool operator==(const entt::entity& other);
     EPIX_API bool operator!=(const entt::entity& other);
 };
+struct FuncIndex {
+    std::type_index type;
+    void* func;
+    template <typename T, typename... Args>
+    FuncIndex(T(func*)(Args...))
+        : type(typeid(T)), func(static_cast<void*>(func)) {}
+};
 }  // namespace app
 }  // namespace epix
+template <>
+struct std::hash<epix::app::FuncIndex> {
+    EPIX_API size_t operator()(const epix::app::FuncIndex& func) const;
+};
 template <>
 struct std::hash<epix::app::Entity> {
     EPIX_API size_t operator()(const epix::app::Entity& entity) const;

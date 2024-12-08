@@ -13,7 +13,7 @@ EPIX_API void RenderVKPlugin::build(App& app) {
         .in_set(window::WindowStartUpSets::after_window_creation)
         .use_worker("single");
     app.add_system(Prepare, systems::recreate_swap_chain);
-    app.add_system(PreRender, systems::get_next_image)
+    app.add_system(Prepare, systems::get_next_image)
         .after(systems::recreate_swap_chain);
     app.add_system(PostRender, systems::present_frame);
     app.add_system(PostExit, systems::destroy_context);

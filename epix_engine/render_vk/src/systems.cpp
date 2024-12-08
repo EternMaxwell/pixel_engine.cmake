@@ -161,7 +161,7 @@ EPIX_API void systems::present_frame(
                                   .setSwapchains(*swap_chain)
                                   .setImageIndices(swap_chain.image_index));
     } catch (vk::OutOfDateKHRError& e) {
-        logger->warn("Swap chain out of date: {}", e.what());
+        logger->warn("{}", e.what());
     } catch (std::exception& e) {}
 }
 
