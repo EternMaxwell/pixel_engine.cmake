@@ -96,7 +96,7 @@ EPIX_API void SubStageRunner::run(std::shared_ptr<SystemNode> node) {
         m_logger->warn(
             "The runner does not have a worker pool named {}. Skipping "
             "system {:#018x}",
-            node->m_worker, (size_t)node->m_sys_addr
+            node->m_worker, (size_t)node->m_sys_addr.func
         );
         msg_queue.push(node);
     }

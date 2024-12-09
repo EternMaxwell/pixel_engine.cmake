@@ -106,7 +106,8 @@ struct App {
                     spdlog::warn(
                         "adding system {:#018x} to stage {} is not allowed"
                         "on_enter can only be used in state transition stages",
-                        (size_t)node->m_sys_addr, node->m_stage.m_stage.name()
+                        (size_t)node->m_sys_addr.func,
+                        node->m_stage.m_stage.name()
                     );
             }
             return *this;

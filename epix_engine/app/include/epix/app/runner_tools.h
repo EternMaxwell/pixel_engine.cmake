@@ -35,26 +35,34 @@ struct SetMap : spp::sparse_hash_map<std::type_index, std::vector<SystemSet>> {
 struct SystemNode {
     template <typename StageT, typename... Args>
     SystemNode(StageT stage, void (*func)(Args...))
-        : m_stage(stage), m_system(std::make_unique<System<Args...>>(func)) {
-        m_sys_addr = (void*)func;
-    }
+        : m_stage(stage),
+          m_system(std::make_unique<System<Args...>>(func)),
+          m_sys_addr(func) {}
     EPIX_API bool run(SubApp* src, SubApp* dst);
-    EPIX_API void before(void* other_sys);
-    EPIX_API void after(void* other_sys);
+    template <typename T, typename... Args>
+    void before(T (*func)(Args...)) {
+        m_ptr_nexts.emplace(func);
+    }
+    EPIX_API void before(const FuncIndex& func);
+    template <typename T, typename... Args>
+    void after(T (*func)(Args...)) {
+        m_ptr_prevs.emplace(func);
+    }
+    EPIX_API void after(const FuncIndex& func);
     EPIX_API void clear_tmp();
     EPIX_API double reach_time();
 
     SystemStage m_stage;
     std::vector<SystemSet> m_in_sets;
-    void* m_sys_addr;
+    FuncIndex m_sys_addr;
     std::unique_ptr<BasicSystem<void>> m_system;
     std::string m_worker = "default";
     spp::sparse_hash_set<std::weak_ptr<SystemNode>> m_strong_prevs;
     spp::sparse_hash_set<std::weak_ptr<SystemNode>> m_strong_nexts;
     spp::sparse_hash_set<std::weak_ptr<SystemNode>> m_weak_prevs;
     spp::sparse_hash_set<std::weak_ptr<SystemNode>> m_weak_nexts;
-    spp::sparse_hash_set<void*> m_ptr_prevs;
-    spp::sparse_hash_set<void*> m_ptr_nexts;
+    spp::sparse_hash_set<FuncIndex> m_ptr_prevs;
+    spp::sparse_hash_set<FuncIndex> m_ptr_nexts;
     std::vector<std::unique_ptr<BasicSystem<bool>>> m_conditions;
 
     std::optional<double> m_reach_time;

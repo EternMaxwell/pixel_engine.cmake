@@ -29,6 +29,7 @@ struct FuncIndex {
     template <typename T, typename... Args>
     FuncIndex(T (*func)(Args...))
         : type(typeid(T)), func(static_cast<void*>(func)) {}
+    EPIX_API bool operator==(const FuncIndex& other) const;
 };
 }  // namespace app
 }  // namespace epix

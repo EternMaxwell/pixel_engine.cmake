@@ -24,12 +24,12 @@ struct SubStageRunner {
     SubStageRunner& operator=(SubStageRunner&& other) = default;
     template <typename StageT, typename... Args>
     SystemNode* add_system(StageT stage, void (*func)(Args...)) {
-        if (auto it = m_systems.find((void*)(func)); it != m_systems.end()) {
+        if (auto it = m_systems.find(FuncIndex(func)); it != m_systems.end()) {
             m_logger->warn("System {:#018x} already present", (size_t)(func));
             return it->second.get();
         }
         auto ptr = std::make_shared<SystemNode>(stage, func);
-        m_systems.emplace((void*)(func), ptr);
+        m_systems.emplace(FuncIndex(func), ptr);
         return ptr.get();
     }
     EPIX_API void build();
@@ -45,7 +45,7 @@ struct SubStageRunner {
 
     SystemStage m_sub_stage;
     MsgQueueBase<std::shared_ptr<SystemNode>> msg_queue;
-    spp::sparse_hash_map<void*, std::shared_ptr<SystemNode>> m_systems;
+    spp::sparse_hash_map<FuncIndex, std::shared_ptr<SystemNode>> m_systems;
     spp::sparse_hash_set<std::shared_ptr<SystemNode>> m_heads;
     SetMap* m_sets;
 
