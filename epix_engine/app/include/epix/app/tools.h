@@ -4,6 +4,7 @@
 
 #include <entt/entity/registry.hpp>
 #include <tuple>
+#include <typeindex>
 
 #include "common.h"
 
@@ -26,7 +27,7 @@ struct FuncIndex {
     std::type_index type;
     void* func;
     template <typename T, typename... Args>
-    FuncIndex(T(func*)(Args...))
+    FuncIndex(T (*func)(Args...))
         : type(typeid(T)), func(static_cast<void*>(func)) {}
 };
 }  // namespace app

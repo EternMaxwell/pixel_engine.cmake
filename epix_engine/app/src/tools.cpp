@@ -19,6 +19,13 @@ EPIX_API bool Entity::operator!=(const entt::entity& other) {
     return id != other;
 }
 
+EPIX_API size_t std::hash<FuncIndex>::operator()(const FuncIndex& func) const {
+    size_t type_hash = func.type.hash_code();
+    size_t func_hash = std::hash<void*>()(func.func);
+    return type_hash ^
+           (func_hash + 0x9e3779b9 + (type_hash << 6) + (type_hash >> 2));
+}
+
 EPIX_API size_t std::hash<Entity>::operator()(const Entity& entity) const {
     return std::hash<entt::entity>()(entity.id);
 }
