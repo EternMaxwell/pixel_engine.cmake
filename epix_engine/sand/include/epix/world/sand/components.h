@@ -434,7 +434,7 @@ struct Simulation {
                     vel = {w, h};
                     break;
                 case 1:
-                    vel = rotate(w , h, glm::radians(-45.0f));
+                    vel = rotate(w, h, glm::radians(-45.0f));
                     break;
                 case 2:
                     vel = rotate(w, h, glm::radians(45.0f));
