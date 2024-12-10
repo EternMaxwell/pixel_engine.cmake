@@ -1073,8 +1073,9 @@ void create_simulation(Command command) {
                 static std::mt19937 gen(rd());
                 static std::uniform_int_distribution<int> dis(0, 20);
                 int res = dis(gen);
-                if (res == 9)
-                    chunk.create(i, j, CellDef("sand"), simulation.registry());
+                // if (res == 9)
+                //     chunk.create(i, j, CellDef("sand"),
+                //     simulation.registry());
                 // else if (res == 8)
                 //     chunk.create(i, j, CellDef("wall"),
                 //     simulation.registry());
@@ -1166,6 +1167,19 @@ void update_simulation(
     for (int i = 0; i < count; i++) {
         simulation.update(timer->value().interval);
         return;
+    }
+}
+
+void step_simulation(
+    Query<Get<Simulation>> query, Query<Get<const ButtonInput<KeyCode>>> query2
+) {
+    if (!query) return;
+    if (!query2) return;
+    auto [simulation] = query.single();
+    auto [key_input]  = query2.single();
+    if (key_input.just_pressed(epix::input::KeySpace)) {
+        spdlog::info("Step simulation");
+        simulation.update(1.0 / 30.0);
     }
 }
 
@@ -1333,13 +1347,14 @@ struct VK_TrialPlugin : Plugin {
         // app.add_system(Startup, create_text);
         // app.add_system(Startup, create_pixel_block);
         // app.add_system(Render, draw_lines);
-        app.insert_state(SimulateState::Running);
+        app.insert_state(SimulateState::Paused);
         // app.add_plugin(Box2dTestPlugin{});
         app.add_system(Startup, create_simulation);
-        app.add_system(Update, toggle_simulation);
-        app.add_system(Update, create_powder_from_click, update_simulation)
+        app.add_system(Update, toggle_simulation, create_powder_from_click);
+        app.add_system(Update, update_simulation)
             .chain()
             .in_state(SimulateState::Running);
+        app.add_system(Update, step_simulation).in_state(SimulateState::Paused);
         app.add_system(PreUpdate, toggle_full_screen);
         app.add_system(
                Render, render_simulation, render_simulation_chunk_outline,

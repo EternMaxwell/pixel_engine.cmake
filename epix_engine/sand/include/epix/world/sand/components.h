@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sparsepp/spp.h>
+#include <spdlog/spdlog.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -26,7 +27,7 @@ struct Element {
     } grav_type = GravType::SOLID;
     std::function<glm::vec4()> color_gen;
     float density;
-    float institute;
+    float bouncing;
     float friction;
 };
 struct CellDef {
@@ -88,9 +89,7 @@ struct Cell {
     glm::vec4 color = glm::vec4(0.0f);
     glm::vec2 velocity;
     glm::vec2 inpos;
-    bool moved        = false;
-    bool any_collided = false;
-    bool freefall     = false;
+    int not_move_count = 0;
 
     bool valid() const { return elem_id >= 0; }
     operator bool() const { return valid(); }
@@ -119,26 +118,39 @@ struct ElemRegistry {
 struct Simulation {
     struct Chunk {
         std::vector<Cell> cells;
+        std::vector<bool> updated;
         const int width;
         const int height;
 
         Chunk(int width, int height)
-            : cells(width * height, Cell{}), width(width), height(height) {}
+            : cells(width * height, Cell{}),
+              width(width),
+              height(height),
+              updated(width * height, false) {}
         Chunk(const Chunk& other)
-            : cells(other.cells), width(other.width), height(other.height) {}
+            : cells(other.cells),
+              width(other.width),
+              height(other.height),
+              updated(other.updated) {}
         Chunk(Chunk&& other)
             : cells(std::move(other.cells)),
               width(other.width),
-              height(other.height) {}
+              height(other.height),
+              updated(std::move(other.updated)) {}
         Chunk& operator=(const Chunk& other) {
             assert(width == other.width && height == other.height);
-            cells = other.cells;
+            cells   = other.cells;
+            updated = other.updated;
             return *this;
         }
         Chunk& operator=(Chunk&& other) {
             assert(width == other.width && height == other.height);
-            cells = std::move(other.cells);
+            cells   = std::move(other.cells);
+            updated = std::move(other.updated);
             return *this;
+        }
+        void reset_updated() {
+            std::fill(updated.begin(), updated.end(), false);
         }
         Cell& get(int x, int y) { return cells[y * width + x]; }
         const Cell& get(int x, int y) const { return cells[y * width + x]; }
@@ -161,14 +173,6 @@ struct Simulation {
             );
             cell.inpos    = {dis(gen), dis(gen)};
             cell.velocity = {dis(gen) * 0.1f, dis(gen) * 0.1f};
-            if (m_registry.get_elem(cell.elem_id).grav_type ==
-                    Element::GravType::LIQUID ||
-                m_registry.get_elem(cell.elem_id).grav_type ==
-                    Element::GravType::GAS ||
-                m_registry.get_elem(cell.elem_id).grav_type ==
-                    Element::GravType::POWDER) {
-                cell.freefall = true;
-            }
             return cell;
         }
         void remove(int x, int y) {
@@ -177,6 +181,8 @@ struct Simulation {
         }
         operator bool() const { return width && height && !cells.empty(); }
         bool operator!() const { return !width || !height || cells.empty(); }
+        void mark_updated(int x, int y) { updated[y * width + x] = true; }
+        bool is_updated(int x, int y) const { return updated[y * width + x]; }
 
         // size and contains function for find_outline algorithm in
         // physics2d::utils to work.
@@ -242,6 +248,12 @@ struct Simulation {
         const auto begin() const { return chunks.begin(); }
         auto end() { return chunks.end(); }
         const auto end() const { return chunks.end(); }
+
+        void reset_updated() {
+            for (auto& [pos, chunk] : chunks) {
+                chunk.reset_updated();
+            }
+        }
     };
 
    private:
@@ -268,6 +280,18 @@ struct Simulation {
     const ElemRegistry& registry() const { return m_registry; }
     ChunkMap& chunk_map() { return m_chunk_map; }
     const ChunkMap& chunk_map() const { return m_chunk_map; }
+    void reset_updated() { m_chunk_map.reset_updated(); }
+    void mark_updated(int x, int y) {
+        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
+        auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
+        m_chunk_map.get_chunk(chunk_x, chunk_y).mark_updated(cell_x, cell_y);
+    }
+    bool is_updated(int x, int y) const {
+        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
+        auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
+        return m_chunk_map.get_chunk(chunk_x, chunk_y)
+            .is_updated(cell_x, cell_y);
+    }
     void load_chunk(int x, int y, const Chunk& chunk) {
         m_chunk_map.load_chunk(x, y, chunk);
     }
@@ -338,7 +362,179 @@ struct Simulation {
         assert(valid(x, y));
         return {0.f, -98.0f};
     }
-    void update(float delta, int steps = 16) {
+    void update(float delta) {
+        struct MoveData {
+            int new_x;
+            int new_y;
+            bool moved = false;
+            int other_x;
+            int other_y;
+            bool swap = false;
+        };
+        auto apply_grav = [=](int x, int y) {
+            if (valid(x, y) && get_cell(x, y)) {
+                auto&& [cell, elem] = get(x, y);
+                auto [gx, gy]       = get_grav(x, y);
+                cell.velocity.x += 0;
+                cell.velocity.y += -1.0f / delta;
+            }
+        };
+        auto rotate = [](float x, float y,
+                         float rad) -> std::pair<float, float> {
+            return {
+                std::cos(rad) * x - std::sin(rad) * y,
+                std::sin(rad) * x + std::cos(rad) * y
+            };
+        };
+        auto line = [=](int x1, int y1, int x2, int y2) -> MoveData {
+            MoveData res;
+            res.other_x = x1;
+            res.other_y = y1;
+            if (x1 == x2 && y1 == y2) {
+                res.moved = false;
+                res.swap  = false;
+                return res;
+            }
+            int w      = x2 - x1;
+            int h      = y2 - y1;
+            int last_x = x1;
+            int last_y = y1;
+            int dx = 0, dy = 0;
+            bool xlarger = std::abs(w) > std::abs(h);
+            dx           = w > 0 ? 1 : -1;
+            dy           = h > 0 ? 1 : -1;
+            bool ratio   = xlarger ? (float)h / w : (float)w / h;
+            int max      = xlarger ? std::abs(w) : std::abs(h);
+            for (int i = 1; i <= max; i++) {
+                int cx = xlarger ? x1 + dx * i : x1 + dx * (int)(ratio * (i));
+                int cy = xlarger ? y1 + dy * (int)(ratio * (i)) : y1 + dy * i;
+                if (cx == last_x && cy == last_y) continue;
+                if (valid(cx, cy) && !get_cell(cx, cy)) {
+                    last_x = cx;
+                    last_y = cy;
+                    continue;
+                }
+                res.moved   = (i != 1);
+                res.new_x   = last_x;
+                res.new_y   = last_y;
+                res.other_x = cx;
+                res.other_y = cy;
+                return res;
+            }
+            res.new_x = x2;
+            res.new_y = y2;
+            res.moved = true;
+            return res;
+        };
+        auto line_with_rotate = [=](int start_x, int start_y, int w, int h,
+                                    int rotation) -> MoveData {
+            std::pair<float, float> vel;
+            switch (rotation) {
+                case 0:
+                    vel = {w, h};
+                    break;
+                case 1:
+                    vel = rotate(w , h, glm::radians(-45.0f));
+                    break;
+                case 2:
+                    vel = rotate(w, h, glm::radians(45.0f));
+                    break;
+                case 3:
+                    vel = {h, -w};
+                    break;
+                case 4:
+                    vel = {-h, w};
+                    break;
+                default:
+                    break;
+            }
+            int desired_x = start_x + (int)vel.first;
+            int desired_y = start_y + (int)vel.second;
+
+            return line(start_x, start_y, desired_x, desired_y);
+        };
+        static thread_local std::mt19937 eng(std::random_device{}());
+        static thread_local std::uniform_real_distribution<float> rng;
+
+        auto get_move_data = [=](int x, int y) -> MoveData {
+            auto&& [cell, elem] = get(x, y);
+            int rotate_amount;
+            switch (elem.grav_type) {
+                case Element::GravType::POWDER:
+                    rotate_amount = 3;
+                    break;
+                case Element::GravType::LIQUID:
+                case Element::GravType::GAS:
+                    rotate_amount = 5;
+                    break;
+                default:
+                    return MoveData{};
+            }
+            bool cw                  = rng(eng) > 0.5f;
+            std::vector<int> rotates = cw ? std::vector<int>{0, 1, 2, 3, 4}
+                                          : std::vector<int>{0, 2, 1, 4, 3};
+            rotates.resize(rotate_amount);
+            for (int i : rotates) {
+                auto data = line_with_rotate(
+                    x, y, cell.velocity.x * delta, cell.velocity.y * delta, i
+                );
+                if (data.moved) {
+                    return data;
+                } else if (data.other_x != x || data.other_y != y) {
+                    if (valid(data.other_x, data.other_y) &&
+                        get_cell(data.other_x, data.other_y)) {
+                        auto&& [other_cell, other_elem] =
+                            get(data.other_x, data.other_y);
+                        if ((other_elem.grav_type ==
+                                 Element::GravType::LIQUID ||
+                             other_elem.grav_type == Element::GravType::GAS ||
+                             other_elem.grav_type == Element::GravType::POWDER
+                            ) &&
+                            other_elem.density < elem.density) {
+                            data.swap = true;
+                            return data;
+                        }
+                    } else {
+                        data.swap = false;
+                        return data;
+                    }
+                }
+            }
+            MoveData res;
+            res.moved   = false;
+            res.other_x = x;
+            res.other_y = y;
+            return res;
+        };
+        auto tick_cell = [=](int x, int y) {
+            if (!valid(x, y)) return;
+            if (!get_cell(x, y)) return;
+            auto&& [cell, elem] = get(x, y);
+            apply_grav(x, y);
+            auto data = get_move_data(x, y);
+            if (data.swap) {
+                auto& new_cell      = get_cell(data.new_x, data.new_y);
+                auto& other_cell    = get_cell(data.other_x, data.other_y);
+                cell.not_move_count = 0;
+                std::swap(cell, new_cell);
+                std::swap(new_cell, other_cell);
+                mark_updated(data.other_x, data.other_y);
+                return;
+            }
+            if (!data.moved) {
+                cell.not_move_count++;
+                if (cell.not_move_count > 0) {
+                    cell.velocity       = {0, 0};
+                    cell.not_move_count = 0;
+                }
+                return;
+            }
+            auto& tcell         = get_cell(data.new_x, data.new_y);
+            cell.not_move_count = 0;
+            std::swap(cell, tcell);
+            mark_updated(data.new_x, data.new_y);
+        };
+
         std::vector<glm::ivec2> chunks_to_update;
         for (auto& [pos, chunk] : m_chunk_map.chunks) {
             chunks_to_update.push_back(pos);
@@ -349,63 +545,21 @@ struct Simulation {
                 return a.y < b.y || (a.y == b.y && a.x < b.x);
             }
         );
-        delta /= steps;
-        float dumping = 0.99f;
-        for (int step = 0; step < steps; step++)
-            for (auto& pos : chunks_to_update) {
-                auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
-                for (int y = 0; y < chunk.height; y++) {
-                    for (int x = 0; x < chunk.width; x++) {
-                        // each cell
-                        Cell& cell = chunk.get(x, y);
-                        if (!cell) continue;
-                        if (step == 0) {
-                            cell.moved        = false;
-                            cell.any_collided = false;
-                        }
-                        static thread_local std::random_device rd;
-                        static thread_local std::mt19937 gen(rd());
-                        static thread_local std::uniform_int_distribution<int>
-                            dir_rand(0, 1);
-                        static thread_local std::uniform_real_distribution<
-                            float>
-                            vel_rand(-.00001f, .00001f);
-                        const Element& elem = m_registry.get_elem(cell.elem_id);
-                        float constrain     = 0.5f;
-                        auto cx             = pos.x * m_chunk_size + x;
-                        auto cy             = pos.y * m_chunk_size + y;
-                        auto [grav_x, grav_y] = get_grav(cx, cy);
-                        if (elem.grav_type == Element::GravType::POWDER) {
-                            if (step == 0) {
-                                cell.velocity *= dumping;
-                                cell.velocity.x += grav_x * delta * steps;
-                                cell.velocity.y += grav_y * delta * steps;
-                            }
-                            cell.inpos += cell.velocity * delta;
-                            int dir     = 2 * dir_rand(gen) - 1;
-                            int delta_x = cell.inpos.x +
-                                          (cell.inpos.x > 0 ? 0.5f : -0.5f);
-                            int delta_y = cell.inpos.y +
-                                          (cell.inpos.y > 0 ? 0.5f : -0.5f);
-                            cell.inpos.x -= delta_x;
-                            cell.inpos.y -= delta_y;
-                            delta_x = std::clamp(delta_x, -1, 1);
-                            delta_y = std::clamp(delta_y, -1, 1);
-                            int tx  = cx + delta_x;
-                            int ty  = cy + delta_y;
-                            if ((tx != cx || ty != cy) && valid(tx, ty)) {
-                                auto& tcell = get_cell(tx, ty);
-                                if (!tcell) {
-                                    tcell        = cell;
-                                    cell.elem_id = -1;
-                                } else {
-                                }
-                            }
-                        }
+        reset_updated();
+        for (auto& pos : chunks_to_update) {
+            auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
+            for (int y = 0; y < chunk.height; y++) {
+                for (int x = 0; x < chunk.width; x++) {
+                    int x_ = pos.x * m_chunk_size + x;
+                    int y_ = pos.y * m_chunk_size + y;
+                    if ((!chunk.is_updated(x, y)) && get_cell(x_, y_) &&
+                        (get_elem(x_, y_).grav_type != Element::GravType::SOLID
+                        )) {
+                        tick_cell(x_, y_);
                     }
-                }  // end of each cell
-            }
-        // end of each chunk
+                }
+            }  // end of each cell
+        }
     }
 };
 }  // namespace epix::world::sand::components
