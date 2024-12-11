@@ -1052,7 +1052,7 @@ void create_simulation(Command command) {
         }
     );
     Simulation simulation(std::move(registry), 64);
-    const int simulation_size = 1;
+    const int simulation_size = 4;
     for (int i = -simulation_size; i < simulation_size; i++) {
         for (int j = -simulation_size; j < simulation_size; j++) {
             simulation.load_chunk(i, j);
@@ -1066,12 +1066,12 @@ void create_simulation(Command command) {
                 simulation.create(x, y, CellDef("wall"));
         }
     }
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<int> dis(0, 20);
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
         for (int i = 0; i < chunk.size().x; i++) {
             for (int j = 0; j < chunk.size().y; j++) {
-                static std::random_device rd;
-                static std::mt19937 gen(rd());
-                static std::uniform_int_distribution<int> dis(0, 20);
                 int res = dis(gen);
                 // if (res == 9)
                 //     chunk.create(i, j, CellDef("sand"),
@@ -1087,6 +1087,8 @@ void create_simulation(Command command) {
     }
     command.spawn(std::move(simulation));
 }
+
+static constexpr float scale = 2.0f;
 
 void create_powder_from_click(
     Query<Get<Simulation>> query,
@@ -1108,7 +1110,6 @@ void create_powder_from_click(
             cursor.x - window.get_size().width / 2,
             window.get_size().height / 2 - cursor.y, 0.0f, 1.0f
         );
-        float scale                 = 8.0f;
         glm::mat4 viewport_to_world = glm::inverse(glm::scale(
             glm::translate(glm::mat4(1.0f), {0.0f, 0.0f, 0.0f}),
             {scale, scale, 1.0f}
@@ -1116,8 +1117,8 @@ void create_powder_from_click(
         glm::vec4 world_pos         = viewport_to_world * cursor_pos;
         int cell_x                  = static_cast<int>(world_pos.x);
         int cell_y                  = static_cast<int>(world_pos.y);
-        for (int tx = cell_x - 1; tx < cell_x + 1; tx++) {
-            for (int ty = cell_y - 1; ty < cell_y + 1; ty++) {
+        for (int tx = cell_x - 8; tx < cell_x + 8; tx++) {
+            for (int ty = cell_y - 8; ty < cell_y + 8; ty++) {
                 if (simulation.valid(tx, ty)) {
                     if (mouse_input.pressed(epix::input::MouseButton1)) {
                         simulation.create(tx, ty, CellDef("sand"));
@@ -1160,12 +1161,12 @@ void update_simulation(
 ) {
     if (!query) return;
     if (!timer->has_value()) {
-        *timer = RepeatTimer(1.0 / 30.0);
+        *timer = RepeatTimer(1.0 / 60.0);
     }
     auto [simulation] = query.single();
     auto count        = timer->value().tick();
     for (int i = 0; i < count; i++) {
-        simulation.update(timer->value().interval);
+        simulation.update((float)timer->value().interval);
         return;
     }
 }
@@ -1179,7 +1180,7 @@ void step_simulation(
     auto [key_input]  = query2.single();
     if (key_input.just_pressed(epix::input::KeySpace)) {
         spdlog::info("Step simulation");
-        simulation.update(1.0 / 30.0);
+        simulation.update((float)1.0 / 60.0);
     }
 }
 
@@ -1202,7 +1203,6 @@ void render_simulation(
         static_cast<float>(swap_chain.extent.height) / 2.0f,
         -static_cast<float>(swap_chain.extent.height) / 2.0f, 1000.0f, -1000.0f
     );
-    float scale         = 8.0f;
     uniform_buffer.view = glm::scale(glm::mat4(1.0f), {scale, scale, 1.0f});
     renderer.begin(device, swap_chain, queue, uniform_buffer);
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
@@ -1214,7 +1214,10 @@ void render_simulation(
         for (int i = 0; i < chunk.size().x; i++) {
             for (int j = 0; j < chunk.size().y; j++) {
                 auto& elem = chunk.get(i, j);
-                if (elem) renderer.draw(elem.color, {i, j});
+                if (elem)
+                    renderer.draw(
+                        elem.freefall ? elem.color : elem.color * 0.5f, {i, j}
+                    );
             }
         }
     }
@@ -1235,7 +1238,6 @@ void render_simulation_cell_vel(
     auto [line_drawer]               = line_drawer_query.single();
     auto [simulation]                = query.single();
     line_drawer.begin(device, queue, swap_chain);
-    float scale = 8.0f;
     float alpha = 0.3f;
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
         glm::mat4 model = glm::translate(
@@ -1275,7 +1277,6 @@ void render_simulation_chunk_outline(
     auto [line_drawer]               = line_drawer_query.single();
     auto [simulation]                = query.single();
     line_drawer.begin(device, queue, swap_chain);
-    float scale = 8.0f;
     float alpha = 0.3f;
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
         glm::mat4 model = glm::translate(
@@ -1357,8 +1358,8 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(Update, step_simulation).in_state(SimulateState::Paused);
         app.add_system(PreUpdate, toggle_full_screen);
         app.add_system(
-               Render, render_simulation, render_simulation_chunk_outline,
-               render_simulation_cell_vel
+               Render, render_simulation, render_simulation_chunk_outline /* ,
+                render_simulation_cell_vel */
         )
             .chain()
             .before(render_bodies, render_pixel_block);

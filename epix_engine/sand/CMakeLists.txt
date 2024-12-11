@@ -6,6 +6,8 @@ set(ENGINE_INCLUDES ${ENGINE_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/include PAREN
 add_library(epix_wdsand STATIC ${MODULE_SOURCES})
 target_include_directories(epix_wdsand PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+set_target_properties(epix_wdsand PROPERTIES CXX_STANDARD 20)
+
 target_link_libraries(epix_wdsand epix::app)
 target_link_libraries(epix_wdsand glm::glm)
 

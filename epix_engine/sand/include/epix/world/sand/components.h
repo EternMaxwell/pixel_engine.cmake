@@ -32,68 +32,31 @@ struct Element {
 };
 struct CellDef {
     enum class DefIdentifier { Name, Id } identifier;
+    glm::vec2 default_vel;
     union {
         std::string elem_name;
         int elem_id;
     };
 
-    CellDef(const CellDef& other) : identifier(other.identifier) {
-        if (identifier == DefIdentifier::Name) {
-            new (&elem_name) std::string(other.elem_name);
-        } else {
-            elem_id = other.elem_id;
-        }
-    }
-    CellDef(CellDef&& other) : identifier(other.identifier) {
-        if (identifier == DefIdentifier::Name) {
-            new (&elem_name) std::string(std::move(other.elem_name));
-        } else {
-            elem_id = other.elem_id;
-        }
-    }
-    CellDef& operator=(const CellDef& other) {
-        if (identifier == DefIdentifier::Name) {
-            elem_name.~basic_string();
-        }
-        identifier = other.identifier;
-        if (identifier == DefIdentifier::Name) {
-            new (&elem_name) std::string(other.elem_name);
-        } else {
-            elem_id = other.elem_id;
-        }
-        return *this;
-    }
-    CellDef& operator=(CellDef&& other) {
-        if (identifier == DefIdentifier::Name) {
-            elem_name.~basic_string();
-        }
-        identifier = other.identifier;
-        if (identifier == DefIdentifier::Name) {
-            new (&elem_name) std::string(std::move(other.elem_name));
-        } else {
-            elem_id = other.elem_id;
-        }
-        return *this;
-    }
-    CellDef(const std::string& name)
-        : identifier(DefIdentifier::Name), elem_name(name) {}
-    CellDef(int id) : identifier(DefIdentifier::Id), elem_id(id) {}
-    ~CellDef() {
-        if (identifier == DefIdentifier::Name) {
-            elem_name.~basic_string();
-        }
-    }
+    EPIX_API CellDef(const CellDef& other);
+    EPIX_API CellDef(CellDef&& other);
+    EPIX_API CellDef& operator=(const CellDef& other);
+    EPIX_API CellDef& operator=(CellDef&& other);
+    EPIX_API CellDef(const std::string& name);
+    EPIX_API CellDef(int id);
+    EPIX_API ~CellDef();
 };
 struct Cell {
     int elem_id     = -1;
     glm::vec4 color = glm::vec4(0.0f);
     glm::vec2 velocity;
     glm::vec2 inpos;
+    bool freefall;
     int not_move_count = 0;
 
-    bool valid() const { return elem_id >= 0; }
-    operator bool() const { return valid(); }
-    bool operator!() const { return !valid(); }
+    EPIX_API bool valid() const;
+    EPIX_API operator bool() const;
+    EPIX_API bool operator!() const;
 };
 struct ElemRegistry {
    private:
@@ -122,67 +85,22 @@ struct Simulation {
         const int width;
         const int height;
 
-        Chunk(int width, int height)
-            : cells(width * height, Cell{}),
-              width(width),
-              height(height),
-              updated(width * height, false) {}
-        Chunk(const Chunk& other)
-            : cells(other.cells),
-              width(other.width),
-              height(other.height),
-              updated(other.updated) {}
-        Chunk(Chunk&& other)
-            : cells(std::move(other.cells)),
-              width(other.width),
-              height(other.height),
-              updated(std::move(other.updated)) {}
-        Chunk& operator=(const Chunk& other) {
-            assert(width == other.width && height == other.height);
-            cells   = other.cells;
-            updated = other.updated;
-            return *this;
-        }
-        Chunk& operator=(Chunk&& other) {
-            assert(width == other.width && height == other.height);
-            cells   = std::move(other.cells);
-            updated = std::move(other.updated);
-            return *this;
-        }
-        void reset_updated() {
-            std::fill(updated.begin(), updated.end(), false);
-        }
-        Cell& get(int x, int y) { return cells[y * width + x]; }
-        const Cell& get(int x, int y) const { return cells[y * width + x]; }
-        Cell& create(
+        EPIX_API Chunk(int width, int height);
+        EPIX_API Chunk(const Chunk& other);
+        EPIX_API Chunk(Chunk&& other);
+        EPIX_API Chunk& operator=(const Chunk& other);
+        EPIX_API Chunk& operator=(Chunk&& other);
+        EPIX_API void reset_updated();
+        EPIX_API Cell& get(int x, int y);
+        EPIX_API const Cell& get(int x, int y) const;
+        EPIX_API Cell& create(
             int x, int y, const CellDef& def, ElemRegistry& m_registry
-        ) {
-            Cell& cell = get(x, y);
-            if (cell) return cell;
-            cell.elem_id = def.identifier == CellDef::DefIdentifier::Name
-                               ? m_registry.elem_id(def.elem_name)
-                               : def.elem_id;
-            if (cell.elem_id < 0) {
-                return cell;
-            }
-            cell.color = m_registry.get_elem(cell.elem_id).color_gen();
-            static thread_local std::random_device rd;
-            static thread_local std::mt19937 gen(rd());
-            static thread_local std::uniform_real_distribution<float> dis(
-                -0.4f, 0.4f
-            );
-            cell.inpos    = {dis(gen), dis(gen)};
-            cell.velocity = {dis(gen) * 0.1f, dis(gen) * 0.1f};
-            return cell;
-        }
-        void remove(int x, int y) {
-            assert(x >= 0 && x < width && y >= 0 && y < height);
-            get(x, y).elem_id = -1;
-        }
-        operator bool() const { return width && height && !cells.empty(); }
-        bool operator!() const { return !width || !height || cells.empty(); }
-        void mark_updated(int x, int y) { updated[y * width + x] = true; }
-        bool is_updated(int x, int y) const { return updated[y * width + x]; }
+        );
+        EPIX_API void remove(int x, int y);
+        EPIX_API operator bool() const;
+        EPIX_API bool operator!() const;
+        EPIX_API void mark_updated(int x, int y);
+        EPIX_API bool is_updated(int x, int y) const;
 
         // size and contains function for find_outline algorithm in
         // physics2d::utils to work.
@@ -191,7 +109,7 @@ struct Simulation {
          *
          * @return glm::ivec2
          */
-        glm::ivec2 size() const { return glm::ivec2(width, height); }
+        EPIX_API glm::ivec2 size() const;
         /**
          * @brief Check if the chunk contains a cell at the given coordinates
          *
@@ -200,192 +118,288 @@ struct Simulation {
          * @return true if the cell is within the chunk
          * @return false if the cell is outside the chunk
          */
-        bool contains(int x, int y) const {
-            return x >= 0 && x < width && y >= 0 && y < height &&
-                   cells[y * width + x].elem_id >= 0;
-        }
+        EPIX_API bool contains(int x, int y) const;
     };
 
     struct ChunkMap {
-        struct ivec2_hash {
-            std::size_t operator()(const glm::ivec2& k) const {
-                return std::hash<uint64_t>()(
-                    (static_cast<uint64_t>(k.x) << 32) | k.y
-                );
-            }
+        const int chunk_size;
+        std::vector<std::vector<std::shared_ptr<Chunk>>> chunks;
+        glm::ivec2 origin = {0, 0};
+        glm::ivec2 size   = {0, 0};
+
+        struct iterator {
+            using iterator_category = std::forward_iterator_tag;
+            using difference_type   = std::ptrdiff_t;
+            using value_type        = std::pair<glm::ivec2, Chunk&>;
+            using pointer           = value_type*;
+            using reference         = value_type&;
+
+            ChunkMap* chunk_map;
+            int x;
+            int y;
+
+            EPIX_API iterator(ChunkMap* chunk_map, int x, int y);
+            EPIX_API iterator& operator++();
+            EPIX_API bool operator==(const iterator& other) const;
+            EPIX_API bool operator!=(const iterator& other) const;
+            EPIX_API value_type operator*();
         };
 
-        spp::sparse_hash_map<glm::ivec2, Chunk, ivec2_hash> chunks;
+        struct const_iterator {
+            using iterator_category = std::forward_iterator_tag;
+            using difference_type   = std::ptrdiff_t;
+            using value_type        = std::pair<glm::ivec2, const Chunk&>;
+            using pointer           = value_type*;
+            using reference         = value_type&;
 
-        void load_chunk(int x, int y, const Chunk& chunk) {
-            if (chunks.find(glm::ivec2(x, y)) != chunks.end()) {
-                chunks.at(glm::ivec2(x, y)) = chunk;
-            } else {
-                chunks.emplace(glm::ivec2(x, y), chunk);
-            }
-        }
-        void load_chunk(int x, int y, Chunk&& chunk) {
-            if (chunks.find(glm::ivec2(x, y)) != chunks.end()) {
-                chunks.at(glm::ivec2(x, y)) = std::move(chunk);
-            } else {
-                chunks.emplace(glm::ivec2(x, y), std::move(chunk));
-            }
-        }
-        void load_chunk(int x, int y) {
-            if (chunks.find(glm::ivec2(x, y)) == chunks.end()) {
-                chunks.emplace(glm::ivec2(x, y), Chunk(64, 64));
-            }
-        }
-        bool contains(int x, int y) const {
-            return chunks.find(glm::ivec2(x, y)) != chunks.end();
-        }
-        Chunk& get_chunk(int x, int y) { return chunks.at(glm::ivec2(x, y)); }
-        const Chunk& get_chunk(int x, int y) const {
-            return chunks.at(glm::ivec2(x, y));
-        }
+            const ChunkMap* chunk_map;
+            int x;
+            int y;
 
-        auto begin() { return chunks.begin(); }
-        const auto begin() const { return chunks.begin(); }
-        auto end() { return chunks.end(); }
-        const auto end() const { return chunks.end(); }
+            EPIX_API const_iterator(const ChunkMap* chunk_map, int x, int y);
+            EPIX_API const_iterator& operator++();
+            EPIX_API bool operator==(const const_iterator& other) const;
+            EPIX_API bool operator!=(const const_iterator& other) const;
+            EPIX_API value_type operator*();
+        };
 
-        void reset_updated() {
-            for (auto& [pos, chunk] : chunks) {
-                chunk.reset_updated();
-            }
-        }
+        EPIX_API ChunkMap(int chunk_size);
+        EPIX_API void load_chunk(int x, int y, const Chunk& chunk);
+        EPIX_API void load_chunk(int x, int y, Chunk&& chunk);
+        EPIX_API void load_chunk(int x, int y);
+        EPIX_API bool contains(int x, int y) const;
+        EPIX_API Chunk& get_chunk(int x, int y);
+        EPIX_API const Chunk& get_chunk(int x, int y) const;
+
+        EPIX_API iterator begin();
+        EPIX_API const_iterator begin() const;
+        EPIX_API iterator end();
+        EPIX_API const_iterator end() const;
+
+        EPIX_API void reset_updated();
     };
 
    private:
     ElemRegistry m_registry;
     const int m_chunk_size;
     ChunkMap m_chunk_map;
+    glm::vec2 default_vel = {0.0f, -30.0f};
 
-    Cell& create_def(int x, int y, const CellDef& def) {
-        assert(valid(x, y));
-        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
-        auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
-        return m_chunk_map.get_chunk(chunk_x, chunk_y)
-            .create(cell_x, cell_y, def, m_registry);
-    }
+    // settings
+    bool powder_always_slide = true;
+
+    EPIX_API Cell& create_def(int x, int y, const CellDef& def);
 
    public:
-    Simulation(const ElemRegistry& registry, int chunk_size = 64)
-        : m_registry(registry), m_chunk_size(chunk_size) {}
-    Simulation(ElemRegistry&& registry, int chunk_size = 64)
-        : m_registry(std::move(registry)), m_chunk_size(chunk_size) {}
+    EPIX_API Simulation(const ElemRegistry& registry, int chunk_size = 64);
+    EPIX_API Simulation(ElemRegistry&& registry, int chunk_size = 64);
 
-    int chunk_size() const { return m_chunk_size; }
-    ElemRegistry& registry() { return m_registry; }
-    const ElemRegistry& registry() const { return m_registry; }
-    ChunkMap& chunk_map() { return m_chunk_map; }
-    const ChunkMap& chunk_map() const { return m_chunk_map; }
-    void reset_updated() { m_chunk_map.reset_updated(); }
-    void mark_updated(int x, int y) {
-        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
-        auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
-        m_chunk_map.get_chunk(chunk_x, chunk_y).mark_updated(cell_x, cell_y);
-    }
-    bool is_updated(int x, int y) const {
-        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
-        auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
-        return m_chunk_map.get_chunk(chunk_x, chunk_y)
-            .is_updated(cell_x, cell_y);
-    }
-    void load_chunk(int x, int y, const Chunk& chunk) {
-        m_chunk_map.load_chunk(x, y, chunk);
-    }
-    void load_chunk(int x, int y, Chunk&& chunk) {
-        m_chunk_map.load_chunk(x, y, std::move(chunk));
-    }
-    void load_chunk(int x, int y) { m_chunk_map.load_chunk(x, y); }
-    std::pair<int, int> to_chunk_pos(int x, int y) const {
-        std::pair<int, int> pos;
-        if (x < 0) {
-            pos.first = (x + 1) / m_chunk_size - 1;
-        } else {
-            pos.first = x / m_chunk_size;
-        }
-        if (y < 0) {
-            pos.second = (y + 1) / m_chunk_size - 1;
-        } else {
-            pos.second = y / m_chunk_size;
-        }
-        return pos;
-    }
-    std::pair<int, int> to_in_chunk_pos(int x, int y) const {
-        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
-        return {x - chunk_x * m_chunk_size, y - chunk_y * m_chunk_size};
-    }
-    bool contain_cell(int x, int y) const {
-        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
-        auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
-        return m_chunk_map.contains(chunk_x, chunk_y) &&
-               m_chunk_map.get_chunk(chunk_x, chunk_y).contains(cell_x, cell_y);
-    }
-    bool valid(int x, int y) const {
-        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
-        return m_chunk_map.contains(chunk_x, chunk_y);
-    }
-    std::tuple<Cell&, const Element&> get(int x, int y) {
-        assert(contain_cell(x, y));
-        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
-        auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
-        Cell& cell =
-            m_chunk_map.get_chunk(chunk_x, chunk_y).get(cell_x, cell_y);
-        const Element& elem = m_registry.get_elem(cell.elem_id);
-        return {cell, elem};
-    }
-    Cell& get_cell(int x, int y) {
-        assert(valid(x, y));
-        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
-        auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
-        return m_chunk_map.get_chunk(chunk_x, chunk_y).get(cell_x, cell_y);
-    }
-    const Element& get_elem(int x, int y) {
-        assert(contain_cell(x, y));
-        auto id = get_cell(x, y).elem_id;
-        assert(id >= 0);
-        return m_registry.get_elem(id);
-    }
+    /**
+     * @brief Get the size of a chunk
+     *
+     * @return `int` the size of a chunk
+     */
+    EPIX_API int chunk_size() const;
+    /**
+     * @brief Get the element registry
+     *
+     * @return `ElemRegistry&` the element registry reference
+     */
+    EPIX_API ElemRegistry& registry();
+    /**
+     * @brief Get the element registry
+     *
+     * @return `const ElemRegistry&` the element registry reference
+     */
+    EPIX_API const ElemRegistry& registry() const;
+    /**
+     * @brief Get the chunk map
+     *
+     * @return `ChunkMap&` the chunk map reference
+     */
+    EPIX_API ChunkMap& chunk_map();
+    /**
+     * @brief Get the chunk map
+     *
+     * @return `const ChunkMap&` the chunk map reference
+     */
+    EPIX_API const ChunkMap& chunk_map() const;
+    /**
+     * @brief Reset the updated status of all cells. This is used to avoid
+     * updating the same cell multiple times in a single frame.
+     */
+    EPIX_API void reset_updated();
+    /**
+     * @brief Mark a cell as updated. This is used to avoid updating the same
+     * cell multiple times in a single frame.
+     *
+     * @param x x-coordinate of the cell
+     * @param y y-coordinate of the cell
+     */
+    EPIX_API void mark_updated(int x, int y);
+    /**
+     * @brief Check if a cell has been updated in the current frame
+     *
+     * @param x x-coordinate of the cell
+     * @param y y-coordinate of the cell
+     * @return `bool` true if the cell has been updated, false otherwise
+     */
+    EPIX_API bool is_updated(int x, int y) const;
+    /**
+     * @brief Load a chunk into the chunk map using copy assignment
+     *
+     * @param x x-coordinate of the chunk
+     * @param y y-coordinate of the chunk
+     * @param chunk the chunk to load
+     */
+    EPIX_API void load_chunk(int x, int y, const Chunk& chunk);
+    /**
+     * @brief Load a chunk into the chunk map using move assignment
+     *
+     * @param x x-coordinate of the chunk
+     * @param y y-coordinate of the chunk
+     * @param chunk the chunk to load
+     */
+    EPIX_API void load_chunk(int x, int y, Chunk&& chunk);
+    /**
+     * @brief Load an empty chunk into the chunk map
+     *
+     * @param x x-coordinate of the chunk
+     * @param y y-coordinate of the chunk
+     */
+    EPIX_API void load_chunk(int x, int y);
+    /**
+     * @brief Get the position of the chunk in which cell (x, y) is located
+     *
+     * @param x x-coordinate of the cell
+     * @param y y-coordinate of the cell
+     *
+     * @return `std::pair<int, int>` the position of the chunk
+     */
+    EPIX_API std::pair<int, int> to_chunk_pos(int x, int y) const;
+    /**
+     * @brief Get the position of the cell in the chunk
+     *
+     * @param x x-coordinate of the cell
+     * @param y y-coordinate of the cell
+     *
+     * @return `std::pair<int, int>` the position of the cell
+     */
+    EPIX_API std::pair<int, int> to_in_chunk_pos(int x, int y) const;
+    /**
+     * @brief Check a cell is present at location (x, y)
+     *
+     * @param x x-coordinate of the cell
+     * @param y y-coordinate of the cell
+     *
+     * @return `bool` true if there is a cell at the location, false otherwise
+     */
+    EPIX_API bool contain_cell(int x, int y) const;
+    /**
+     * @brief Check if a location is valid or within the bounds of the
+     * simulation
+     *
+     * @param x x-coordinate of the location
+     * @param y y-coordinate of the location
+     *
+     * @return `bool` true if the location is valid, false otherwise
+     */
+    EPIX_API bool valid(int x, int y) const;
+    /**
+     * @brief Get the cell and its element at location (x, y)
+     *
+     * @param x x-coordinate of the cell
+     * @param y y-coordinate of the cell
+     *
+     * @return `std::tuple<Cell&, const Element&>` the reference to the cell and
+     * the element at the location
+     */
+    EPIX_API std::tuple<Cell&, const Element&> get(int x, int y);
+    /**
+     * @brief Get the cell at location (x, y)
+     *
+     * @param x x-coordinate of the cell
+     * @param y y-coordinate of the cell
+     *
+     * @return `Cell&` the reference to the cell
+     */
+    EPIX_API Cell& get_cell(int x, int y);
+    /**
+     * @brief Get the element at location (x, y)
+     *
+     * @param x x-coordinate of the cell
+     * @param y y-coordinate of the cell
+     *
+     * @return `const Element&` the reference to the element
+     */
+    EPIX_API const Element& get_elem(int x, int y);
+    /**
+     * @brief Create a cell at location (x, y) with the given element
+     *
+     * @param x x-coordinate of the cell
+     * @param y y-coordinate of the cell
+     * @param args arguments to pass to the `CellDef` constructor
+     *
+     * @return `Cell&` the reference to the created cell
+     */
     template <typename... Args>
     Cell& create(int x, int y, Args&&... args) {
-        return create_def(x, y, CellDef(std::forward<Args>(args)...));
+        CellDef def(std::forward<Args>(args)...);
+        def.default_vel = default_vel;
+        return create_def(x, y, def);
     }
-    void remove(int x, int y) {
-        assert(valid(x, y));
-        auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
-        auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
-        m_chunk_map.get_chunk(chunk_x, chunk_y).remove(cell_x, cell_y);
-    }
-    std::pair<float, float> get_grav(int x, int y) {
-        assert(valid(x, y));
-        return {0.f, -98.0f};
-    }
-    void update(float delta) {
-        std::vector<glm::ivec2> chunks_to_update;
-        for (auto& [pos, chunk] : m_chunk_map.chunks) {
-            chunks_to_update.push_back(pos);
-        }
-        std::sort(
-            chunks_to_update.begin(), chunks_to_update.end(),
-            [](const glm::ivec2& a, const glm::ivec2& b) {
-                return a.y < b.y || (a.y == b.y && a.x < b.x);
-            }
-        );
-        reset_updated();
-        for (auto& pos : chunks_to_update) {
-            auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
-            for (int y = 0; y < chunk.height; y++) {
-                for (int x = 0; x < chunk.width; x++) {
-                    int x_ = pos.x * m_chunk_size + x;
-                    int y_ = pos.y * m_chunk_size + y;
-                    if ((!chunk.is_updated(x, y)) && get_cell(x_, y_) &&
-                        (get_elem(x_, y_).grav_type != Element::GravType::SOLID
-                        )) {}
-                }
-            }  // end of each cell
-        }
-    }
+    /**
+     * @brief Remove a cell at location (x, y)
+     *
+     * @param x x-coordinate of the cell
+     * @param y y-coordinate of the cell
+     */
+    EPIX_API void remove(int x, int y);
+    /**
+     * @brief Get the gravity vector at location (x, y). The gravity vector
+     * can be varied based on the location to simulate different effects.
+     *
+     * @param x x-coordinate of the cell
+     * @param y y-coordinate of the cell
+     * @return `std::pair<float, float>` the gravity vector
+     */
+    EPIX_API std::pair<float, float> get_grav(int x, int y);
+    /**
+     * @brief Update the simulation by one frame
+     *
+     * @param delta time elapsed since the last frame
+     */
+    EPIX_API void update(float delta);
+    struct RaycastResult {
+        bool moved;
+        int new_x;
+        int new_y;
+        std::optional<std::pair<int, int>> hit;
+    };
+    /**
+     * @brief Perform a raycast from (x, y) to (tx, ty)
+     *
+     * @param x x-coordinate of the start point
+     * @param y y-coordinate of the start point
+     * @param tx x-coordinate of the end point
+     * @param ty y-coordinate of the end point
+     *
+     * @return `RaycastResult` the result of the raycast, in which `moved` is
+     * whether the ray is blocked at the beginning, `new_x` and `new_y` are the
+     * coordinates of the last cell the ray passed through, and `hit` is the
+     * coordinates of the cell the ray hit, if any.
+     */
+    EPIX_API RaycastResult raycast_to(int x, int y, int tx, int ty);
+    /**
+     * @brief Perform a collision check between two cells at (x, y) and (tx, ty)
+     *
+     * @param x x-coordinate of the first cell
+     * @param y y-coordinate of the first cell
+     * @param tx x-coordinate of the second cell
+     * @param ty y-coordinate of the second cell
+     * @return `bool` true if the two cells collide, false otherwise
+     */
+    EPIX_API bool collide(int x, int y, int tx, int ty);
+    EPIX_API void touch(int x, int y);
 };
 }  // namespace epix::world::sand::components
