@@ -183,7 +183,10 @@ struct Simulation {
     ElemRegistry m_registry;
     const int m_chunk_size;
     ChunkMap m_chunk_map;
-    glm::vec2 default_vel = {0.0f, -30.0f};
+    struct NotMovingThresholdSetting {
+        float power     = 0.3f;
+        float numerator = 4000.0f;
+    } not_moving_threshold_setting;
 
     // settings
     bool powder_always_slide = true;
@@ -345,7 +348,7 @@ struct Simulation {
     template <typename... Args>
     Cell& create(int x, int y, Args&&... args) {
         CellDef def(std::forward<Args>(args)...);
-        def.default_vel = default_vel;
+        def.default_vel = get_default_vel(x, y);
         return create_def(x, y, def);
     }
     /**
@@ -364,6 +367,8 @@ struct Simulation {
      * @return `std::pair<float, float>` the gravity vector
      */
     EPIX_API std::pair<float, float> get_grav(int x, int y);
+    EPIX_API glm::vec2 get_default_vel(int x, int y);
+    EPIX_API int not_moving_threshold(int x, int y);
     /**
      * @brief Update the simulation by one frame
      *

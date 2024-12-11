@@ -476,7 +476,35 @@ EPIX_API void Simulation::remove(int x, int y) {
 }
 EPIX_API std::pair<float, float> Simulation::get_grav(int x, int y) {
     assert(valid(x, y));
-    return {0.f, -98.0f};
+    std::pair<float, float> grav = {0.0f, -98.0f};
+    float dist                   = std::sqrt(x * x + y * y);
+    if (dist == 0) return grav;
+    std::pair<float, float> addition = {
+        (float)x / dist / dist * 100000, (float)y / dist / dist * 100000
+    };
+    float len_addition = std::sqrt(
+        addition.first * addition.first + addition.second * addition.second
+    );
+    if (len_addition >= 200) {
+        addition.first *= 200 / len_addition;
+        addition.second *= 200 / len_addition;
+    }
+    grav.first -= addition.first;
+    grav.second -= addition.second;
+    return grav;
+}
+EPIX_API glm::vec2 Simulation::get_default_vel(int x, int y) {
+    assert(valid(x, y));
+    auto grav = get_grav(x, y);
+    return {grav.first * 0.4f, grav.second * 0.4f};
+}
+EPIX_API int Simulation::not_moving_threshold(int x, int y) {
+    // the larger the gravity, the smaller the threshold
+    auto grav = get_grav(x, y);
+    auto len  = std::sqrt(grav.first * grav.first + grav.second * grav.second);
+    if (len == 0) return std::numeric_limits<int>::max();
+    return not_moving_threshold_setting.numerator /
+           std::pow(len, not_moving_threshold_setting.power);
 }
 EPIX_API void Simulation::update(float delta) {
     std::vector<glm::ivec2> chunks_to_update;
@@ -515,9 +543,12 @@ EPIX_API void Simulation::update(float delta) {
                         // into a 8 direction
                         angle = std::round(angle / (std::numbers::pi / 4)) *
                                 (std::numbers::pi / 4);
-                        glm::ivec2 dir = {std::cos(angle), std::sin(angle)};
-                        int below_x    = x_ + dir.x;
-                        int below_y    = y_ + dir.y;
+                        glm::ivec2 dir = {
+                            std::round(std::cos(angle)),
+                            std::round(std::sin(angle))
+                        };
+                        int below_x = x_ + dir.x;
+                        int below_y = y_ + dir.y;
                         if (!valid(below_x, below_y)) continue;
                         auto& bcell = get_cell(below_x, below_y);
                         if (bcell) {
@@ -530,7 +561,7 @@ EPIX_API void Simulation::update(float delta) {
                                 continue;
                             }
                         }
-                        cell.velocity = default_vel;
+                        cell.velocity = get_default_vel(x_, y_);
                         cell.freefall = true;
                     }
                     cell.velocity.x += grav_x * delta;
@@ -651,6 +682,13 @@ EPIX_API void Simulation::update(float delta) {
                         touch(final_x + 1, final_y);
                         touch(final_x, final_y - 1);
                         touch(final_x, final_y + 1);
+                    } else {
+                        cell.not_move_count++;
+                        if (cell.not_move_count >=
+                            not_moving_threshold(x_, y_)) {
+                            cell.freefall = false;
+                            cell.velocity = {0.0f, 0.0f};
+                        }
                     }
                     mark_updated(final_x, final_y);
                 }

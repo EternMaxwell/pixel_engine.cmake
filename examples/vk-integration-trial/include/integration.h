@@ -1062,8 +1062,8 @@ void create_simulation(Command command) {
          y < -simulation_size * simulation.chunk_size() + 12; y++) {
         for (int x = -simulation_size * simulation.chunk_size();
              x < simulation_size * simulation.chunk_size(); x++) {
-            if (simulation.valid(x, y))
-                simulation.create(x, y, CellDef("wall"));
+            if (simulation.valid(x, y + 200))
+                simulation.create(x, y + 200, CellDef("wall"));
         }
     }
     static std::random_device rd;
@@ -1374,7 +1374,7 @@ void run() {
     app.add_plugin(epix::input::InputPlugin{});
     app.add_plugin(epix::render_vk::RenderVKPlugin{});
     app.add_plugin(epix::render::debug::vulkan::DebugRenderPlugin{});
-    // app.add_plugin(pixel_engine::font::FontPlugin{});
+    app.add_plugin(epix::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});
     app.add_plugin(epix::imgui::ImGuiPluginVK{});
     app.add_plugin(epix::render::pixel::PixelRenderPlugin{});
