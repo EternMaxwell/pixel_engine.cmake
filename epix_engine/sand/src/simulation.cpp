@@ -477,20 +477,20 @@ EPIX_API void Simulation::remove(int x, int y) {
 EPIX_API std::pair<float, float> Simulation::get_grav(int x, int y) {
     assert(valid(x, y));
     std::pair<float, float> grav = {0.0f, -98.0f};
-    float dist                   = std::sqrt(x * x + y * y);
-    if (dist == 0) return grav;
-    std::pair<float, float> addition = {
-        (float)x / dist / dist * 100000, (float)y / dist / dist * 100000
-    };
-    float len_addition = std::sqrt(
-        addition.first * addition.first + addition.second * addition.second
-    );
-    if (len_addition >= 200) {
-        addition.first *= 200 / len_addition;
-        addition.second *= 200 / len_addition;
-    }
-    grav.first -= addition.first;
-    grav.second -= addition.second;
+    // float dist                   = std::sqrt(x * x + y * y);
+    // if (dist == 0) return grav;
+    // std::pair<float, float> addition = {
+    //     (float)x / dist / dist * 100000, (float)y / dist / dist * 100000
+    // };
+    // float len_addition = std::sqrt(
+    //     addition.first * addition.first + addition.second * addition.second
+    // );
+    // if (len_addition >= 200) {
+    //     addition.first *= 200 / len_addition;
+    //     addition.second *= 200 / len_addition;
+    // }
+    // grav.first -= addition.first;
+    // grav.second -= addition.second;
     return grav;
 }
 EPIX_API glm::vec2 Simulation::get_default_vel(int x, int y) {
@@ -686,11 +686,13 @@ EPIX_API void Simulation::update(float delta) {
                         cell.not_move_count++;
                         if (cell.not_move_count >=
                             not_moving_threshold(x_, y_)) {
-                            cell.freefall = false;
-                            cell.velocity = {0.0f, 0.0f};
+                            cell.not_move_count = 0;
+                            cell.freefall       = false;
+                            cell.velocity       = {0.0f, 0.0f};
                         }
                     }
                     mark_updated(final_x, final_y);
+                } else if (elem.grav_type == Element::GravType::LIQUID) {
                 }
             }
         }
