@@ -202,6 +202,7 @@ struct Simulation {
         bool x_outer      = true;
         EPIX_API void next();
     } update_state;
+    std::optional<glm::ivec2> max_travel;
 
     // settings
     bool powder_always_slide = true;

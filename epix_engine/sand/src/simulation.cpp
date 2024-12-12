@@ -402,11 +402,15 @@ EPIX_API Cell& Simulation::create_def(int x, int y, const CellDef& def) {
         .create(cell_x, cell_y, def, m_registry);
 }
 EPIX_API Simulation::Simulation(const ElemRegistry& registry, int chunk_size)
-    : m_registry(registry), m_chunk_size(chunk_size), m_chunk_map{chunk_size} {}
+    : m_registry(registry),
+      m_chunk_size(chunk_size),
+      m_chunk_map{chunk_size},
+      max_travel({chunk_size / 2, chunk_size / 2}) {}
 EPIX_API Simulation::Simulation(ElemRegistry&& registry, int chunk_size)
     : m_registry(std::move(registry)),
       m_chunk_size(chunk_size),
-      m_chunk_map{chunk_size} {}
+      m_chunk_map{chunk_size},
+      max_travel({chunk_size / 2, chunk_size / 2}) {}
 
 EPIX_API int Simulation::chunk_size() const { return m_chunk_size; }
 EPIX_API ElemRegistry& Simulation::registry() { return m_registry; }
@@ -633,6 +637,12 @@ EPIX_API void Simulation::update(float delta) {
                     }
                     cell.inpos.x -= delta_x;
                     cell.inpos.y -= delta_y;
+                    if (max_travel) {
+                        delta_x =
+                            std::clamp(delta_x, -max_travel->x, max_travel->y);
+                        delta_y =
+                            std::clamp(delta_y, -max_travel->x, max_travel->y);
+                    }
                     int tx              = x_ + delta_x;
                     int ty              = y_ + delta_y;
                     bool moved          = false;
@@ -855,6 +865,12 @@ EPIX_API void Simulation::update(float delta) {
                     }
                     cell.inpos.x -= delta_x;
                     cell.inpos.y -= delta_y;
+                    if (max_travel) {
+                        delta_x =
+                            std::clamp(delta_x, -max_travel->x, max_travel->y);
+                        delta_y =
+                            std::clamp(delta_y, -max_travel->x, max_travel->y);
+                    }
                     int tx              = x_ + delta_x;
                     int ty              = y_ + delta_y;
                     bool moved          = false;
@@ -1146,7 +1162,7 @@ EPIX_API bool Simulation::collide(int x, int y, int tx, int ty) {
         auto new_cell_vel  = cell.velocity * 0.55f + tcell.velocity * 0.45f;
         auto new_tcell_vel = cell.velocity * 0.45f + tcell.velocity * 0.55f;
         cell.velocity      = new_cell_vel;
-        tcell.velocity     = tcell.freefall ? new_tcell_vel : tcell.velocity;
+        tcell.velocity     = new_tcell_vel;
     }
     return true;
 }
