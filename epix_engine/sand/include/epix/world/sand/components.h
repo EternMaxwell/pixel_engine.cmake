@@ -84,6 +84,8 @@ struct Simulation {
         std::vector<bool> updated;
         const int width;
         const int height;
+        int settle_time = 0;
+        bool sleeping    = false;
 
         EPIX_API Chunk(int width, int height);
         EPIX_API Chunk(const Chunk& other);
@@ -91,6 +93,7 @@ struct Simulation {
         EPIX_API Chunk& operator=(const Chunk& other);
         EPIX_API Chunk& operator=(Chunk&& other);
         EPIX_API void reset_updated();
+        EPIX_API void count_settle();
         EPIX_API Cell& get(int x, int y);
         EPIX_API const Cell& get(int x, int y) const;
         EPIX_API Cell& create(
@@ -177,6 +180,7 @@ struct Simulation {
         EPIX_API const_iterator end() const;
 
         EPIX_API void reset_updated();
+        EPIX_API void count_settle();
     };
 
    private:

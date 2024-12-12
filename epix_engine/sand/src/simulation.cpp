@@ -86,6 +86,7 @@ EPIX_API Simulation::Chunk& Simulation::Chunk::operator=(Chunk&& other) {
 EPIX_API void Simulation::Chunk::reset_updated() {
     std::fill(updated.begin(), updated.end(), false);
 }
+EPIX_API void Simulation::Chunk::count_settle() { settle_time++; }
 EPIX_API Cell& Simulation::Chunk::get(int x, int y) {
     return cells[y * width + x];
 }
@@ -378,11 +379,25 @@ EPIX_API void Simulation::ChunkMap::reset_updated() {
         chunk.reset_updated();
     }
 }
+EPIX_API void Simulation::ChunkMap::count_settle() {
+    for (auto&& [pos, chunk] : *this) {
+        chunk.count_settle();
+        if (chunk.settle_time > 100) {
+            chunk.settle_time = 0;
+            chunk.sleeping    = true;
+        }
+    }
+}
 
 EPIX_API Cell& Simulation::create_def(int x, int y, const CellDef& def) {
     assert(valid(x, y));
     auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
     auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
+    touch(x, y);
+    touch(x - 1, y);
+    touch(x + 1, y);
+    touch(x, y - 1);
+    touch(x, y + 1);
     return m_chunk_map.get_chunk(chunk_x, chunk_y)
         .create(cell_x, cell_y, def, m_registry);
 }
@@ -470,6 +485,11 @@ EPIX_API const Element& Simulation::get_elem(int x, int y) {
 }
 EPIX_API void Simulation::remove(int x, int y) {
     assert(valid(x, y));
+    touch(x, y);
+    touch(x - 1, y);
+    touch(x + 1, y);
+    touch(x, y - 1);
+    touch(x, y + 1);
     auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
     auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
     m_chunk_map.get_chunk(chunk_x, chunk_y).remove(cell_x, cell_y);
@@ -544,6 +564,7 @@ EPIX_API void Simulation::update(float delta) {
     );
     for (auto& pos : chunks_to_update) {
         auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
+        if (chunk.sleeping) continue;
         std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>> bounds;
         auto& [xbounds, ybounds] = bounds;
         xbounds                  = {
@@ -770,10 +791,10 @@ EPIX_API void Simulation::update(float delta) {
                                     shouldnot_freefall = true;
                                 }
                                 if ((belem.grav_type ==
-                                         Element::GravType::POWDER ||
-                                     belem.grav_type ==
-                                         Element::GravType::LIQUID) &&
-                                    !bcell.freefall) {
+                                         Element::GravType::POWDER &&
+                                     !bcell.freefall) ||
+                                    belem.grav_type ==
+                                        Element::GravType::LIQUID) {
                                     shouldnot_freefall = true;
                                 }
                             }
@@ -789,10 +810,10 @@ EPIX_API void Simulation::update(float delta) {
                                     shouldnot_freefall = true;
                                 }
                                 if ((lbelem.grav_type ==
-                                         Element::GravType::POWDER ||
-                                     lbelem.grav_type ==
-                                         Element::GravType::LIQUID) &&
-                                    !lbcell.freefall) {
+                                         Element::GravType::POWDER &&
+                                     !lbcell.freefall) ||
+                                    lbelem.grav_type ==
+                                        Element::GravType::LIQUID) {
                                     shouldnot_freefall = true;
                                 }
                             }
@@ -808,10 +829,10 @@ EPIX_API void Simulation::update(float delta) {
                                     shouldnot_freefall = true;
                                 }
                                 if ((rbelem.grav_type ==
-                                         Element::GravType::POWDER ||
-                                     rbelem.grav_type ==
-                                         Element::GravType::LIQUID) &&
-                                    !rbcell.freefall) {
+                                         Element::GravType::POWDER &&
+                                     !rbcell.freefall) ||
+                                    rbelem.grav_type ==
+                                        Element::GravType::LIQUID) {
                                     shouldnot_freefall = true;
                                 }
                             }
@@ -859,7 +880,6 @@ EPIX_API void Simulation::update(float delta) {
                                     raycast_result.new_x, raycast_result.new_y,
                                     hit_x, hit_y
                                 );
-                                blocking_freefall = tcell.freefall;
                             } else {
                                 std::swap(*ncell, tcell);
                                 final_x = hit_x;
@@ -955,7 +975,7 @@ EPIX_API void Simulation::update(float delta) {
                                         )
                                     };
                                     glm::vec2 dirs[2];
-                                    bool left_first = angle_diff < dis(gen);
+                                    bool left_first = angle_diff > 0;
                                     if (left_first) {
                                         dirs[0] = left;
                                         dirs[1] = right;
@@ -1000,7 +1020,7 @@ EPIX_API void Simulation::update(float delta) {
                                             ncell->velocity +=
                                                 glm::vec2(dirs[1]) *
                                                 liquid_spread_setting.prefix /
-                                                delta;
+                                                delta / 2.0f;
                                             moved = true;
                                         }
                                     }
@@ -1036,6 +1056,7 @@ EPIX_API void Simulation::update(float delta) {
             }
         }
     }
+    m_chunk_map.count_settle();
 }
 EPIX_API Simulation::RaycastResult Simulation::raycast_to(
     int x, int y, int tx, int ty
@@ -1121,18 +1142,22 @@ EPIX_API bool Simulation::collide(int x, int y, int tx, int ty) {
     tcell.velocity.x += jfx * m1;
     tcell.velocity.y += jfy * m1;
     if (elem.grav_type == Element::GravType::LIQUID &&
-        telem.grav_type == Element::GravType::LIQUID && tcell.freefall) {
+        telem.grav_type == Element::GravType::LIQUID) {
         auto new_cell_vel  = cell.velocity * 0.55f + tcell.velocity * 0.45f;
         auto new_tcell_vel = cell.velocity * 0.45f + tcell.velocity * 0.55f;
         cell.velocity      = new_cell_vel;
-        tcell.velocity     = new_tcell_vel;
+        tcell.velocity     = tcell.freefall ? new_tcell_vel : tcell.velocity;
     }
     return true;
 }
 
 EPIX_API void Simulation::touch(int x, int y) {
     if (!valid(x, y)) return;
-    auto& cell = get_cell(x, y);
+    auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
+    auto& chunk             = m_chunk_map.get_chunk(chunk_x, chunk_y);
+    chunk.sleeping          = false;
+    chunk.settle_time       = 0;
+    auto& cell              = get_cell(x, y);
     if (!cell) return;
     auto& elem = get_elem(x, y);
     if (elem.grav_type == Element::GravType::SOLID) return;

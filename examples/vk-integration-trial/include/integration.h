@@ -1283,29 +1283,29 @@ void render_simulation_chunk_outline(
             glm::mat4(1.0f), {pos.x * simulation.chunk_size() * scale,
                               pos.y * simulation.chunk_size() * scale, 0.0f}
         );
-        model = glm::scale(model, {scale, scale, 1.0f});
+        model           = glm::scale(model, {scale, scale, 1.0f});
+        glm::vec4 color = {1.0f, 1.0f, 1.0f, alpha};
+        if (chunk.sleeping) color = {0.0f, 1.0f, 0.0f, alpha};
         line_drawer.setModel(model);
         line_drawer.drawLine(
             {0.0f, 0.0f, 0.0f},
-            {0.0f, static_cast<float>(simulation.chunk_size()), 0.0f},
-            {1.0f, 1.0f, 1.0f, alpha}
+            {0.0f, static_cast<float>(simulation.chunk_size()), 0.0f}, color
         );
         line_drawer.drawLine(
             {0.0f, 0.0f, 0.0f},
-            {static_cast<float>(simulation.chunk_size()), 0.0f, 0.0f},
-            {1.0f, 1.0f, 1.0f, alpha}
+            {static_cast<float>(simulation.chunk_size()), 0.0f, 0.0f}, color
         );
         line_drawer.drawLine(
             {static_cast<float>(simulation.chunk_size()), 0.0f, 0.0f},
             {static_cast<float>(simulation.chunk_size()),
              static_cast<float>(simulation.chunk_size()), 0.0f},
-            {1.0f, 1.0f, 1.0f, alpha}
+            color
         );
         line_drawer.drawLine(
             {0.0f, static_cast<float>(simulation.chunk_size()), 0.0f},
             {static_cast<float>(simulation.chunk_size()),
              static_cast<float>(simulation.chunk_size()), 0.0f},
-            {1.0f, 1.0f, 1.0f, alpha}
+            color
         );
     }
     line_drawer.end();
