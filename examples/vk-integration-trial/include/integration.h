@@ -1284,8 +1284,7 @@ void render_simulation_chunk_outline(
                               pos.y * simulation.chunk_size() * scale, 0.0f}
         );
         model           = glm::scale(model, {scale, scale, 1.0f});
-        glm::vec4 color = {1.0f, 1.0f, 1.0f, alpha};
-        if (chunk.sleeping) color = {0.0f, 1.0f, 0.0f, alpha};
+        glm::vec4 color = {1.0f, 1.0f, 1.0f, alpha / 2};
         line_drawer.setModel(model);
         line_drawer.drawLine(
             {0.0f, 0.0f, 0.0f},
@@ -1307,6 +1306,17 @@ void render_simulation_chunk_outline(
              static_cast<float>(simulation.chunk_size()), 0.0f},
             color
         );
+        if (chunk.should_update()) {
+            color    = {1.0f, 0.0f, 0.0f, alpha};
+            float x1 = chunk.updating_area[0];
+            float x2 = chunk.updating_area[1] + 1;
+            float y1 = chunk.updating_area[2];
+            float y2 = chunk.updating_area[3] + 1;
+            line_drawer.drawLine({x1, y1, 0.0f}, {x2, y1, 0.0f}, color);
+            line_drawer.drawLine({x2, y1, 0.0f}, {x2, y2, 0.0f}, color);
+            line_drawer.drawLine({x2, y2, 0.0f}, {x1, y2, 0.0f}, color);
+            line_drawer.drawLine({x1, y2, 0.0f}, {x1, y1, 0.0f}, color);
+        }
     }
     line_drawer.end();
 }

@@ -84,8 +84,10 @@ struct Simulation {
         std::vector<bool> updated;
         const int width;
         const int height;
-        int settle_time = 0;
-        bool sleeping    = false;
+        int time_since_last_swap = 0;
+        int time_threshold       = 8;
+        int updating_area[4] = {width, 0, height, 0};
+        int updating_area_next[4] = {width, 0, height, 0};
 
         EPIX_API Chunk(int width, int height);
         EPIX_API Chunk(const Chunk& other);
@@ -93,17 +95,20 @@ struct Simulation {
         EPIX_API Chunk& operator=(const Chunk& other);
         EPIX_API Chunk& operator=(Chunk&& other);
         EPIX_API void reset_updated();
-        EPIX_API void count_settle();
+        EPIX_API void count_time();
         EPIX_API Cell& get(int x, int y);
         EPIX_API const Cell& get(int x, int y) const;
         EPIX_API Cell& create(
             int x, int y, const CellDef& def, ElemRegistry& m_registry
         );
+        EPIX_API void swap_area();
         EPIX_API void remove(int x, int y);
         EPIX_API operator bool() const;
         EPIX_API bool operator!() const;
         EPIX_API void mark_updated(int x, int y);
         EPIX_API bool is_updated(int x, int y) const;
+        EPIX_API void touch(int x, int y);
+        EPIX_API bool should_update() const;
 
         // size and contains function for find_outline algorithm in
         // physics2d::utils to work.
@@ -180,7 +185,7 @@ struct Simulation {
         EPIX_API const_iterator end() const;
 
         EPIX_API void reset_updated();
-        EPIX_API void count_settle();
+        EPIX_API void count_time();
     };
 
    private:
