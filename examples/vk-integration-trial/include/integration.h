@@ -1034,7 +1034,7 @@ void create_simulation(Command command) {
         "water",
         Element{
             "water", "water", Element::GravType::LIQUID,
-            []() { return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }, 1.0f, .01f, .01f
+            []() { return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }, 1.0f, .0f, .03f
         }
     );
     registry.register_elem(
@@ -1121,7 +1121,7 @@ void create_powder_from_click(
             for (int ty = cell_y - 8; ty < cell_y + 8; ty++) {
                 if (simulation.valid(tx, ty)) {
                     if (mouse_input.pressed(epix::input::MouseButton1)) {
-                        simulation.create(tx, ty, CellDef("sand"));
+                        simulation.create(tx, ty, CellDef("water"));
                     } else if (mouse_input.pressed(epix::input::MouseButton2)) {
                         simulation.remove(tx, ty);
                     }

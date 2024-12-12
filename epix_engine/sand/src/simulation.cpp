@@ -474,37 +474,49 @@ EPIX_API void Simulation::remove(int x, int y) {
     auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
     m_chunk_map.get_chunk(chunk_x, chunk_y).remove(cell_x, cell_y);
 }
-EPIX_API std::pair<float, float> Simulation::get_grav(int x, int y) {
+EPIX_API glm::vec2 Simulation::get_grav(int x, int y) {
     assert(valid(x, y));
-    std::pair<float, float> grav = {0.0f, -98.0f};
-    // float dist                   = std::sqrt(x * x + y * y);
+    glm::vec2 grav = {0.0f, -98.0f};
+    // float dist     = std::sqrt(x * x + y * y);
     // if (dist == 0) return grav;
-    // std::pair<float, float> addition = {
+    // glm::vec2 addition = {
     //     (float)x / dist / dist * 100000, (float)y / dist / dist * 100000
     // };
-    // float len_addition = std::sqrt(
-    //     addition.first * addition.first + addition.second * addition.second
-    // );
+    // float len_addition =
+    //     std::sqrt(addition.x * addition.x + addition.y * addition.y);
     // if (len_addition >= 200) {
-    //     addition.first *= 200 / len_addition;
-    //     addition.second *= 200 / len_addition;
+    //     addition *= 200 / len_addition;
     // }
-    // grav.first -= addition.first;
-    // grav.second -= addition.second;
+    // grav -= addition;
     return grav;
+}
+static float calculate_angle_diff(const glm::vec2& a, const glm::vec2& b) {
+    float dot = a.x * b.x + a.y * b.y;
+    float det = a.x * b.y - a.y * b.x;
+    return std::atan2(det, dot);
 }
 EPIX_API glm::vec2 Simulation::get_default_vel(int x, int y) {
     assert(valid(x, y));
     auto grav = get_grav(x, y);
-    return {grav.first * 0.4f, grav.second * 0.4f};
+    return {grav.x * 0.4f, grav.y * 0.4f};
 }
 EPIX_API int Simulation::not_moving_threshold(int x, int y) {
     // the larger the gravity, the smaller the threshold
     auto grav = get_grav(x, y);
-    auto len  = std::sqrt(grav.first * grav.first + grav.second * grav.second);
+    auto len  = std::sqrt(grav.x * grav.x + grav.y * grav.y);
     if (len == 0) return std::numeric_limits<int>::max();
     return not_moving_threshold_setting.numerator /
            std::pow(len, not_moving_threshold_setting.power);
+}
+EPIX_API void Simulation::UpdateState::next() {
+    uint8_t state = 0;
+    state |= xorder ? 1 : 0;
+    state |= yorder ? 2 : 0;
+    state |= x_outer ? 4 : 0;
+    state++;
+    xorder  = state & 1;
+    yorder  = state & 2;
+    x_outer = state & 4;
 }
 EPIX_API void Simulation::update(float delta) {
     std::vector<glm::ivec2> chunks_to_update;
@@ -515,8 +527,15 @@ EPIX_API void Simulation::update(float delta) {
     static thread_local std::random_device rd;
     static thread_local std::mt19937 gen(rd());
     static thread_local std::uniform_real_distribution<float> dis(-0.3f, 0.3f);
-    bool yorder = dis(gen) > 0;
-    bool xorder = dis(gen) > 0;
+    update_state.next();
+    bool xorder  = update_state.xorder;
+    bool yorder  = update_state.yorder;
+    bool x_outer = update_state.x_outer;
+    if (update_state.random_state) {
+        xorder  = dis(gen) > 0;
+        yorder  = dis(gen) > 0;
+        x_outer = dis(gen) > 0;
+    }
     std::sort(
         chunks_to_update.begin(), chunks_to_update.end(),
         [&](auto& a, auto& b) {
@@ -525,10 +544,27 @@ EPIX_API void Simulation::update(float delta) {
     );
     for (auto& pos : chunks_to_update) {
         auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
-        for (int y = yorder ? 0 : chunk.height - 1;
-             yorder ? y < chunk.height : y >= 0; y += yorder ? 1 : -1) {
-            for (int x = xorder ? 0 : chunk.width - 1;
-                 xorder ? x < chunk.width : x >= 0; x += xorder ? 1 : -1) {
+        std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>> bounds;
+        auto& [xbounds, ybounds] = bounds;
+        xbounds                  = {
+            xorder ? 0 : chunk.width - 1, xorder ? chunk.width : -1,
+            xorder ? 1 : -1
+        };
+        ybounds = {
+            yorder ? 0 : chunk.height - 1, yorder ? chunk.height : -1,
+            yorder ? 1 : -1
+        };
+        if (!x_outer) {
+            std::swap(xbounds, ybounds);
+        }
+        for (int index1 = std::get<0>(bounds.first);
+             index1 != std::get<1>(bounds.first);
+             index1 += std::get<2>(bounds.first)) {
+            for (int index2 = std::get<0>(bounds.second);
+                 index2 != std::get<1>(bounds.second);
+                 index2 += std::get<2>(bounds.second)) {
+                int x       = x_outer ? index1 : index2;
+                int y       = x_outer ? index2 : index1;
                 int x_      = pos.x * m_chunk_size + x;
                 int y_      = pos.y * m_chunk_size + y;
                 int final_x = x_;
@@ -537,9 +573,9 @@ EPIX_API void Simulation::update(float delta) {
                 if (!contain_cell(x_, y_)) continue;
                 auto [cell, elem] = get(x_, y_);
                 if (elem.grav_type == Element::GravType::POWDER) {
-                    auto [grav_x, grav_y] = get_grav(x_, y_);
+                    auto grav = get_grav(x_, y_);
                     if (!cell.freefall) {
-                        float angle = std::atan2(grav_y, grav_x);
+                        float angle = std::atan2(grav.y, grav.x);
                         // into a 8 direction
                         angle = std::round(angle / (std::numbers::pi / 4)) *
                                 (std::numbers::pi / 4);
@@ -564,8 +600,7 @@ EPIX_API void Simulation::update(float delta) {
                         cell.velocity = get_default_vel(x_, y_);
                         cell.freefall = true;
                     }
-                    cell.velocity.x += grav_x * delta;
-                    cell.velocity.y += grav_y * delta;
+                    cell.velocity += grav * delta;
                     cell.velocity *= 0.99f;
                     cell.inpos += cell.velocity * delta;
                     int delta_x =
@@ -583,7 +618,7 @@ EPIX_API void Simulation::update(float delta) {
                     auto raycast_result = raycast_to(x_, y_, tx, ty);
                     auto ncell =
                         &get_cell(raycast_result.new_x, raycast_result.new_y);
-                    if (raycast_result.moved) {
+                    if (raycast_result.steps) {
                         std::swap(cell, *ncell);
                         final_x = raycast_result.new_x;
                         final_y = raycast_result.new_y;
@@ -618,8 +653,10 @@ EPIX_API void Simulation::update(float delta) {
                                 float vel_angle = std::atan2(
                                     cell.velocity.y, cell.velocity.x
                                 );
-                                float grav_angle = std::atan2(grav_y, grav_x);
-                                if (std::abs(vel_angle - grav_angle) <
+                                float grav_angle = std::atan2(grav.y, grav.x);
+                                float angle_diff =
+                                    calculate_angle_diff(cell.velocity, grav);
+                                if (std::abs(angle_diff) <
                                     std::numbers::pi / 2) {
                                     glm::ivec2 lb = {
                                         std::round(std::cos(
@@ -674,6 +711,7 @@ EPIX_API void Simulation::update(float delta) {
                         }
                     }
                     if (moved) {
+                        ncell->not_move_count = 0;
                         touch(x_ - 1, y_);
                         touch(x_ + 1, y_);
                         touch(x_, y_ - 1);
@@ -693,6 +731,307 @@ EPIX_API void Simulation::update(float delta) {
                     }
                     mark_updated(final_x, final_y);
                 } else if (elem.grav_type == Element::GravType::LIQUID) {
+                    auto grav = get_grav(x_, y_);
+                    if (!cell.freefall) {
+                        float angle = std::atan2(grav.y, grav.x);
+                        // into a 8 direction
+                        angle = std::round(angle / (std::numbers::pi / 4)) *
+                                (std::numbers::pi / 4);
+                        glm::ivec2 dir = {
+                            std::round(std::cos(angle)),
+                            std::round(std::sin(angle))
+                        };
+                        glm::ivec2 lb = {
+                            std::round(std::cos(angle - std::numbers::pi / 4)),
+                            std::round(std::sin(angle - std::numbers::pi / 4))
+                        };
+                        glm::ivec2 rb = {
+                            std::round(std::cos(angle + std::numbers::pi / 4)),
+                            std::round(std::sin(angle + std::numbers::pi / 4))
+                        };
+                        int below_x = x_ + dir.x;
+                        int below_y = y_ + dir.y;
+                        int lb_x    = x_ + lb.x;
+                        int lb_y    = y_ + lb.y;
+                        int rb_x    = x_ + rb.x;
+                        int rb_y    = y_ + rb.y;
+                        if (!valid(below_x, below_y) && !valid(lb_x, lb_y) &&
+                            !valid(rb_x, rb_y)) {
+                            continue;
+                        }
+                        bool should_freefall = false;
+                        if (valid(below_x, below_y)) {
+                            auto& bcell = get_cell(below_x, below_y);
+                            bool shouldnot_freefall = false;
+                            if (bcell) {
+                                auto& belem = get_elem(below_x, below_y);
+                                if (belem.grav_type ==
+                                    Element::GravType::SOLID) {
+                                    shouldnot_freefall = true;
+                                }
+                                if ((belem.grav_type ==
+                                         Element::GravType::POWDER ||
+                                     belem.grav_type ==
+                                         Element::GravType::LIQUID) &&
+                                    !bcell.freefall) {
+                                    shouldnot_freefall = true;
+                                }
+                            }
+                            should_freefall |= !shouldnot_freefall;
+                        }
+                        if (valid(lb_x, lb_y)) {
+                            auto& lbcell            = get_cell(lb_x, lb_y);
+                            bool shouldnot_freefall = false;
+                            if (lbcell) {
+                                auto& lbelem = get_elem(lb_x, lb_y);
+                                if (lbelem.grav_type ==
+                                    Element::GravType::SOLID) {
+                                    shouldnot_freefall = true;
+                                }
+                                if ((lbelem.grav_type ==
+                                         Element::GravType::POWDER ||
+                                     lbelem.grav_type ==
+                                         Element::GravType::LIQUID) &&
+                                    !lbcell.freefall) {
+                                    shouldnot_freefall = true;
+                                }
+                            }
+                            should_freefall |= !shouldnot_freefall;
+                        }
+                        if (valid(rb_x, rb_y)) {
+                            auto& rbcell            = get_cell(rb_x, rb_y);
+                            bool shouldnot_freefall = false;
+                            if (rbcell) {
+                                auto& rbelem = get_elem(rb_x, rb_y);
+                                if (rbelem.grav_type ==
+                                    Element::GravType::SOLID) {
+                                    shouldnot_freefall = true;
+                                }
+                                if ((rbelem.grav_type ==
+                                         Element::GravType::POWDER ||
+                                     rbelem.grav_type ==
+                                         Element::GravType::LIQUID) &&
+                                    !rbcell.freefall) {
+                                    shouldnot_freefall = true;
+                                }
+                            }
+                            should_freefall |= !shouldnot_freefall;
+                        }
+                        if (!should_freefall) continue;
+
+                        cell.velocity = get_default_vel(x_, y_);
+                        cell.freefall = true;
+                    }
+                    cell.velocity += grav * delta;
+                    cell.velocity *= 0.99f;
+                    cell.inpos += cell.velocity * delta;
+                    int delta_x =
+                        cell.inpos.x + (cell.inpos.x > 0 ? 0.5f : -0.5f);
+                    int delta_y =
+                        cell.inpos.y + (cell.inpos.y > 0 ? 0.5f : -0.5f);
+                    if (delta_x == 0 && delta_y == 0) {
+                        continue;
+                    }
+                    cell.inpos.x -= delta_x;
+                    cell.inpos.y -= delta_y;
+                    int tx              = x_ + delta_x;
+                    int ty              = y_ + delta_y;
+                    bool moved          = false;
+                    auto raycast_result = raycast_to(x_, y_, tx, ty);
+                    auto ncell =
+                        &get_cell(raycast_result.new_x, raycast_result.new_y);
+                    if (raycast_result.steps) {
+                        std::swap(cell, *ncell);
+                        final_x = raycast_result.new_x;
+                        final_y = raycast_result.new_y;
+                        moved   = true;
+                    }
+                    if (raycast_result.hit) {
+                        auto [hit_x, hit_y]    = raycast_result.hit.value();
+                        bool blocking_freefall = false;
+                        bool collided          = false;
+                        if (valid(hit_x, hit_y)) {
+                            auto [tcell, telem] = get(hit_x, hit_y);
+                            if (telem.grav_type == Element::GravType::SOLID ||
+                                telem.grav_type == Element::GravType::POWDER ||
+                                telem.grav_type == Element::GravType::LIQUID) {
+                                collided = collide(
+                                    raycast_result.new_x, raycast_result.new_y,
+                                    hit_x, hit_y
+                                );
+                                blocking_freefall = tcell.freefall;
+                            } else {
+                                std::swap(*ncell, tcell);
+                                final_x = hit_x;
+                                final_y = hit_y;
+                                ncell   = &tcell;
+                                moved   = true;
+                            }
+                        }
+                        if (!moved) {
+                            float vel_angle =
+                                std::atan2(cell.velocity.y, cell.velocity.x);
+                            float grav_angle = std::atan2(grav.y, grav.x);
+                            float angle_diff =
+                                calculate_angle_diff(cell.velocity, grav);
+                            if (std::abs(angle_diff) < std::numbers::pi / 2) {
+                                // try go to left bottom and right bottom
+                                glm::ivec2 lb = {
+                                    std::round(std::cos(
+                                        grav_angle - std::numbers::pi / 4
+                                    )),
+                                    std::round(std::sin(
+                                        grav_angle - std::numbers::pi / 4
+                                    ))
+                                };
+                                glm::ivec2 rb = {
+                                    std::round(std::cos(
+                                        grav_angle + std::numbers::pi / 4
+                                    )),
+                                    std::round(std::sin(
+                                        grav_angle + std::numbers::pi / 4
+                                    ))
+                                };
+                                glm::vec2 dirs[2];
+                                bool lb_first = angle_diff < 0;
+                                if (lb_first) {
+                                    dirs[0] = lb;
+                                    dirs[1] = rb;
+                                } else {
+                                    dirs[0] = rb;
+                                    dirs[1] = lb;
+                                }
+                                for (auto&& vel : dirs) {
+                                    int delta_x = vel.x;
+                                    int delta_y = vel.y;
+                                    if (delta_x == 0 && delta_y == 0) {
+                                        continue;
+                                    }
+                                    int tx = final_x + delta_x;
+                                    int ty = final_y + delta_y;
+                                    if (!valid(tx, ty)) continue;
+                                    auto& tcell = get_cell(tx, ty);
+                                    if (!tcell) {
+                                        std::swap(*ncell, tcell);
+                                        ncell   = &tcell;
+                                        final_x = tx;
+                                        final_y = ty;
+                                        moved   = true;
+                                        break;
+                                    }
+                                }
+                                if (!moved) {
+                                    // try go to left and right
+                                    glm::ivec2 left = {
+                                        std::round(
+                                            std::cos(
+                                                grav_angle -
+                                                std::numbers::pi / 2
+                                            ) *
+                                            liquid_spread_setting.spread_len
+                                        ),
+                                        std::round(
+                                            std::sin(
+                                                grav_angle -
+                                                std::numbers::pi / 2
+                                            ) *
+                                            liquid_spread_setting.spread_len
+                                        )
+                                    };
+                                    glm::ivec2 right = {
+                                        std::round(
+                                            std::cos(
+                                                grav_angle +
+                                                std::numbers::pi / 2
+                                            ) *
+                                            liquid_spread_setting.spread_len
+                                        ),
+                                        std::round(
+                                            std::sin(
+                                                grav_angle +
+                                                std::numbers::pi / 2
+                                            ) *
+                                            liquid_spread_setting.spread_len
+                                        )
+                                    };
+                                    glm::vec2 dirs[2];
+                                    bool left_first = angle_diff < dis(gen);
+                                    if (left_first) {
+                                        dirs[0] = left;
+                                        dirs[1] = right;
+                                    } else {
+                                        dirs[0] = right;
+                                        dirs[1] = left;
+                                    }
+                                    int tx_1   = final_x + dirs[0].x;
+                                    int ty_1   = final_y + dirs[0].y;
+                                    int tx_2   = final_x + dirs[1].x;
+                                    int ty_2   = final_y + dirs[1].y;
+                                    auto res_1 = raycast_to(
+                                        final_x, final_y, tx_1, ty_1
+                                    );
+                                    auto res_2 = raycast_to(
+                                        final_x, final_y, tx_2, ty_2
+                                    );
+                                    if (res_1.steps >= res_2.steps) {
+                                        if (res_1.steps) {
+                                            auto& tcell = get_cell(
+                                                res_1.new_x, res_1.new_y
+                                            );
+                                            std::swap(*ncell, tcell);
+                                            final_x = res_1.new_x;
+                                            final_y = res_1.new_y;
+                                            ncell   = &tcell;
+                                            ncell->velocity +=
+                                                glm::vec2(dirs[0]) *
+                                                liquid_spread_setting.prefix /
+                                                delta;
+                                            moved = true;
+                                        }
+                                    } else {
+                                        if (res_2.steps) {
+                                            auto& tcell = get_cell(
+                                                res_2.new_x, res_2.new_y
+                                            );
+                                            std::swap(*ncell, tcell);
+                                            final_x = res_2.new_x;
+                                            final_y = res_2.new_y;
+                                            ncell   = &tcell;
+                                            ncell->velocity +=
+                                                glm::vec2(dirs[1]) *
+                                                liquid_spread_setting.prefix /
+                                                delta;
+                                            moved = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // if (!blocking_freefall && !moved && !collided) {
+                        //     ncell->freefall = false;
+                        //     ncell->velocity = {0.0f, 0.0f};
+                        // }
+                    }
+                    if (moved) {
+                        ncell->not_move_count = 0;
+                        touch(x_ - 1, y_);
+                        touch(x_ + 1, y_);
+                        touch(x_, y_ - 1);
+                        touch(x_, y_ + 1);
+                        touch(final_x - 1, final_y);
+                        touch(final_x + 1, final_y);
+                        touch(final_x, final_y - 1);
+                        touch(final_x, final_y + 1);
+                    } else {
+                        cell.not_move_count++;
+                        if (cell.not_move_count >=
+                            not_moving_threshold(x_, y_) / 15) {
+                            cell.not_move_count = 0;
+                            cell.freefall       = false;
+                            cell.velocity       = {0.0f, 0.0f};
+                        }
+                    }
+                    mark_updated(final_x, final_y);
                 }
             }
         }
@@ -702,10 +1041,10 @@ EPIX_API Simulation::RaycastResult Simulation::raycast_to(
     int x, int y, int tx, int ty
 ) {
     if (!valid(x, y)) {
-        return RaycastResult{false, x, y, std::nullopt};
+        return RaycastResult{0, x, y, std::nullopt};
     }
     if (x == tx && y == ty) {
-        return RaycastResult{false, x, y, std::nullopt};
+        return RaycastResult{0, x, y, std::nullopt};
     }
     int w          = tx - x;
     int h          = ty - y;
@@ -723,14 +1062,14 @@ EPIX_API Simulation::RaycastResult Simulation::raycast_to(
         }
         if (!valid(new_x, new_y) || contain_cell(new_x, new_y)) {
             return RaycastResult{
-                step_count > 0, last_x, last_y, std::make_pair(new_x, new_y)
+                step_count, last_x, last_y, std::make_pair(new_x, new_y)
             };
         }
         step_count++;
         last_x = new_x;
         last_y = new_y;
     }
-    return RaycastResult{true, last_x, last_y, std::nullopt};
+    return RaycastResult{step_count, last_x, last_y, std::nullopt};
 }
 EPIX_API bool Simulation::collide(int x, int y, int tx, int ty) {
     if (!valid(x, y) || !valid(tx, ty)) return false;
@@ -750,10 +1089,15 @@ EPIX_API bool Simulation::collide(int x, int y, int tx, int ty) {
         m1 = 0;
     }
     if (telem.grav_type == Element::GravType::POWDER && !tcell.freefall) {
-        m1 = 0;
+        m1 *= 0.5f;
     }
     if (elem.grav_type == Element::GravType::SOLID) {
         m2 = 0;
+    }
+    if (elem.grav_type == Element::GravType::LIQUID &&
+        telem.grav_type == Element::GravType::SOLID) {
+        dx = (float)(tx - x);
+        dy = (float)(ty - y);
     }
     if (m1 == 0 && m2 == 0) return false;
     float restitution = std::max(elem.bouncing, telem.bouncing);
@@ -776,6 +1120,13 @@ EPIX_API bool Simulation::collide(int x, int y, int tx, int ty) {
     cell.velocity.y -= jfy * m2;
     tcell.velocity.x += jfx * m1;
     tcell.velocity.y += jfy * m1;
+    if (elem.grav_type == Element::GravType::LIQUID &&
+        telem.grav_type == Element::GravType::LIQUID && tcell.freefall) {
+        auto new_cell_vel  = cell.velocity * 0.55f + tcell.velocity * 0.45f;
+        auto new_tcell_vel = cell.velocity * 0.45f + tcell.velocity * 0.55f;
+        cell.velocity      = new_cell_vel;
+        tcell.velocity     = new_tcell_vel;
+    }
     return true;
 }
 

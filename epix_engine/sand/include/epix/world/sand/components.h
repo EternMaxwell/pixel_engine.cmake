@@ -187,6 +187,17 @@ struct Simulation {
         float power     = 0.3f;
         float numerator = 4000.0f;
     } not_moving_threshold_setting;
+    struct LiquidSpreadSetting {
+        float spread_len = 3.0f;
+        float prefix     = 0.02f;
+    } liquid_spread_setting;
+    struct UpdateState {
+        bool random_state = false;
+        bool xorder       = true;
+        bool yorder       = true;
+        bool x_outer      = true;
+        EPIX_API void next();
+    } update_state;
 
     // settings
     bool powder_always_slide = true;
@@ -364,9 +375,9 @@ struct Simulation {
      *
      * @param x x-coordinate of the cell
      * @param y y-coordinate of the cell
-     * @return `std::pair<float, float>` the gravity vector
+     * @return `glm::vec2` the gravity vector
      */
-    EPIX_API std::pair<float, float> get_grav(int x, int y);
+    EPIX_API glm::vec2 get_grav(int x, int y);
     EPIX_API glm::vec2 get_default_vel(int x, int y);
     EPIX_API int not_moving_threshold(int x, int y);
     /**
@@ -376,7 +387,7 @@ struct Simulation {
      */
     EPIX_API void update(float delta);
     struct RaycastResult {
-        bool moved;
+        int steps;
         int new_x;
         int new_y;
         std::optional<std::pair<int, int>> hit;
