@@ -605,6 +605,10 @@ void apply_viscosity(Simulation& sim, int x, int y) {
 }
 EPIX_API void Simulation::update(float delta) {
     init_update_state();
+    // update cells possibly remained in chunk that hasn't finished updating
+    while (next_cell()) {
+        update_cell(delta);
+    }
     while (next_chunk()) {
         update_chunk(delta);
     }
@@ -684,6 +688,11 @@ EPIX_API bool Simulation::next_chunk() {
     return false;
 }
 EPIX_API bool Simulation::next_cell() {
+    if (!updating_state.is_updating) return false;
+    if (updating_state.updating_index >=
+        updating_state.updating_chunks.size()) {
+        return false;
+    }
     if (!updating_state.in_chunk_pos) {
         updating_state.in_chunk_pos = {
             std::get<0>(updating_state.bounds.first),
@@ -723,6 +732,12 @@ EPIX_API bool Simulation::next_cell() {
     return true;
 }
 EPIX_API void Simulation::update_chunk(float delta) {
+    if (!updating_state.is_updating) return;
+    if (updating_state.updating_index >=
+            updating_state.updating_chunks.size() ||
+        updating_state.updating_index < 0) {
+        return;
+    }
     while (next_cell()) {
         update_cell(delta);
     }
