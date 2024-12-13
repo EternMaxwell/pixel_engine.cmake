@@ -1,3 +1,4 @@
+#include <BS_thread_pool.hpp>
 #include <numbers>
 
 #include "epix/world/sand.h"
@@ -428,12 +429,25 @@ EPIX_API Simulation::Simulation(const ElemRegistry& registry, int chunk_size)
     : m_registry(registry),
       m_chunk_size(chunk_size),
       m_chunk_map{chunk_size},
-      max_travel({chunk_size / 2, chunk_size / 2}) {}
+      max_travel({chunk_size / 2, chunk_size / 2}),
+      m_thread_pool(
+          std::make_unique<BS::thread_pool>(std::thread::hardware_concurrency())
+      ) {}
 EPIX_API Simulation::Simulation(ElemRegistry&& registry, int chunk_size)
     : m_registry(std::move(registry)),
       m_chunk_size(chunk_size),
       m_chunk_map{chunk_size},
-      max_travel({chunk_size / 2, chunk_size / 2}) {}
+      max_travel({chunk_size / 2, chunk_size / 2}),
+      m_thread_pool(
+          std::make_unique<BS::thread_pool>(std::thread::hardware_concurrency())
+      ) {}
+
+EPIX_API Simulation::UpdatingState& Simulation::updating_state() {
+    return m_updating_state;
+}
+EPIX_API const Simulation::UpdatingState& Simulation::updating_state() const {
+    return m_updating_state;
+}
 
 EPIX_API int Simulation::chunk_size() const { return m_chunk_size; }
 EPIX_API ElemRegistry& Simulation::registry() { return m_registry; }
@@ -581,27 +595,26 @@ EPIX_API void Simulation::UpdateState::next() {
     yorder  = state & 2;
     x_outer = state & 4;
 }
-void apply_viscosity(Simulation& sim, int x, int y) {
-    if (!sim.valid(x, y)) return;
-    auto [cell, elem]                     = sim.get(x, y);
-    std::vector<std::pair<int, int>> dirs = {
-        {0, 1}, {0, -1}, {1, 0}, {-1, 0}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
-    };
-    for (auto&& dir : dirs) {
-        int tx = x + dir.first;
-        int ty = y + dir.second;
-        if (!sim.valid(tx, ty) || !sim.contain_cell(tx, ty)) continue;
-        auto [tcell, telem] = sim.get(tx, ty);
-        if (telem.grav_type == Element::GravType::SOLID ||
-            telem.grav_type == Element::GravType::POWDER) {
-            continue;
-        }
-        if (telem.grav_type == Element::GravType::LIQUID) {
-            auto diff = cell.velocity - tcell.velocity;
-            cell.velocity -= diff * 0.45f;
-            tcell.velocity += diff * 0.45f;
-        }
+EPIX_API std::optional<glm::ivec2> Simulation::UpdatingState::current_chunk(
+) const {
+    if (!is_updating) return std::nullopt;
+    if (updating_index < 0 || updating_index >= updating_chunks.size()) {
+        return std::nullopt;
     }
+    return updating_chunks[updating_index];
+}
+EPIX_API std::optional<glm::ivec2> Simulation::UpdatingState::current_cell(
+) const {
+    if (!is_updating) return std::nullopt;
+    if (!current_chunk()) return std::nullopt;
+    return in_chunk_pos;
+}
+void apply_viscosity(Simulation& sim, const Cell& cell, int x, int y) {
+    if (!sim.valid(x, y)) return;
+    auto [tcell, elem] = sim.get(x, y);
+    if (elem.grav_type != Element::GravType::LIQUID) return;
+    tcell.impact =
+        elem.viscosity * cell.velocity - elem.viscosity * cell.velocity;
 }
 EPIX_API void Simulation::update(float delta) {
     init_update_state();
@@ -614,149 +627,18 @@ EPIX_API void Simulation::update(float delta) {
     }
     deinit_update_state();
 }
-EPIX_API bool Simulation::init_update_state() {
-    if (updating_state.is_updating) return false;
-    updating_state.is_updating    = true;
-    updating_state.updating_index = -1;
-    auto& chunks_to_update        = updating_state.updating_chunks;
-    chunks_to_update.clear();
-    for (auto&& [pos, chunk] : m_chunk_map) {
-        chunks_to_update.push_back(pos);
-    }
-    reset_updated();
-    static thread_local std::random_device rd;
-    static thread_local std::mt19937 gen(rd());
-    static thread_local std::uniform_real_distribution<float> dis(-0.3f, 0.3f);
-    update_state.next();
-    bool xorder  = update_state.xorder;
-    bool yorder  = update_state.yorder;
-    bool x_outer = update_state.x_outer;
-    if (update_state.random_state) {
-        xorder  = dis(gen) > 0;
-        yorder  = dis(gen) > 0;
-        x_outer = dis(gen) > 0;
-    }
-    std::sort(
-        chunks_to_update.begin(), chunks_to_update.end(),
-        [&](auto& a, auto& b) {
-            if (x_outer) {
-                return (xorder ? a.x < b.x : a.x > b.x) &&
-                       (yorder ? a.y < b.y : a.y > b.y);
-            } else {
-                return (yorder ? a.y < b.y : a.y > b.y) &&
-                       (xorder ? a.x < b.x : a.x > b.x);
-            }
-        }
-    );
-    return true;
-}
-EPIX_API bool Simulation::deinit_update_state() {
-    if (!updating_state.is_updating) return false;
-    m_chunk_map.count_time();
-    updating_state.is_updating = false;
-    return true;
-}
-EPIX_API bool Simulation::next_chunk() {
-    updating_state.updating_index++;
-    while (updating_state.updating_index < updating_state.updating_chunks.size()
-    ) {
-        auto& pos =
-            updating_state.updating_chunks[updating_state.updating_index];
-        auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
-        if (!chunk.should_update()) {
-            updating_state.updating_index++;
-            continue;
-        }
-        auto& [xbounds, ybounds] = updating_state.bounds;
-        xbounds                  = {
-            update_state.xorder ? chunk.updating_area[0]
-                                                 : chunk.updating_area[1],
-            update_state.xorder ? chunk.updating_area[1] + 1
-                                : chunk.updating_area[0] - 1,
-            update_state.xorder ? 1 : -1
-        };
-        ybounds = {
-            update_state.yorder ? chunk.updating_area[2]
-                                : chunk.updating_area[3],
-            update_state.yorder ? chunk.updating_area[3] + 1
-                                : chunk.updating_area[2] - 1,
-            update_state.yorder ? 1 : -1
-        };
-        updating_state.in_chunk_pos.reset();
-        return true;
-    }
-    return false;
-}
-EPIX_API bool Simulation::next_cell() {
-    if (!updating_state.is_updating) return false;
-    if (updating_state.updating_index >=
-        updating_state.updating_chunks.size()) {
-        return false;
-    }
-    if (!updating_state.in_chunk_pos) {
-        updating_state.in_chunk_pos = {
-            std::get<0>(updating_state.bounds.first),
-            std::get<0>(updating_state.bounds.second)
-        };
-        return true;
-    }
-    if (update_state.x_outer) {
-        updating_state.in_chunk_pos->y +=
-            std::get<2>(updating_state.bounds.second);
-        if (updating_state.in_chunk_pos->y ==
-            std::get<1>(updating_state.bounds.second)) {
-            updating_state.in_chunk_pos->y =
-                std::get<0>(updating_state.bounds.second);
-            updating_state.in_chunk_pos->x +=
-                std::get<2>(updating_state.bounds.first);
-            if (updating_state.in_chunk_pos->x ==
-                std::get<1>(updating_state.bounds.first)) {
-                return false;
-            }
-        }
-    } else {
-        updating_state.in_chunk_pos->x +=
-            std::get<2>(updating_state.bounds.first);
-        if (updating_state.in_chunk_pos->x ==
-            std::get<1>(updating_state.bounds.first)) {
-            updating_state.in_chunk_pos->x =
-                std::get<0>(updating_state.bounds.first);
-            updating_state.in_chunk_pos->y +=
-                std::get<2>(updating_state.bounds.second);
-            if (updating_state.in_chunk_pos->y ==
-                std::get<1>(updating_state.bounds.second)) {
-                return false;
-            }
-        }
-    }
-    return true;
-}
-EPIX_API void Simulation::update_chunk(float delta) {
-    if (!updating_state.is_updating) return;
-    if (updating_state.updating_index >=
-            updating_state.updating_chunks.size() ||
-        updating_state.updating_index < 0) {
-        return;
-    }
-    while (next_cell()) {
-        update_cell(delta);
-    }
-}
-EPIX_API void Simulation::update_cell(float delta) {
-    const auto& pos =
-        updating_state.updating_chunks[updating_state.updating_index];
-    auto& chunk  = m_chunk_map.get_chunk(pos.x, pos.y);
-    const int x_ = pos.x * m_chunk_size + updating_state.in_chunk_pos->x;
-    const int y_ = pos.y * m_chunk_size + updating_state.in_chunk_pos->y;
-    int final_x  = x_;
-    int final_y  = y_;
-    if (chunk.is_updated(
-            updating_state.in_chunk_pos->x, updating_state.in_chunk_pos->y
-        ))
-        return;
-    if (!contain_cell(x_, y_)) return;
-    auto [cell, elem] = get(x_, y_);
-    auto grav         = get_grav(x_, y_);
+void epix::world::sand::components::update_cell(
+    Simulation& sim, const int x_, const int y_, float delta
+) {
+    auto [chunk_x, chunk_y] = sim.to_chunk_pos(x_, y_);
+    auto [cell_x, cell_y]   = sim.to_in_chunk_pos(x_, y_);
+    auto& chunk             = sim.chunk_map().get_chunk(chunk_x, chunk_y);
+    int final_x             = x_;
+    int final_y             = y_;
+    if (chunk.is_updated(cell_x, cell_y)) return;
+    if (!sim.contain_cell(x_, y_)) return;
+    auto [cell, elem] = sim.get(x_, y_);
+    auto grav         = sim.get_grav(x_, y_);
     float grav_len_s  = grav.x * grav.x + grav.y * grav.y;
     if (grav_len_s == 0) {
         chunk.time_threshold = std::numeric_limits<int>::max();
@@ -775,10 +657,10 @@ EPIX_API void Simulation::update_cell(float delta) {
             };
             int below_x = x_ + dir.x;
             int below_y = y_ + dir.y;
-            if (!valid(below_x, below_y)) return;
-            auto& bcell = get_cell(below_x, below_y);
+            if (!sim.valid(below_x, below_y)) return;
+            auto& bcell = sim.get_cell(below_x, below_y);
             if (bcell) {
-                auto& belem = get_elem(below_x, below_y);
+                auto& belem = sim.get_elem(below_x, below_y);
                 if (belem.grav_type == Element::GravType::SOLID) {
                     return;
                 }
@@ -787,7 +669,7 @@ EPIX_API void Simulation::update_cell(float delta) {
                     return;
                 }
             }
-            cell.velocity = get_default_vel(x_, y_);
+            cell.velocity = sim.get_default_vel(x_, y_);
             cell.freefall = true;
         }
         cell.velocity += grav * delta;
@@ -800,15 +682,17 @@ EPIX_API void Simulation::update_cell(float delta) {
         }
         cell.inpos.x -= delta_x;
         cell.inpos.y -= delta_y;
-        if (max_travel) {
-            delta_x = std::clamp(delta_x, -max_travel->x, max_travel->y);
-            delta_y = std::clamp(delta_y, -max_travel->x, max_travel->y);
+        if (sim.max_travel) {
+            delta_x =
+                std::clamp(delta_x, -sim.max_travel->x, sim.max_travel->y);
+            delta_y =
+                std::clamp(delta_y, -sim.max_travel->x, sim.max_travel->y);
         }
         int tx              = x_ + delta_x;
         int ty              = y_ + delta_y;
         bool moved          = false;
-        auto raycast_result = raycast_to(x_, y_, tx, ty);
-        auto ncell = &get_cell(raycast_result.new_x, raycast_result.new_y);
+        auto raycast_result = sim.raycast_to(x_, y_, tx, ty);
+        auto ncell = &sim.get_cell(raycast_result.new_x, raycast_result.new_y);
         if (raycast_result.steps) {
             std::swap(cell, *ncell);
             final_x = raycast_result.new_x;
@@ -819,11 +703,11 @@ EPIX_API void Simulation::update_cell(float delta) {
             auto [hit_x, hit_y]    = raycast_result.hit.value();
             bool blocking_freefall = false;
             bool collided          = false;
-            if (valid(hit_x, hit_y)) {
-                auto [tcell, telem] = get(hit_x, hit_y);
+            if (sim.valid(hit_x, hit_y)) {
+                auto [tcell, telem] = sim.get(hit_x, hit_y);
                 if (telem.grav_type == Element::GravType::SOLID ||
                     telem.grav_type == Element::GravType::POWDER) {
-                    collided = collide(
+                    collided = sim.collide(
                         raycast_result.new_x, raycast_result.new_y, hit_x, hit_y
                     );
                     blocking_freefall = tcell.freefall;
@@ -836,8 +720,9 @@ EPIX_API void Simulation::update_cell(float delta) {
                 }
             }
             if (!moved) {
-                if (powder_always_slide ||
-                    (valid(hit_x, hit_y) && !get_cell(hit_x, hit_y).freefall)) {
+                if (sim.powder_always_slide ||
+                    (sim.valid(hit_x, hit_y) &&
+                     !sim.get_cell(hit_x, hit_y).freefall)) {
                     // try go to left bottom and right bottom
                     float vel_angle =
                         std::atan2(cell.velocity.y, cell.velocity.x);
@@ -883,8 +768,8 @@ EPIX_API void Simulation::update_cell(float delta) {
                             }
                             int tx = final_x + delta_x;
                             int ty = final_y + delta_y;
-                            if (!valid(tx, ty)) continue;
-                            auto& tcell = get_cell(tx, ty);
+                            if (!sim.valid(tx, ty)) continue;
+                            auto& tcell = sim.get_cell(tx, ty);
                             if (!tcell) {
                                 std::swap(*ncell, tcell);
                                 ncell   = &tcell;
@@ -904,23 +789,23 @@ EPIX_API void Simulation::update_cell(float delta) {
         }
         if (moved) {
             ncell->not_move_count = 0;
-            touch(x_ - 1, y_);
-            touch(x_ + 1, y_);
-            touch(x_, y_ - 1);
-            touch(x_, y_ + 1);
-            touch(final_x - 1, final_y);
-            touch(final_x + 1, final_y);
-            touch(final_x, final_y - 1);
-            touch(final_x, final_y + 1);
+            sim.touch(x_ - 1, y_);
+            sim.touch(x_ + 1, y_);
+            sim.touch(x_, y_ - 1);
+            sim.touch(x_, y_ + 1);
+            sim.touch(final_x - 1, final_y);
+            sim.touch(final_x + 1, final_y);
+            sim.touch(final_x, final_y - 1);
+            sim.touch(final_x, final_y + 1);
         } else {
             cell.not_move_count++;
-            if (cell.not_move_count >= not_moving_threshold(x_, y_)) {
+            if (cell.not_move_count >= sim.not_moving_threshold(x_, y_)) {
                 cell.not_move_count = 0;
                 cell.freefall       = false;
                 cell.velocity       = {0.0f, 0.0f};
             }
         }
-        mark_updated(final_x, final_y);
+        sim.mark_updated(final_x, final_y);
     } else if (elem.grav_type == Element::GravType::LIQUID) {
         if (!cell.freefall) {
             float angle = std::atan2(grav.y, grav.x);
@@ -944,16 +829,16 @@ EPIX_API void Simulation::update_cell(float delta) {
             int lb_y    = y_ + lb.y;
             int rb_x    = x_ + rb.x;
             int rb_y    = y_ + rb.y;
-            if (!valid(below_x, below_y) && !valid(lb_x, lb_y) &&
-                !valid(rb_x, rb_y)) {
+            if (!sim.valid(below_x, below_y) && !sim.valid(lb_x, lb_y) &&
+                !sim.valid(rb_x, rb_y)) {
                 return;
             }
             bool should_freefall = false;
-            if (valid(below_x, below_y)) {
-                auto& bcell             = get_cell(below_x, below_y);
+            if (sim.valid(below_x, below_y)) {
+                auto& bcell             = sim.get_cell(below_x, below_y);
                 bool shouldnot_freefall = false;
                 if (bcell) {
-                    auto& belem = get_elem(below_x, below_y);
+                    auto& belem = sim.get_elem(below_x, below_y);
                     if (belem.grav_type == Element::GravType::SOLID) {
                         shouldnot_freefall = true;
                     }
@@ -965,11 +850,11 @@ EPIX_API void Simulation::update_cell(float delta) {
                 }
                 should_freefall |= !shouldnot_freefall;
             }
-            if (valid(lb_x, lb_y)) {
-                auto& lbcell            = get_cell(lb_x, lb_y);
+            if (sim.valid(lb_x, lb_y)) {
+                auto& lbcell            = sim.get_cell(lb_x, lb_y);
                 bool shouldnot_freefall = false;
                 if (lbcell) {
-                    auto& lbelem = get_elem(lb_x, lb_y);
+                    auto& lbelem = sim.get_elem(lb_x, lb_y);
                     if (lbelem.grav_type == Element::GravType::SOLID) {
                         shouldnot_freefall = true;
                     }
@@ -981,11 +866,11 @@ EPIX_API void Simulation::update_cell(float delta) {
                 }
                 should_freefall |= !shouldnot_freefall;
             }
-            if (valid(rb_x, rb_y)) {
-                auto& rbcell            = get_cell(rb_x, rb_y);
+            if (sim.valid(rb_x, rb_y)) {
+                auto& rbcell            = sim.get_cell(rb_x, rb_y);
                 bool shouldnot_freefall = false;
                 if (rbcell) {
-                    auto& rbelem = get_elem(rb_x, rb_y);
+                    auto& rbelem = sim.get_elem(rb_x, rb_y);
                     if (rbelem.grav_type == Element::GravType::SOLID) {
                         shouldnot_freefall = true;
                     }
@@ -999,10 +884,12 @@ EPIX_API void Simulation::update_cell(float delta) {
             }
             if (!should_freefall) return;
 
-            cell.velocity = get_default_vel(x_, y_);
+            cell.velocity = sim.get_default_vel(x_, y_);
             cell.freefall = true;
         }
         cell.velocity += grav * delta;
+        cell.velocity += cell.impact;
+        cell.impact = {0.0f, 0.0f};
         cell.velocity *= 0.99f;
         cell.inpos += cell.velocity * delta;
         int delta_x = std::round(cell.inpos.x);
@@ -1012,15 +899,17 @@ EPIX_API void Simulation::update_cell(float delta) {
         }
         cell.inpos.x -= delta_x;
         cell.inpos.y -= delta_y;
-        if (max_travel) {
-            delta_x = std::clamp(delta_x, -max_travel->x, max_travel->y);
-            delta_y = std::clamp(delta_y, -max_travel->x, max_travel->y);
+        if (sim.max_travel) {
+            delta_x =
+                std::clamp(delta_x, -sim.max_travel->x, sim.max_travel->y);
+            delta_y =
+                std::clamp(delta_y, -sim.max_travel->x, sim.max_travel->y);
         }
         int tx              = x_ + delta_x;
         int ty              = y_ + delta_y;
         bool moved          = false;
-        auto raycast_result = raycast_to(x_, y_, tx, ty);
-        auto ncell = &get_cell(raycast_result.new_x, raycast_result.new_y);
+        auto raycast_result = sim.raycast_to(x_, y_, tx, ty);
+        auto ncell = &sim.get_cell(raycast_result.new_x, raycast_result.new_y);
         if (raycast_result.steps) {
             std::swap(cell, *ncell);
             final_x = raycast_result.new_x;
@@ -1031,12 +920,12 @@ EPIX_API void Simulation::update_cell(float delta) {
             auto [hit_x, hit_y]    = raycast_result.hit.value();
             bool blocking_freefall = false;
             bool collided          = false;
-            if (valid(hit_x, hit_y)) {
-                auto [tcell, telem] = get(hit_x, hit_y);
+            if (sim.valid(hit_x, hit_y)) {
+                auto [tcell, telem] = sim.get(hit_x, hit_y);
                 if (telem.grav_type == Element::GravType::SOLID ||
                     telem.grav_type == Element::GravType::POWDER ||
                     telem.grav_type == Element::GravType::LIQUID) {
-                    collided = collide(
+                    collided = sim.collide(
                         raycast_result.new_x, raycast_result.new_y, hit_x, hit_y
                     );
                 } else {
@@ -1053,16 +942,16 @@ EPIX_API void Simulation::update_cell(float delta) {
                 float angle_diff = calculate_angle_diff(cell.velocity, grav);
                 if (std::abs(angle_diff) < std::numbers::pi / 2) {
                     // try go to left bottom and right bottom
-                    glm::ivec2 lb = {
-                        std::round(std::cos(grav_angle - std::numbers::pi / 4)),
-                        std::round(std::sin(grav_angle - std::numbers::pi / 4))
+                    glm::vec2 lb = {
+                        std::cos(grav_angle - std::numbers::pi / 4),
+                        std::sin(grav_angle - std::numbers::pi / 4)
                     };
-                    glm::ivec2 rb = {
-                        std::round(std::cos(grav_angle + std::numbers::pi / 4)),
-                        std::round(std::sin(grav_angle + std::numbers::pi / 4))
+                    glm::vec2 rb = {
+                        std::cos(grav_angle + std::numbers::pi / 4),
+                        std::sin(grav_angle + std::numbers::pi / 4)
                     };
                     glm::vec2 dirs[2];
-                    bool lb_first = angle_diff < 0;
+                    bool lb_first = angle_diff > 0;
                     if (lb_first) {
                         dirs[0] = lb;
                         dirs[1] = rb;
@@ -1071,15 +960,15 @@ EPIX_API void Simulation::update_cell(float delta) {
                         dirs[1] = lb;
                     }
                     for (auto&& vel : dirs) {
-                        int delta_x = vel.x;
-                        int delta_y = vel.y;
+                        int delta_x = std::round(vel.x);
+                        int delta_y = std::round(vel.y);
                         if (delta_x == 0 && delta_y == 0) {
                             continue;
                         }
                         int tx = final_x + delta_x;
                         int ty = final_y + delta_y;
-                        if (!valid(tx, ty)) continue;
-                        auto& tcell = get_cell(tx, ty);
+                        if (!sim.valid(tx, ty)) continue;
+                        auto& tcell = sim.get_cell(tx, ty);
                         if (!tcell) {
                             std::swap(*ncell, tcell);
                             ncell   = &tcell;
@@ -1090,66 +979,67 @@ EPIX_API void Simulation::update_cell(float delta) {
                         }
                     }
                     if (!moved) {
+                        float vellen = std::sqrt(
+                                           cell.velocity.x * cell.velocity.x +
+                                           cell.velocity.y * cell.velocity.y
+                                       ) *
+                                       delta;
                         // try go to left and right
-                        glm::ivec2 left = {
-                            std::round(
-                                std::cos(grav_angle - std::numbers::pi / 2) *
-                                liquid_spread_setting.spread_len
-                            ),
-                            std::round(
-                                std::sin(grav_angle - std::numbers::pi / 2) *
-                                liquid_spread_setting.spread_len
-                            )
+                        glm::vec2 left = {
+                            std::cos(grav_angle - std::numbers::pi / 2) *
+                                sim.liquid_spread_setting.spread_len * vellen,
+                            std::sin(grav_angle - std::numbers::pi / 2) *
+                                sim.liquid_spread_setting.spread_len * vellen
                         };
-                        glm::ivec2 right = {
-                            std::round(
-                                std::cos(grav_angle + std::numbers::pi / 2) *
-                                liquid_spread_setting.spread_len
-                            ),
-                            std::round(
-                                std::sin(grav_angle + std::numbers::pi / 2) *
-                                liquid_spread_setting.spread_len
-                            )
+                        glm::vec2 right = {
+                            std::cos(grav_angle + std::numbers::pi / 2) *
+                                sim.liquid_spread_setting.spread_len * vellen,
+                            std::sin(grav_angle + std::numbers::pi / 2) *
+                                sim.liquid_spread_setting.spread_len * vellen
                         };
-                        glm::vec2 dirs[2];
+                        glm::vec2 idirs[2];
                         bool left_first = angle_diff > 0;
                         if (left_first) {
-                            dirs[0] = left;
-                            dirs[1] = right;
+                            idirs[0] = left;
+                            idirs[1] = right;
                         } else {
-                            dirs[0] = right;
-                            dirs[1] = left;
+                            idirs[0] = right;
+                            idirs[1] = left;
                         }
-                        int tx_1   = final_x + dirs[0].x;
-                        int ty_1   = final_y + dirs[0].y;
-                        int tx_2   = final_x + dirs[1].x;
-                        int ty_2   = final_y + dirs[1].y;
-                        auto res_1 = raycast_to(final_x, final_y, tx_1, ty_1);
-                        auto res_2 = raycast_to(final_x, final_y, tx_2, ty_2);
+                        // dirs[1] *= 0.5f;
+                        int tx_1 = final_x + std::round(idirs[0].x);
+                        int ty_1 = final_y + std::round(idirs[0].y);
+                        int tx_2 = final_x + std::round(idirs[1].x);
+                        int ty_2 = final_y + std::round(idirs[1].y);
+                        auto res_1 =
+                            sim.raycast_to(final_x, final_y, tx_1, ty_1);
+                        auto res_2 =
+                            sim.raycast_to(final_x, final_y, tx_2, ty_2);
                         if (res_1.steps >= res_2.steps) {
                             if (res_1.steps) {
                                 auto& tcell =
-                                    get_cell(res_1.new_x, res_1.new_y);
+                                    sim.get_cell(res_1.new_x, res_1.new_y);
                                 std::swap(*ncell, tcell);
                                 final_x = res_1.new_x;
                                 final_y = res_1.new_y;
                                 ncell   = &tcell;
                                 ncell->velocity +=
-                                    glm::vec2(dirs[0]) *
-                                    liquid_spread_setting.prefix / delta;
+                                    glm::vec2(idirs[0]) *
+                                    sim.liquid_spread_setting.prefix / delta;
                                 moved = true;
                             }
                         } else {
                             if (res_2.steps) {
                                 auto& tcell =
-                                    get_cell(res_2.new_x, res_2.new_y);
+                                    sim.get_cell(res_2.new_x, res_2.new_y);
                                 std::swap(*ncell, tcell);
                                 final_x = res_2.new_x;
                                 final_y = res_2.new_y;
                                 ncell   = &tcell;
                                 ncell->velocity +=
-                                    glm::vec2(dirs[1]) *
-                                    liquid_spread_setting.prefix / delta / 2.0f;
+                                    glm::vec2(idirs[1]) *
+                                    sim.liquid_spread_setting.prefix / delta *
+                                    0.5f;
                                 moved = true;
                             }
                         }
@@ -1161,27 +1051,259 @@ EPIX_API void Simulation::update_cell(float delta) {
             //     ncell->velocity = {0.0f, 0.0f};
             // }
         }
-        apply_viscosity(*this, final_x, final_y);
         if (moved) {
             ncell->not_move_count = 0;
-            touch(x_ - 1, y_);
-            touch(x_ + 1, y_);
-            touch(x_, y_ - 1);
-            touch(x_, y_ + 1);
-            touch(final_x - 1, final_y);
-            touch(final_x + 1, final_y);
-            touch(final_x, final_y - 1);
-            touch(final_x, final_y + 1);
+            sim.touch(x_ - 1, y_);
+            sim.touch(x_ + 1, y_);
+            sim.touch(x_, y_ - 1);
+            sim.touch(x_, y_ + 1);
+            sim.touch(final_x - 1, final_y);
+            sim.touch(final_x + 1, final_y);
+            sim.touch(final_x, final_y - 1);
+            sim.touch(final_x, final_y + 1);
+            apply_viscosity(sim, *ncell, x_ - 1, y_);
+            apply_viscosity(sim, *ncell, x_ + 1, y_);
+            apply_viscosity(sim, *ncell, x_, y_ - 1);
+            apply_viscosity(sim, *ncell, x_, y_ + 1);
         } else {
             cell.not_move_count++;
-            if (cell.not_move_count >= not_moving_threshold(x_, y_) / 15) {
+            if (cell.not_move_count >= sim.not_moving_threshold(x_, y_) / 15) {
                 cell.not_move_count = 0;
                 cell.freefall       = false;
                 cell.velocity       = {0.0f, 0.0f};
             }
         }
-        mark_updated(final_x, final_y);
+        sim.mark_updated(final_x, final_y);
     }
+}
+EPIX_API void Simulation::update_multithread(float delta) {
+    std::vector<std::pair<int, int>> modres = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+    reset_updated();
+    update_state.next();
+    m_chunk_map.count_time();
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 gen(rd());
+    std::shuffle(modres.begin(), modres.end(), gen);
+    static thread_local std::uniform_real_distribution<float> dis(-0.3f, 0.3f);
+    bool xorder  = update_state.xorder;
+    bool yorder  = update_state.yorder;
+    bool x_outer = update_state.x_outer;
+    if (update_state.random_state) {
+        xorder  = dis(gen) > 0;
+        yorder  = dis(gen) > 0;
+        x_outer = dis(gen) > 0;
+    }
+    for (auto&& [xmod, ymod] : modres) {
+        std::vector<glm::ivec2> chunks_to_update;
+        for (auto&& [pos, chunk] : m_chunk_map) {
+            if ((pos.x + xmod) % 2 == 0 && (pos.y + ymod) % 2 == 0) {
+                chunks_to_update.push_back(pos);
+            }
+        }
+        std::sort(
+            chunks_to_update.begin(), chunks_to_update.end(),
+            [&](auto& a, auto& b) {
+                if (x_outer) {
+                    return (xorder ? a.x < b.x : a.x > b.x) ||
+                           (a.x == b.x && (yorder ? a.y < b.y : a.y > b.y));
+                } else {
+                    return (yorder ? a.y < b.y : a.y > b.y) ||
+                           (a.y == b.y && (xorder ? a.x < b.x : a.x > b.x));
+                }
+            }
+        );
+        for (auto pos : chunks_to_update) {
+            m_thread_pool->submit_task([=]() {
+                auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
+                if (!chunk.should_update()) return;
+                std::tuple<int, int, int> xbounds, ybounds;
+                xbounds = {
+                    xorder ? chunk.updating_area[0] : chunk.updating_area[1],
+                    xorder ? chunk.updating_area[1] + 1
+                           : chunk.updating_area[0] - 1,
+                    xorder ? 1 : -1
+                };
+                ybounds = {
+                    yorder ? chunk.updating_area[2] : chunk.updating_area[3],
+                    yorder ? chunk.updating_area[3] + 1
+                           : chunk.updating_area[2] - 1,
+                    yorder ? 1 : -1
+                };
+                std::tuple<int, int, int> bounds[2] = {xbounds, ybounds};
+                if (!x_outer) {
+                    std::swap(bounds[0], bounds[1]);
+                }
+                for (int index1 = std::get<0>(bounds[0]);
+                     index1 != std::get<1>(bounds[0]);
+                     index1 += std::get<2>(bounds[0])) {
+                    for (int index2 = std::get<0>(bounds[1]);
+                         index2 != std::get<1>(bounds[1]);
+                         index2 += std::get<2>(bounds[1])) {
+                        auto x =
+                            pos.x * m_chunk_size + (x_outer ? index1 : index2);
+                        auto y =
+                            pos.y * m_chunk_size + (x_outer ? index2 : index1);
+                        epix::world::sand::components::update_cell(
+                            *this, x, y, delta
+                        );
+                    }
+                }
+            });
+        }
+        m_thread_pool->wait();
+    }
+}
+EPIX_API bool Simulation::init_update_state() {
+    if (m_updating_state.is_updating) return false;
+    m_updating_state.is_updating    = true;
+    m_updating_state.updating_index = -1;
+    auto& chunks_to_update          = m_updating_state.updating_chunks;
+    chunks_to_update.clear();
+    for (auto&& [pos, chunk] : m_chunk_map) {
+        chunks_to_update.push_back(pos);
+    }
+    reset_updated();
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 gen(rd());
+    static thread_local std::uniform_real_distribution<float> dis(-0.3f, 0.3f);
+    update_state.next();
+    bool xorder  = update_state.xorder;
+    bool yorder  = update_state.yorder;
+    bool x_outer = update_state.x_outer;
+    if (update_state.random_state) {
+        xorder  = dis(gen) > 0;
+        yorder  = dis(gen) > 0;
+        x_outer = dis(gen) > 0;
+    }
+    std::sort(
+        chunks_to_update.begin(), chunks_to_update.end(),
+        [&](auto& a, auto& b) {
+            if (x_outer) {
+                return (xorder ? a.x < b.x : a.x > b.x) ||
+                       (a.x == b.x && (yorder ? a.y < b.y : a.y > b.y));
+            } else {
+                return (yorder ? a.y < b.y : a.y > b.y) ||
+                       (a.y == b.y && (xorder ? a.x < b.x : a.x > b.x));
+            }
+        }
+    );
+    return true;
+}
+EPIX_API bool Simulation::deinit_update_state() {
+    if (!m_updating_state.is_updating) return false;
+    m_chunk_map.count_time();
+    m_updating_state.is_updating = false;
+    return true;
+}
+EPIX_API bool Simulation::next_chunk() {
+    m_updating_state.updating_index++;
+    while (m_updating_state.updating_index <
+           m_updating_state.updating_chunks.size()) {
+        auto& pos =
+            m_updating_state.updating_chunks[m_updating_state.updating_index];
+        auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
+        if (!chunk.should_update()) {
+            m_updating_state.updating_index++;
+            continue;
+        }
+        auto& [xbounds, ybounds] = m_updating_state.bounds;
+        xbounds                  = {
+            update_state.xorder ? chunk.updating_area[0]
+                                                 : chunk.updating_area[1],
+            update_state.xorder ? chunk.updating_area[1] + 1
+                                : chunk.updating_area[0] - 1,
+            update_state.xorder ? 1 : -1
+        };
+        ybounds = {
+            update_state.yorder ? chunk.updating_area[2]
+                                : chunk.updating_area[3],
+            update_state.yorder ? chunk.updating_area[3] + 1
+                                : chunk.updating_area[2] - 1,
+            update_state.yorder ? 1 : -1
+        };
+        m_updating_state.in_chunk_pos.reset();
+        return true;
+    }
+    return false;
+}
+EPIX_API bool Simulation::next_cell() {
+    if (!m_updating_state.is_updating) return false;
+    if (m_updating_state.updating_index >=
+        m_updating_state.updating_chunks.size()) {
+        return false;
+    }
+    if (!m_updating_state.in_chunk_pos) {
+        m_updating_state.in_chunk_pos = {
+            std::get<0>(m_updating_state.bounds.first),
+            std::get<0>(m_updating_state.bounds.second)
+        };
+        return true;
+    }
+    if (m_updating_state.in_chunk_pos->x ==
+            std::get<1>(m_updating_state.bounds.first) ||
+        m_updating_state.in_chunk_pos->y ==
+            std::get<1>(m_updating_state.bounds.second)) {
+        return false;
+    }
+    if (update_state.x_outer) {
+        m_updating_state.in_chunk_pos->y +=
+            std::get<2>(m_updating_state.bounds.second);
+        if (m_updating_state.in_chunk_pos->y ==
+            std::get<1>(m_updating_state.bounds.second)) {
+            m_updating_state.in_chunk_pos->y =
+                std::get<0>(m_updating_state.bounds.second);
+            m_updating_state.in_chunk_pos->x +=
+                std::get<2>(m_updating_state.bounds.first);
+            if (m_updating_state.in_chunk_pos->x ==
+                std::get<1>(m_updating_state.bounds.first)) {
+                return false;
+            }
+        }
+    } else {
+        m_updating_state.in_chunk_pos->x +=
+            std::get<2>(m_updating_state.bounds.first);
+        if (m_updating_state.in_chunk_pos->x ==
+            std::get<1>(m_updating_state.bounds.first)) {
+            m_updating_state.in_chunk_pos->x =
+                std::get<0>(m_updating_state.bounds.first);
+            m_updating_state.in_chunk_pos->y +=
+                std::get<2>(m_updating_state.bounds.second);
+            if (m_updating_state.in_chunk_pos->y ==
+                std::get<1>(m_updating_state.bounds.second)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+EPIX_API void Simulation::update_chunk(float delta) {
+    if (!m_updating_state.is_updating) return;
+    if (m_updating_state.updating_index >=
+            m_updating_state.updating_chunks.size() ||
+        m_updating_state.updating_index < 0) {
+        return;
+    }
+    while (next_cell()) {
+        update_cell(delta);
+    }
+}
+EPIX_API void Simulation::update_cell(float delta) {
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 gen(rd());
+    static thread_local std::uniform_real_distribution<float> dis(-0.4f, 0.4f);
+    if (!m_updating_state.is_updating) return;
+    if (m_updating_state.updating_index >=
+            m_updating_state.updating_chunks.size() ||
+        m_updating_state.updating_index < 0) {
+        return;
+    }
+    if (!m_updating_state.in_chunk_pos) return;
+    const auto& pos =
+        m_updating_state.updating_chunks[m_updating_state.updating_index];
+    auto& chunk  = m_chunk_map.get_chunk(pos.x, pos.y);
+    const int x_ = pos.x * m_chunk_size + m_updating_state.in_chunk_pos->x;
+    const int y_ = pos.y * m_chunk_size + m_updating_state.in_chunk_pos->y;
+    epix::world::sand::components::update_cell(*this, x_, y_, delta);
 }
 EPIX_API Simulation::RaycastResult Simulation::raycast_to(
     int x, int y, int tx, int ty
@@ -1240,10 +1362,11 @@ EPIX_API bool Simulation::collide(int x, int y, int tx, int ty) {
     if (elem.grav_type == Element::GravType::SOLID) {
         m2 = 0;
     }
-    if (elem.grav_type == Element::GravType::LIQUID &&
-        telem.grav_type == Element::GravType::SOLID) {
-        dx = (float)(tx - x);
-        dy = (float)(ty - y);
+    if (elem.grav_type == Element::GravType::LIQUID/*  &&
+        telem.grav_type == Element::GravType::SOLID */) {
+        bool dir_x = std::abs(dx) > std::abs(dy);
+        dx         = dir_x ? (float)(tx - x) : 0;
+        dy         = dir_x ? 0 : (float)(ty - y);
     }
     if (m1 == 0 && m2 == 0) return false;
     float restitution = std::max(elem.bouncing, telem.bouncing);

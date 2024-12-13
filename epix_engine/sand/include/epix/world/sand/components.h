@@ -3,6 +3,7 @@
 #include <sparsepp/spp.h>
 #include <spdlog/spdlog.h>
 
+#include <BS_thread_pool.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <mutex>
@@ -29,6 +30,7 @@ struct Element {
     float density;
     float bouncing;
     float friction;
+    float viscosity = 0.1f;
 };
 struct CellDef {
     enum class DefIdentifier { Name, Id } identifier;
@@ -51,6 +53,7 @@ struct Cell {
     glm::vec4 color = glm::vec4(0.0f);
     glm::vec2 velocity;
     glm::vec2 inpos;
+    glm::vec2 impact;
     bool freefall;
     int not_move_count = 0;
 
@@ -192,16 +195,17 @@ struct Simulation {
     ElemRegistry m_registry;
     const int m_chunk_size;
     ChunkMap m_chunk_map;
+    std::unique_ptr<BS::thread_pool> m_thread_pool;
     struct NotMovingThresholdSetting {
         float power     = 0.3f;
         float numerator = 4000.0f;
     } not_moving_threshold_setting;
     struct LiquidSpreadSetting {
-        float spread_len = 3.0f;
+        float spread_len = 1.5f;
         float prefix     = 0.02f;
     } liquid_spread_setting;
     struct UpdateState {
-        bool random_state = false;
+        bool random_state = true;
         bool xorder       = true;
         bool yorder       = true;
         bool x_outer      = true;
@@ -214,16 +218,26 @@ struct Simulation {
         std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>> bounds;
         int updating_index = 0;
         std::optional<glm::ivec2> in_chunk_pos;
-    } updating_state;
+
+        EPIX_API std::optional<glm::ivec2> current_chunk() const;
+        EPIX_API std::optional<glm::ivec2> current_cell() const;
+    } m_updating_state;
 
     // settings
     bool powder_always_slide = true;
 
     EPIX_API Cell& create_def(int x, int y, const CellDef& def);
 
+    friend void update_cell(
+        Simulation& sim, const int x_, const int y_, float delta
+    );
+
    public:
     EPIX_API Simulation(const ElemRegistry& registry, int chunk_size = 64);
     EPIX_API Simulation(ElemRegistry&& registry, int chunk_size = 64);
+
+    EPIX_API UpdatingState& updating_state();
+    EPIX_API const UpdatingState& updating_state() const;
 
     /**
      * @brief Get the size of a chunk
@@ -405,6 +419,7 @@ struct Simulation {
      * @param delta time elapsed since the last frame
      */
     EPIX_API void update(float delta);
+    EPIX_API void update_multithread(float delta);
     EPIX_API bool init_update_state();
     EPIX_API bool deinit_update_state();
     EPIX_API bool next_chunk();

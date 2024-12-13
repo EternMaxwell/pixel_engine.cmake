@@ -1166,7 +1166,7 @@ void update_simulation(
     auto [simulation] = query.single();
     auto count        = timer->value().tick();
     for (int i = 0; i < count; i++) {
-        simulation.update((float)timer->value().interval);
+        simulation.update_multithread((float)timer->value().interval);
         return;
     }
 }
@@ -1181,6 +1181,28 @@ void step_simulation(
     if (key_input.just_pressed(epix::input::KeySpace)) {
         spdlog::info("Step simulation");
         simulation.update((float)1.0 / 60.0);
+    } else if (key_input.just_pressed(epix::input::KeyC) ||
+               (key_input.pressed(epix::input::KeyC) &&
+                key_input.pressed(epix::input::KeyLeftAlt))) {
+        spdlog::info("Step simulation chunk");
+        simulation.init_update_state();
+        simulation.update_chunk((float)1.0 / 60.0);
+        if (simulation.next_chunk()) {
+            simulation.update_chunk((float)1.0 / 60.0);
+        } else {
+            simulation.deinit_update_state();
+        }
+    } else if (key_input.just_pressed(epix::input::KeyV) ||
+               (key_input.pressed(epix::input::KeyV) &&
+                key_input.pressed(epix::input::KeyLeftAlt))) {
+        spdlog::info("Reset simulation");
+        simulation.init_update_state();
+        simulation.update_cell((float)1.0 / 60.0);
+        if (simulation.next_cell()) {
+            simulation.update_cell((float)1.0 / 60.0);
+        } else if (!simulation.next_chunk()) {
+            simulation.deinit_update_state();
+        }
     }
 }
 
@@ -1290,6 +1312,69 @@ void render_simulation_cell_vel(
                         {0.0f, 0.0f, 1.0f, alpha}
                     );
                 }
+            }
+        }
+    }
+    line_drawer.end();
+}
+
+void render_simulation_state(
+    Query<Get<const Simulation>> query,
+    Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
+    Query<Get<epix::render::debug::vulkan::components::LineDrawer>>
+        line_drawer_query
+) {
+    using namespace epix::render::debug::vulkan::components;
+    if (!query) return;
+    if (!context_query) return;
+    if (!line_drawer_query) return;
+    auto [device, swap_chain, queue] = context_query.single();
+    auto [line_drawer]               = line_drawer_query.single();
+    auto [simulation]                = query.single();
+    line_drawer.begin(device, queue, swap_chain);
+    float alpha = 0.5f;
+    if (simulation.updating_state().is_updating) {
+        auto&& post = simulation.updating_state().current_chunk();
+        if (post) {
+            auto&& pos      = post.value();
+            auto& chunk     = simulation.chunk_map().get_chunk(pos.x, pos.y);
+            glm::mat4 model = glm::translate(
+                glm::mat4(1.0f), {pos.x * simulation.chunk_size() * scale,
+                                  pos.y * simulation.chunk_size() * scale, 0.0f}
+            );
+            model           = glm::scale(model, {scale, scale, 1.0f});
+            glm::vec4 color = {0.0f, 0.0f, 1.0f, alpha / 2};
+            line_drawer.setModel(model);
+            line_drawer.drawLine(
+                {0.0f, 0.0f, 0.0f},
+                {0.0f, static_cast<float>(simulation.chunk_size()), 0.0f}, color
+            );
+            line_drawer.drawLine(
+                {0.0f, 0.0f, 0.0f},
+                {static_cast<float>(simulation.chunk_size()), 0.0f, 0.0f}, color
+            );
+            line_drawer.drawLine(
+                {static_cast<float>(simulation.chunk_size()), 0.0f, 0.0f},
+                {static_cast<float>(simulation.chunk_size()),
+                 static_cast<float>(simulation.chunk_size()), 0.0f},
+                color
+            );
+            line_drawer.drawLine(
+                {0.0f, static_cast<float>(simulation.chunk_size()), 0.0f},
+                {static_cast<float>(simulation.chunk_size()),
+                 static_cast<float>(simulation.chunk_size()), 0.0f},
+                color
+            );
+            if (chunk.should_update()) {
+                color    = {1.0f, 0.0f, 0.0f, alpha};
+                float x1 = chunk.updating_area[0];
+                float x2 = chunk.updating_area[1] + 1;
+                float y1 = chunk.updating_area[2];
+                float y2 = chunk.updating_area[3] + 1;
+                line_drawer.drawLine({x1, y1, 0.0f}, {x2, y1, 0.0f}, color);
+                line_drawer.drawLine({x2, y1, 0.0f}, {x2, y2, 0.0f}, color);
+                line_drawer.drawLine({x2, y2, 0.0f}, {x1, y2, 0.0f}, color);
+                line_drawer.drawLine({x1, y2, 0.0f}, {x1, y1, 0.0f}, color);
             }
         }
     }
@@ -1406,6 +1491,8 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(
                Render, render_simulation, render_simulation_chunk_outline /* ,
                 render_simulation_cell_vel */
+               ,
+               render_simulation_state
         )
             .chain()
             .before(render_bodies, render_pixel_block);
