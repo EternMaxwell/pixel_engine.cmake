@@ -213,8 +213,7 @@ struct Simulation {
         std::vector<glm::ivec2> updating_chunks;
         std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>> bounds;
         int updating_index = 0;
-        int updating_x     = 0;
-        int updating_y     = 0;
+        std::optional<glm::ivec2> in_chunk_pos;
     } updating_state;
 
     // settings
@@ -411,6 +410,7 @@ struct Simulation {
     EPIX_API bool next_chunk();
     EPIX_API bool next_cell();
     EPIX_API void update_cell(float delta);
+    EPIX_API void update_chunk(float delta);
     struct RaycastResult {
         int steps;
         int new_x;

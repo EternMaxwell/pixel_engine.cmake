@@ -604,550 +604,11 @@ void apply_viscosity(Simulation& sim, int x, int y) {
     }
 }
 EPIX_API void Simulation::update(float delta) {
-    std::vector<glm::ivec2> chunks_to_update;
-    for (auto&& [pos, chunk] : m_chunk_map) {
-        chunks_to_update.push_back(pos);
+    init_update_state();
+    while (next_chunk()) {
+        update_chunk(delta);
     }
-    reset_updated();
-    static thread_local std::random_device rd;
-    static thread_local std::mt19937 gen(rd());
-    static thread_local std::uniform_real_distribution<float> dis(-0.3f, 0.3f);
-    update_state.next();
-    bool xorder  = update_state.xorder;
-    bool yorder  = update_state.yorder;
-    bool x_outer = update_state.x_outer;
-    if (update_state.random_state) {
-        xorder  = dis(gen) > 0;
-        yorder  = dis(gen) > 0;
-        x_outer = dis(gen) > 0;
-    }
-    std::sort(
-        chunks_to_update.begin(), chunks_to_update.end(),
-        [&](auto& a, auto& b) {
-            if (x_outer) {
-                return (xorder ? a.x < b.x : a.x > b.x) &&
-                       (yorder ? a.y < b.y : a.y > b.y);
-            } else {
-                return (yorder ? a.y < b.y : a.y > b.y) &&
-                       (xorder ? a.x < b.x : a.x > b.x);
-            }
-        }
-    );
-    for (auto& pos : chunks_to_update) {
-        auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
-        if (!chunk.should_update()) {
-            continue;
-        }
-        std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>> bounds;
-        auto& [xbounds, ybounds] = bounds;
-        xbounds                  = {
-            xorder ? chunk.updating_area[0] : chunk.updating_area[1],
-            xorder ? chunk.updating_area[1] + 1 : chunk.updating_area[0] - 1,
-            xorder ? 1 : -1
-        };
-        ybounds = {
-            yorder ? chunk.updating_area[2] : chunk.updating_area[3],
-            yorder ? chunk.updating_area[3] + 1 : chunk.updating_area[2] - 1,
-            yorder ? 1 : -1
-        };
-        if (!x_outer) {
-            std::swap(xbounds, ybounds);
-        }
-        for (int index1 = std::get<0>(bounds.first);
-             index1 != std::get<1>(bounds.first);
-             index1 += std::get<2>(bounds.first)) {
-            for (int index2 = std::get<0>(bounds.second);
-                 index2 != std::get<1>(bounds.second);
-                 index2 += std::get<2>(bounds.second)) {
-                const int x  = x_outer ? index1 : index2;
-                const int y  = x_outer ? index2 : index1;
-                const int x_ = pos.x * m_chunk_size + x;
-                const int y_ = pos.y * m_chunk_size + y;
-                int final_x  = x_;
-                int final_y  = y_;
-                if (chunk.is_updated(x, y)) continue;
-                if (!contain_cell(x_, y_)) continue;
-                auto [cell, elem] = get(x_, y_);
-                auto grav         = get_grav(x_, y_);
-                float grav_len_s  = grav.x * grav.x + grav.y * grav.y;
-                if (grav_len_s == 0) {
-                    chunk.time_threshold = std::numeric_limits<int>::max();
-                } else {
-                    chunk.time_threshold = std::max(
-                        (int)(8 * 10000 / grav_len_s), chunk.time_threshold
-                    );
-                }
-                if (elem.grav_type == Element::GravType::POWDER) {
-                    if (!cell.freefall) {
-                        float angle = std::atan2(grav.y, grav.x);
-                        // into a 8 direction
-                        angle = std::round(angle / (std::numbers::pi / 4)) *
-                                (std::numbers::pi / 4);
-                        glm::ivec2 dir = {
-                            std::round(std::cos(angle)),
-                            std::round(std::sin(angle))
-                        };
-                        int below_x = x_ + dir.x;
-                        int below_y = y_ + dir.y;
-                        if (!valid(below_x, below_y)) continue;
-                        auto& bcell = get_cell(below_x, below_y);
-                        if (bcell) {
-                            auto& belem = get_elem(below_x, below_y);
-                            if (belem.grav_type == Element::GravType::SOLID) {
-                                continue;
-                            }
-                            if (belem.grav_type == Element::GravType::POWDER &&
-                                !bcell.freefall) {
-                                continue;
-                            }
-                        }
-                        cell.velocity = get_default_vel(x_, y_);
-                        cell.freefall = true;
-                    }
-                    cell.velocity += grav * delta;
-                    cell.velocity *= 0.99f;
-                    cell.inpos += cell.velocity * delta;
-                    int delta_x = std::round(cell.inpos.x);
-                    int delta_y = std::round(cell.inpos.y);
-                    if (delta_x == 0 && delta_y == 0) {
-                        continue;
-                    }
-                    cell.inpos.x -= delta_x;
-                    cell.inpos.y -= delta_y;
-                    if (max_travel) {
-                        delta_x =
-                            std::clamp(delta_x, -max_travel->x, max_travel->y);
-                        delta_y =
-                            std::clamp(delta_y, -max_travel->x, max_travel->y);
-                    }
-                    int tx              = x_ + delta_x;
-                    int ty              = y_ + delta_y;
-                    bool moved          = false;
-                    auto raycast_result = raycast_to(x_, y_, tx, ty);
-                    auto ncell =
-                        &get_cell(raycast_result.new_x, raycast_result.new_y);
-                    if (raycast_result.steps) {
-                        std::swap(cell, *ncell);
-                        final_x = raycast_result.new_x;
-                        final_y = raycast_result.new_y;
-                        moved   = true;
-                    }
-                    if (raycast_result.hit) {
-                        auto [hit_x, hit_y]    = raycast_result.hit.value();
-                        bool blocking_freefall = false;
-                        bool collided          = false;
-                        if (valid(hit_x, hit_y)) {
-                            auto [tcell, telem] = get(hit_x, hit_y);
-                            if (telem.grav_type == Element::GravType::SOLID ||
-                                telem.grav_type == Element::GravType::POWDER) {
-                                collided = collide(
-                                    raycast_result.new_x, raycast_result.new_y,
-                                    hit_x, hit_y
-                                );
-                                blocking_freefall = tcell.freefall;
-                            } else {
-                                std::swap(*ncell, tcell);
-                                final_x = hit_x;
-                                final_y = hit_y;
-                                ncell   = &tcell;
-                                moved   = true;
-                            }
-                        }
-                        if (!moved) {
-                            if (powder_always_slide ||
-                                (valid(hit_x, hit_y) &&
-                                 !get_cell(hit_x, hit_y).freefall)) {
-                                // try go to left bottom and right bottom
-                                float vel_angle = std::atan2(
-                                    cell.velocity.y, cell.velocity.x
-                                );
-                                float grav_angle = std::atan2(grav.y, grav.x);
-                                float angle_diff =
-                                    calculate_angle_diff(cell.velocity, grav);
-                                if (std::abs(angle_diff) <
-                                    std::numbers::pi / 2) {
-                                    glm::ivec2 lb = {
-                                        std::round(std::cos(
-                                            grav_angle - std::numbers::pi / 4
-                                        )),
-                                        std::round(std::sin(
-                                            grav_angle - std::numbers::pi / 4
-                                        ))
-                                    };
-                                    glm::ivec2 rb = {
-                                        std::round(std::cos(
-                                            grav_angle + std::numbers::pi / 4
-                                        )),
-                                        std::round(std::sin(
-                                            grav_angle + std::numbers::pi / 4
-                                        ))
-                                    };
-                                    glm::vec2 dirs[2];
-                                    bool lb_first = dis(gen) > 0;
-                                    if (lb_first) {
-                                        dirs[0] = lb;
-                                        dirs[1] = rb;
-                                    } else {
-                                        dirs[0] = rb;
-                                        dirs[1] = lb;
-                                    }
-                                    for (auto&& vel : dirs) {
-                                        int delta_x = vel.x;
-                                        int delta_y = vel.y;
-                                        if (delta_x == 0 && delta_y == 0) {
-                                            continue;
-                                        }
-                                        int tx = final_x + delta_x;
-                                        int ty = final_y + delta_y;
-                                        if (!valid(tx, ty)) continue;
-                                        auto& tcell = get_cell(tx, ty);
-                                        if (!tcell) {
-                                            std::swap(*ncell, tcell);
-                                            ncell   = &tcell;
-                                            final_x = tx;
-                                            final_y = ty;
-                                            moved   = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (!blocking_freefall && !moved) {
-                            ncell->freefall = false;
-                            ncell->velocity = {0.0f, 0.0f};
-                        }
-                    }
-                    if (moved) {
-                        ncell->not_move_count = 0;
-                        touch(x_ - 1, y_);
-                        touch(x_ + 1, y_);
-                        touch(x_, y_ - 1);
-                        touch(x_, y_ + 1);
-                        touch(final_x - 1, final_y);
-                        touch(final_x + 1, final_y);
-                        touch(final_x, final_y - 1);
-                        touch(final_x, final_y + 1);
-                    } else {
-                        cell.not_move_count++;
-                        if (cell.not_move_count >=
-                            not_moving_threshold(x_, y_)) {
-                            cell.not_move_count = 0;
-                            cell.freefall       = false;
-                            cell.velocity       = {0.0f, 0.0f};
-                        }
-                    }
-                    mark_updated(final_x, final_y);
-                } else if (elem.grav_type == Element::GravType::LIQUID) {
-                    if (!cell.freefall) {
-                        float angle = std::atan2(grav.y, grav.x);
-                        // into a 8 direction
-                        angle = std::round(angle / (std::numbers::pi / 4)) *
-                                (std::numbers::pi / 4);
-                        glm::ivec2 dir = {
-                            std::round(std::cos(angle)),
-                            std::round(std::sin(angle))
-                        };
-                        glm::ivec2 lb = {
-                            std::round(std::cos(angle - std::numbers::pi / 4)),
-                            std::round(std::sin(angle - std::numbers::pi / 4))
-                        };
-                        glm::ivec2 rb = {
-                            std::round(std::cos(angle + std::numbers::pi / 4)),
-                            std::round(std::sin(angle + std::numbers::pi / 4))
-                        };
-                        int below_x = x_ + dir.x;
-                        int below_y = y_ + dir.y;
-                        int lb_x    = x_ + lb.x;
-                        int lb_y    = y_ + lb.y;
-                        int rb_x    = x_ + rb.x;
-                        int rb_y    = y_ + rb.y;
-                        if (!valid(below_x, below_y) && !valid(lb_x, lb_y) &&
-                            !valid(rb_x, rb_y)) {
-                            continue;
-                        }
-                        bool should_freefall = false;
-                        if (valid(below_x, below_y)) {
-                            auto& bcell = get_cell(below_x, below_y);
-                            bool shouldnot_freefall = false;
-                            if (bcell) {
-                                auto& belem = get_elem(below_x, below_y);
-                                if (belem.grav_type ==
-                                    Element::GravType::SOLID) {
-                                    shouldnot_freefall = true;
-                                }
-                                if ((belem.grav_type ==
-                                         Element::GravType::POWDER &&
-                                     !bcell.freefall) ||
-                                    belem.grav_type ==
-                                        Element::GravType::LIQUID) {
-                                    shouldnot_freefall = true;
-                                }
-                            }
-                            should_freefall |= !shouldnot_freefall;
-                        }
-                        if (valid(lb_x, lb_y)) {
-                            auto& lbcell            = get_cell(lb_x, lb_y);
-                            bool shouldnot_freefall = false;
-                            if (lbcell) {
-                                auto& lbelem = get_elem(lb_x, lb_y);
-                                if (lbelem.grav_type ==
-                                    Element::GravType::SOLID) {
-                                    shouldnot_freefall = true;
-                                }
-                                if ((lbelem.grav_type ==
-                                         Element::GravType::POWDER &&
-                                     !lbcell.freefall) ||
-                                    lbelem.grav_type ==
-                                        Element::GravType::LIQUID) {
-                                    shouldnot_freefall = true;
-                                }
-                            }
-                            should_freefall |= !shouldnot_freefall;
-                        }
-                        if (valid(rb_x, rb_y)) {
-                            auto& rbcell            = get_cell(rb_x, rb_y);
-                            bool shouldnot_freefall = false;
-                            if (rbcell) {
-                                auto& rbelem = get_elem(rb_x, rb_y);
-                                if (rbelem.grav_type ==
-                                    Element::GravType::SOLID) {
-                                    shouldnot_freefall = true;
-                                }
-                                if ((rbelem.grav_type ==
-                                         Element::GravType::POWDER &&
-                                     !rbcell.freefall) ||
-                                    rbelem.grav_type ==
-                                        Element::GravType::LIQUID) {
-                                    shouldnot_freefall = true;
-                                }
-                            }
-                            should_freefall |= !shouldnot_freefall;
-                        }
-                        if (!should_freefall) continue;
-
-                        cell.velocity = get_default_vel(x_, y_);
-                        cell.freefall = true;
-                    }
-                    cell.velocity += grav * delta;
-                    cell.velocity *= 0.99f;
-                    cell.inpos += cell.velocity * delta;
-                    int delta_x = std::round(cell.inpos.x);
-                    int delta_y = std::round(cell.inpos.y);
-                    if (delta_x == 0 && delta_y == 0) {
-                        continue;
-                    }
-                    cell.inpos.x -= delta_x;
-                    cell.inpos.y -= delta_y;
-                    if (max_travel) {
-                        delta_x =
-                            std::clamp(delta_x, -max_travel->x, max_travel->y);
-                        delta_y =
-                            std::clamp(delta_y, -max_travel->x, max_travel->y);
-                    }
-                    int tx              = x_ + delta_x;
-                    int ty              = y_ + delta_y;
-                    bool moved          = false;
-                    auto raycast_result = raycast_to(x_, y_, tx, ty);
-                    auto ncell =
-                        &get_cell(raycast_result.new_x, raycast_result.new_y);
-                    if (raycast_result.steps) {
-                        std::swap(cell, *ncell);
-                        final_x = raycast_result.new_x;
-                        final_y = raycast_result.new_y;
-                        moved   = true;
-                    }
-                    if (raycast_result.hit) {
-                        auto [hit_x, hit_y]    = raycast_result.hit.value();
-                        bool blocking_freefall = false;
-                        bool collided          = false;
-                        if (valid(hit_x, hit_y)) {
-                            auto [tcell, telem] = get(hit_x, hit_y);
-                            if (telem.grav_type == Element::GravType::SOLID ||
-                                telem.grav_type == Element::GravType::POWDER ||
-                                telem.grav_type == Element::GravType::LIQUID) {
-                                collided = collide(
-                                    raycast_result.new_x, raycast_result.new_y,
-                                    hit_x, hit_y
-                                );
-                            } else {
-                                std::swap(*ncell, tcell);
-                                final_x = hit_x;
-                                final_y = hit_y;
-                                ncell   = &tcell;
-                                moved   = true;
-                            }
-                        }
-                        if (!moved) {
-                            float vel_angle =
-                                std::atan2(cell.velocity.y, cell.velocity.x);
-                            float grav_angle = std::atan2(grav.y, grav.x);
-                            float angle_diff =
-                                calculate_angle_diff(cell.velocity, grav);
-                            if (std::abs(angle_diff) < std::numbers::pi / 2) {
-                                // try go to left bottom and right bottom
-                                glm::ivec2 lb = {
-                                    std::round(std::cos(
-                                        grav_angle - std::numbers::pi / 4
-                                    )),
-                                    std::round(std::sin(
-                                        grav_angle - std::numbers::pi / 4
-                                    ))
-                                };
-                                glm::ivec2 rb = {
-                                    std::round(std::cos(
-                                        grav_angle + std::numbers::pi / 4
-                                    )),
-                                    std::round(std::sin(
-                                        grav_angle + std::numbers::pi / 4
-                                    ))
-                                };
-                                glm::vec2 dirs[2];
-                                bool lb_first = angle_diff < 0;
-                                if (lb_first) {
-                                    dirs[0] = lb;
-                                    dirs[1] = rb;
-                                } else {
-                                    dirs[0] = rb;
-                                    dirs[1] = lb;
-                                }
-                                for (auto&& vel : dirs) {
-                                    int delta_x = vel.x;
-                                    int delta_y = vel.y;
-                                    if (delta_x == 0 && delta_y == 0) {
-                                        continue;
-                                    }
-                                    int tx = final_x + delta_x;
-                                    int ty = final_y + delta_y;
-                                    if (!valid(tx, ty)) continue;
-                                    auto& tcell = get_cell(tx, ty);
-                                    if (!tcell) {
-                                        std::swap(*ncell, tcell);
-                                        ncell   = &tcell;
-                                        final_x = tx;
-                                        final_y = ty;
-                                        moved   = true;
-                                        break;
-                                    }
-                                }
-                                if (!moved) {
-                                    // try go to left and right
-                                    glm::ivec2 left = {
-                                        std::round(
-                                            std::cos(
-                                                grav_angle -
-                                                std::numbers::pi / 2
-                                            ) *
-                                            liquid_spread_setting.spread_len
-                                        ),
-                                        std::round(
-                                            std::sin(
-                                                grav_angle -
-                                                std::numbers::pi / 2
-                                            ) *
-                                            liquid_spread_setting.spread_len
-                                        )
-                                    };
-                                    glm::ivec2 right = {
-                                        std::round(
-                                            std::cos(
-                                                grav_angle +
-                                                std::numbers::pi / 2
-                                            ) *
-                                            liquid_spread_setting.spread_len
-                                        ),
-                                        std::round(
-                                            std::sin(
-                                                grav_angle +
-                                                std::numbers::pi / 2
-                                            ) *
-                                            liquid_spread_setting.spread_len
-                                        )
-                                    };
-                                    glm::vec2 dirs[2];
-                                    bool left_first = angle_diff > 0;
-                                    if (left_first) {
-                                        dirs[0] = left;
-                                        dirs[1] = right;
-                                    } else {
-                                        dirs[0] = right;
-                                        dirs[1] = left;
-                                    }
-                                    int tx_1   = final_x + dirs[0].x;
-                                    int ty_1   = final_y + dirs[0].y;
-                                    int tx_2   = final_x + dirs[1].x;
-                                    int ty_2   = final_y + dirs[1].y;
-                                    auto res_1 = raycast_to(
-                                        final_x, final_y, tx_1, ty_1
-                                    );
-                                    auto res_2 = raycast_to(
-                                        final_x, final_y, tx_2, ty_2
-                                    );
-                                    if (res_1.steps >= res_2.steps) {
-                                        if (res_1.steps) {
-                                            auto& tcell = get_cell(
-                                                res_1.new_x, res_1.new_y
-                                            );
-                                            std::swap(*ncell, tcell);
-                                            final_x = res_1.new_x;
-                                            final_y = res_1.new_y;
-                                            ncell   = &tcell;
-                                            ncell->velocity +=
-                                                glm::vec2(dirs[0]) *
-                                                liquid_spread_setting.prefix /
-                                                delta;
-                                            moved = true;
-                                        }
-                                    } else {
-                                        if (res_2.steps) {
-                                            auto& tcell = get_cell(
-                                                res_2.new_x, res_2.new_y
-                                            );
-                                            std::swap(*ncell, tcell);
-                                            final_x = res_2.new_x;
-                                            final_y = res_2.new_y;
-                                            ncell   = &tcell;
-                                            ncell->velocity +=
-                                                glm::vec2(dirs[1]) *
-                                                liquid_spread_setting.prefix /
-                                                delta / 2.0f;
-                                            moved = true;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        // if (!blocking_freefall && !moved && !collided) {
-                        //     ncell->freefall = false;
-                        //     ncell->velocity = {0.0f, 0.0f};
-                        // }
-                    }
-                    apply_viscosity(*this, final_x, final_y);
-                    if (moved) {
-                        ncell->not_move_count = 0;
-                        touch(x_ - 1, y_);
-                        touch(x_ + 1, y_);
-                        touch(x_, y_ - 1);
-                        touch(x_, y_ + 1);
-                        touch(final_x - 1, final_y);
-                        touch(final_x + 1, final_y);
-                        touch(final_x, final_y - 1);
-                        touch(final_x, final_y + 1);
-                    } else {
-                        cell.not_move_count++;
-                        if (cell.not_move_count >=
-                            not_moving_threshold(x_, y_) / 15) {
-                            cell.not_move_count = 0;
-                            cell.freefall       = false;
-                            cell.velocity       = {0.0f, 0.0f};
-                        }
-                    }
-                    mark_updated(final_x, final_y);
-                }
-            }
-        }
-    }
-    m_chunk_map.count_time();
+    deinit_update_state();
 }
 EPIX_API bool Simulation::init_update_state() {
     if (updating_state.is_updating) return false;
@@ -1187,6 +648,7 @@ EPIX_API bool Simulation::init_update_state() {
 }
 EPIX_API bool Simulation::deinit_update_state() {
     if (!updating_state.is_updating) return false;
+    m_chunk_map.count_time();
     updating_state.is_updating = false;
     return true;
 }
@@ -1216,35 +678,43 @@ EPIX_API bool Simulation::next_chunk() {
                                 : chunk.updating_area[2] - 1,
             update_state.yorder ? 1 : -1
         };
-        updating_state.updating_x = std::get<0>(xbounds);
-        updating_state.updating_y = std::get<0>(ybounds);
+        updating_state.in_chunk_pos.reset();
         return true;
     }
     return false;
 }
 EPIX_API bool Simulation::next_cell() {
+    if (!updating_state.in_chunk_pos) {
+        updating_state.in_chunk_pos = {
+            std::get<0>(updating_state.bounds.first),
+            std::get<0>(updating_state.bounds.second)
+        };
+        return true;
+    }
     if (update_state.x_outer) {
-        updating_state.updating_y += std::get<2>(updating_state.bounds.second);
-        if (updating_state.updating_y ==
+        updating_state.in_chunk_pos->y +=
+            std::get<2>(updating_state.bounds.second);
+        if (updating_state.in_chunk_pos->y ==
             std::get<1>(updating_state.bounds.second)) {
-            updating_state.updating_y =
+            updating_state.in_chunk_pos->y =
                 std::get<0>(updating_state.bounds.second);
-            updating_state.updating_x +=
+            updating_state.in_chunk_pos->x +=
                 std::get<2>(updating_state.bounds.first);
-            if (updating_state.updating_x ==
+            if (updating_state.in_chunk_pos->x ==
                 std::get<1>(updating_state.bounds.first)) {
                 return false;
             }
         }
     } else {
-        updating_state.updating_x += std::get<2>(updating_state.bounds.first);
-        if (updating_state.updating_x ==
+        updating_state.in_chunk_pos->x +=
+            std::get<2>(updating_state.bounds.first);
+        if (updating_state.in_chunk_pos->x ==
             std::get<1>(updating_state.bounds.first)) {
-            updating_state.updating_x =
+            updating_state.in_chunk_pos->x =
                 std::get<0>(updating_state.bounds.first);
-            updating_state.updating_y +=
+            updating_state.in_chunk_pos->y +=
                 std::get<2>(updating_state.bounds.second);
-            if (updating_state.updating_y ==
+            if (updating_state.in_chunk_pos->y ==
                 std::get<1>(updating_state.bounds.second)) {
                 return false;
             }
@@ -1252,15 +722,22 @@ EPIX_API bool Simulation::next_cell() {
     }
     return true;
 }
+EPIX_API void Simulation::update_chunk(float delta) {
+    while (next_cell()) {
+        update_cell(delta);
+    }
+}
 EPIX_API void Simulation::update_cell(float delta) {
     const auto& pos =
         updating_state.updating_chunks[updating_state.updating_index];
     auto& chunk  = m_chunk_map.get_chunk(pos.x, pos.y);
-    const int x_ = pos.x * m_chunk_size + updating_state.updating_x;
-    const int y_ = pos.y * m_chunk_size + updating_state.updating_y;
+    const int x_ = pos.x * m_chunk_size + updating_state.in_chunk_pos->x;
+    const int y_ = pos.y * m_chunk_size + updating_state.in_chunk_pos->y;
     int final_x  = x_;
     int final_y  = y_;
-    if (chunk.is_updated(updating_state.updating_x, updating_state.updating_y))
+    if (chunk.is_updated(
+            updating_state.in_chunk_pos->x, updating_state.in_chunk_pos->y
+        ))
         return;
     if (!contain_cell(x_, y_)) return;
     auto [cell, elem] = get(x_, y_);
