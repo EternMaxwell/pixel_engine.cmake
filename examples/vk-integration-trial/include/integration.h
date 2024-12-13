@@ -1051,8 +1051,8 @@ void create_simulation(Command command) {
             1.0f, 0.0f, .6f
         }
     );
-    Simulation simulation(std::move(registry), 64);
-    const int simulation_size = 4;
+    Simulation simulation(std::move(registry), 16);
+    const int simulation_size = 16;
     for (int i = -simulation_size; i < simulation_size; i++) {
         for (int j = -simulation_size; j < simulation_size; j++) {
             simulation.load_chunk(i, j);
@@ -1224,6 +1224,39 @@ void render_simulation(
     renderer.end();
 }
 
+void print_hover_data(
+    Query<Get<const Simulation>> query,
+    Query<Get<const Window>, With<PrimaryWindow>> window_query
+) {
+    if (!query) return;
+    if (!window_query) return;
+    auto [simulation] = query.single();
+    auto [window]     = window_query.single();
+    auto cursor       = window.get_cursor();
+    if (!window.focused()) return;
+    glm::vec4 cursor_pos = glm::vec4(
+        cursor.x - window.get_size().width / 2,
+        window.get_size().height / 2 - cursor.y, 0.0f, 1.0f
+    );
+    glm::mat4 viewport_to_world = glm::inverse(glm::scale(
+        glm::translate(glm::mat4(1.0f), {0.0f, 0.0f, 0.0f}),
+        {scale, scale, 1.0f}
+    ));
+    glm::vec4 world_pos         = viewport_to_world * cursor_pos;
+    int cell_x                  = static_cast<int>(world_pos.x + 0.5f);
+    int cell_y                  = static_cast<int>(world_pos.y + 0.5f);
+    if (simulation.valid(cell_x, cell_y) &&
+        simulation.contain_cell(cell_x, cell_y)) {
+        auto [cell, elem] = simulation.get(cell_x, cell_y);
+        spdlog::info(
+            "Hovering over cell ({}, {}) with element {}, freefall: {}, "
+            "velocity: ({}, {}) ",
+            cell_x, cell_y, elem.name, cell.freefall, cell.velocity.x,
+            cell.velocity.y
+        );
+    }
+}
+
 void render_simulation_cell_vel(
     Query<Get<const Simulation>> query,
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
@@ -1361,7 +1394,10 @@ struct VK_TrialPlugin : Plugin {
         app.insert_state(SimulateState::Paused);
         // app.add_plugin(Box2dTestPlugin{});
         app.add_system(Startup, create_simulation);
-        app.add_system(Update, toggle_simulation, create_powder_from_click);
+        app.add_system(
+            Update, toggle_simulation, create_powder_from_click,
+            print_hover_data
+        );
         app.add_system(Update, update_simulation)
             .chain()
             .in_state(SimulateState::Running);

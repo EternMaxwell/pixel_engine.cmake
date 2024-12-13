@@ -25,13 +25,11 @@ EPIX_API void create_window(
     Query<Get<Entity, const WindowDescription>, Without<Window>> desc_query,
     ResMut<resources::WindowThreadPool> pool
 );
-EPIX_API void update_window_cursor_pos(
+EPIX_API void update_window_state(
     Query<Get<Entity, Window>> query,
     EventReader<CursorMove> cursor_read,
     EventWriter<CursorMove> cursor_event
 );
-EPIX_API void update_window_size(Query<Get<Window>> query);
-EPIX_API void update_window_pos(Query<Get<Window>> query);
 EPIX_API void close_window(
     Command command,
     EventReader<AnyWindowClose> any_close_event,

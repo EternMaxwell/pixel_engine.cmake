@@ -84,9 +84,9 @@ struct Simulation {
         std::vector<bool> updated;
         const int width;
         const int height;
-        int time_since_last_swap = 0;
-        int time_threshold       = 8;
-        int updating_area[4] = {width, 0, height, 0};
+        int time_since_last_swap  = 0;
+        int time_threshold        = 8;
+        int updating_area[4]      = {width, 0, height, 0};
         int updating_area_next[4] = {width, 0, height, 0};
 
         EPIX_API Chunk(int width, int height);
@@ -208,6 +208,14 @@ struct Simulation {
         EPIX_API void next();
     } update_state;
     std::optional<glm::ivec2> max_travel;
+    struct UpdatingState {
+        bool is_updating = false;
+        std::vector<glm::ivec2> updating_chunks;
+        std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>> bounds;
+        int updating_index = 0;
+        int updating_x     = 0;
+        int updating_y     = 0;
+    } updating_state;
 
     // settings
     bool powder_always_slide = true;
@@ -339,6 +347,7 @@ struct Simulation {
      * the element at the location
      */
     EPIX_API std::tuple<Cell&, const Element&> get(int x, int y);
+    EPIX_API std::tuple<const Cell&, const Element&> get(int x, int y) const;
     /**
      * @brief Get the cell at location (x, y)
      *
@@ -348,6 +357,7 @@ struct Simulation {
      * @return `Cell&` the reference to the cell
      */
     EPIX_API Cell& get_cell(int x, int y);
+    EPIX_API const Cell& get_cell(int x, int y) const;
     /**
      * @brief Get the element at location (x, y)
      *
@@ -356,7 +366,7 @@ struct Simulation {
      *
      * @return `const Element&` the reference to the element
      */
-    EPIX_API const Element& get_elem(int x, int y);
+    EPIX_API const Element& get_elem(int x, int y) const;
     /**
      * @brief Create a cell at location (x, y) with the given element
      *
@@ -396,6 +406,11 @@ struct Simulation {
      * @param delta time elapsed since the last frame
      */
     EPIX_API void update(float delta);
+    EPIX_API bool init_update_state();
+    EPIX_API bool deinit_update_state();
+    EPIX_API bool next_chunk();
+    EPIX_API bool next_cell();
+    EPIX_API void update_cell(float delta);
     struct RaycastResult {
         int steps;
         int new_x;

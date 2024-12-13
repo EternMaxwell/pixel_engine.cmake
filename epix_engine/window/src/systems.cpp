@@ -53,7 +53,7 @@ EPIX_API void systems::create_window(
         ).get();
         command.entity(entity).erase<WindowDescription>();
         if (window.has_value()) {
-            command.entity(entity).emplace(window.value());
+            command.entity(entity).emplace(std::move(window.value()));
             auto* ptr = new std::pair<Entity, resources::WindowThreadPool*>{
                 entity, &(*pool)
             };
@@ -70,30 +70,18 @@ EPIX_API void systems::create_window(
     }
 }
 
-EPIX_API void systems::update_window_cursor_pos(
+EPIX_API void systems::update_window_state(
     Query<Get<Entity, Window>> query,
     EventReader<events::CursorMove> cursor_read,
     EventWriter<events::CursorMove> cursor_event
 ) {
     cursor_read.clear();
     for (auto [entity, window] : query.iter()) {
-        update_cursor(window);
+        components::update_state(window);
         if (window.get_cursor_move().has_value()) {
             auto [x, y] = window.get_cursor_move().value();
             cursor_event.write(events::CursorMove{x, y, entity});
         }
-    }
-}
-
-EPIX_API void systems::update_window_size(Query<Get<Window>> query) {
-    for (auto [window] : query.iter()) {
-        update_size(window);
-    }
-}
-
-EPIX_API void systems::update_window_pos(Query<Get<Window>> query) {
-    for (auto [window] : query.iter()) {
-        update_pos(window);
     }
 }
 

@@ -54,6 +54,8 @@ struct Window {
     extent m_size_cache;
     ivec2 m_pos_cache;
     dvec2 m_cursor_pos;
+    bool m_focused;
+    std::optional<std::future<bool>> m_get_focus;
     std::optional<dvec2> m_cursor_move;
 
    public:
@@ -78,9 +80,7 @@ struct Window {
 };
 
 EPIX_API std::optional<Window> create_window(const WindowDescription& desc);
-EPIX_API void update_cursor(Window& window);
-EPIX_API void update_size(Window& window);
-EPIX_API void update_pos(Window& window);
+EPIX_API void update_state(Window& window);
 }  // namespace components
 }  // namespace window
 }  // namespace epix
