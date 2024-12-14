@@ -846,7 +846,8 @@ void epix::world::sand::components::update_cell(
                 } else {
                     empty_count++;
                 }
-                float liquid_drag = 0.6f;
+                float liquid_drag   = 0.6f;
+                float vertical_rate = 0.0f;
                 if (sim.valid(x_ + l.x, y_ + l.y) &&
                     sim.contain_cell(x_ + l.x, y_ + l.y)) {
                     auto [tcell, telem] = sim.get(x_ + l.x, y_ + l.y);
@@ -857,6 +858,8 @@ void epix::world::sand::components::update_cell(
                         glm::vec2 vel_hori =
                             glm::normalize(glm::vec2(l)) *
                             glm::dot(tcell.velocity, glm::vec2(l));
+                        vel_hori = (1 - vertical_rate) * vel_hori +
+                                   vertical_rate * tcell.velocity;
                         if (glm::length(vel_hori) > glm::length(cell.velocity))
                             cell.velocity =
                                 liquid_drag * vel_hori +
@@ -875,6 +878,8 @@ void epix::world::sand::components::update_cell(
                         glm::vec2 vel_hori =
                             glm::normalize(glm::vec2(r)) *
                             glm::dot(tcell.velocity, glm::vec2(r));
+                        vel_hori = (1 - vertical_rate) * vel_hori +
+                                   vertical_rate * tcell.velocity;
                         if (glm::length(vel_hori) > glm::length(cell.velocity))
                             cell.velocity =
                                 liquid_drag * vel_hori +
@@ -1307,7 +1312,7 @@ void epix::world::sand::components::update_cell(
                                 final_y = res_1.new_y;
                                 ncell   = &tcell;
                                 ncell->velocity +=
-                                    (inverse_pressure ? -1.0f : 1.0f) *
+                                    (inverse_pressure ? -0.3f : 1.0f) *
                                     glm::vec2(idirs[0]) *
                                     sim.liquid_spread_setting.prefix / delta;
                                 moved = true;
