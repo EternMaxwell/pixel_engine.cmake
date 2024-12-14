@@ -30,7 +30,6 @@ struct Element {
     float density;
     float bouncing;
     float friction;
-    float viscosity = 0.003f;
 };
 struct CellDef {
     enum class DefIdentifier { Name, Id } identifier;

@@ -741,8 +741,7 @@ void apply_viscosity(
     if (!sim.contain_cell(tx, ty)) return;
     auto [tcell, elem] = sim.get(tx, ty);
     if (elem.grav_type != Element::GravType::LIQUID) return;
-    tcell.velocity +=
-        elem.viscosity * cell.velocity - elem.viscosity * tcell.velocity;
+    tcell.velocity += 0.003f * cell.velocity - 0.003f * tcell.velocity;
 }
 EPIX_API void Simulation::update(float delta) {
     init_update_state();
