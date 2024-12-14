@@ -30,7 +30,7 @@ struct Element {
     float density;
     float bouncing;
     float friction;
-    float viscosity = 0.1f;
+    float viscosity = 0.003f;
 };
 struct CellDef {
     enum class DefIdentifier { Name, Id } identifier;
@@ -55,6 +55,7 @@ struct Cell {
     glm::vec2 inpos;
     glm::vec2 impact;
     bool freefall;
+    bool updated;
     int not_move_count = 0;
 
     EPIX_API bool valid() const;
@@ -84,7 +85,6 @@ struct ElemRegistry {
 struct Simulation {
     struct Chunk {
         std::vector<Cell> cells;
-        std::vector<bool> updated;
         const int width;
         const int height;
         int time_since_last_swap  = 0;
@@ -108,7 +108,6 @@ struct Simulation {
         EPIX_API void remove(int x, int y);
         EPIX_API operator bool() const;
         EPIX_API bool operator!() const;
-        EPIX_API void mark_updated(int x, int y);
         EPIX_API bool is_updated(int x, int y) const;
         EPIX_API void touch(int x, int y);
         EPIX_API bool should_update() const;
@@ -135,8 +134,15 @@ struct Simulation {
     struct ChunkMap {
         const int chunk_size;
         std::vector<std::vector<std::shared_ptr<Chunk>>> chunks;
-        glm::ivec2 origin = {0, 0};
-        glm::ivec2 size   = {0, 0};
+        glm::ivec2 origin    = {0, 0};
+        glm::ivec2 size      = {0, 0};
+        size_t m_chunk_count = 0;
+
+        struct IterateSetting {
+            bool xorder  = true;
+            bool yorder  = true;
+            bool x_outer = true;
+        } iterate_setting;
 
         struct iterator {
             using iterator_category = std::forward_iterator_tag;
@@ -181,6 +187,11 @@ struct Simulation {
         EPIX_API bool contains(int x, int y) const;
         EPIX_API Chunk& get_chunk(int x, int y);
         EPIX_API const Chunk& get_chunk(int x, int y) const;
+        EPIX_API size_t chunk_count() const;
+
+        EPIX_API void set_iterate_setting(
+            bool xorder, bool yorder, bool x_outer
+        );
 
         EPIX_API iterator begin();
         EPIX_API const_iterator begin() const;
@@ -201,8 +212,8 @@ struct Simulation {
         float numerator = 4000.0f;
     } not_moving_threshold_setting;
     struct LiquidSpreadSetting {
-        float spread_len = 1.5f;
-        float prefix     = 0.02f;
+        float spread_len = 3.0f;
+        float prefix     = 0.01f;
     } liquid_spread_setting;
     struct UpdateState {
         bool random_state = true;

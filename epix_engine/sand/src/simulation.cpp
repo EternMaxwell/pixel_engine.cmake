@@ -3,6 +3,8 @@
 
 #include "epix/world/sand.h"
 
+#define EPIX_WORLD_SAND_DEFAULT_CHUNK_RESET_TIME 12i32
+
 using namespace epix::world::sand::components;
 
 EPIX_API CellDef::CellDef(const CellDef& other) : identifier(other.identifier) {
@@ -58,34 +60,25 @@ EPIX_API Cell::operator bool() const { return valid(); }
 EPIX_API bool Cell::operator!() const { return !valid(); }
 
 EPIX_API Simulation::Chunk::Chunk(int width, int height)
-    : cells(width * height, Cell{}),
-      width(width),
-      height(height),
-      updated(width * height, false) {}
+    : cells(width * height, Cell{}), width(width), height(height) {}
 EPIX_API Simulation::Chunk::Chunk(const Chunk& other)
-    : cells(other.cells),
-      width(other.width),
-      height(other.height),
-      updated(other.updated) {}
+    : cells(other.cells), width(other.width), height(other.height) {}
 EPIX_API Simulation::Chunk::Chunk(Chunk&& other)
-    : cells(std::move(other.cells)),
-      width(other.width),
-      height(other.height),
-      updated(std::move(other.updated)) {}
+    : cells(std::move(other.cells)), width(other.width), height(other.height) {}
 EPIX_API Simulation::Chunk& Simulation::Chunk::operator=(const Chunk& other) {
     assert(width == other.width && height == other.height);
-    cells   = other.cells;
-    updated = other.updated;
+    cells = other.cells;
     return *this;
 }
 EPIX_API Simulation::Chunk& Simulation::Chunk::operator=(Chunk&& other) {
     assert(width == other.width && height == other.height);
-    cells   = std::move(other.cells);
-    updated = std::move(other.updated);
+    cells = std::move(other.cells);
     return *this;
 }
 EPIX_API void Simulation::Chunk::reset_updated() {
-    std::fill(updated.begin(), updated.end(), false);
+    for (auto& each : cells) {
+        each.updated = false;
+    }
 }
 EPIX_API void Simulation::Chunk::count_time() { time_since_last_swap++; }
 EPIX_API Cell& Simulation::Chunk::get(int x, int y) {
@@ -138,11 +131,8 @@ EPIX_API Simulation::Chunk::operator bool() const {
 EPIX_API bool Simulation::Chunk::operator!() const {
     return !width || !height || cells.empty();
 }
-EPIX_API void Simulation::Chunk::mark_updated(int x, int y) {
-    updated[y * width + x] = true;
-}
 EPIX_API bool Simulation::Chunk::is_updated(int x, int y) const {
-    return updated[y * width + x];
+    return cells[y * width + x].updated;
 }
 EPIX_API void Simulation::Chunk::touch(int x, int y) {
     assert(x >= 0 && x < width && y >= 0 && y < height);
@@ -185,6 +175,7 @@ EPIX_API Simulation::ChunkMap::ChunkMap(int chunk_size)
 EPIX_API void Simulation::ChunkMap::load_chunk(
     int x, int y, const Chunk& chunk
 ) {
+    if (!contains(x, y)) m_chunk_count++;
     if (size == glm::ivec2(0)) {
         size.x = 1;
         size.y = 1;
@@ -214,6 +205,7 @@ EPIX_API void Simulation::ChunkMap::load_chunk(
         std::move(std::make_shared<Chunk>(chunk));
 }
 EPIX_API void Simulation::ChunkMap::load_chunk(int x, int y, Chunk&& chunk) {
+    if (!contains(x, y)) m_chunk_count++;
     if (size == glm::ivec2(0)) {
         size.x = 1;
         size.y = 1;
@@ -243,6 +235,7 @@ EPIX_API void Simulation::ChunkMap::load_chunk(int x, int y, Chunk&& chunk) {
         std::move(std::make_shared<Chunk>(std::forward<Chunk>(chunk)));
 }
 EPIX_API void Simulation::ChunkMap::load_chunk(int x, int y) {
+    if (!contains(x, y)) m_chunk_count++;
     if (size == glm::ivec2(0)) {
         size.x = 1;
         size.y = 1;
@@ -287,6 +280,9 @@ EPIX_API const Simulation::Chunk& Simulation::ChunkMap::get_chunk(int x, int y)
     const {
     return *chunks[x - origin.x][y - origin.y];
 }
+EPIX_API size_t Simulation::ChunkMap::chunk_count() const {
+    return m_chunk_count;
+}
 
 EPIX_API Simulation::ChunkMap::iterator::iterator(
     ChunkMap* chunks, int x, int y
@@ -295,17 +291,56 @@ EPIX_API Simulation::ChunkMap::iterator::iterator(
 
 EPIX_API Simulation::ChunkMap::iterator&
 Simulation::ChunkMap::iterator::operator++() {
-    int start_y = y + 1;
-    for (int tx = x; tx < chunk_map->origin.x + chunk_map->size.x; tx++) {
-        for (int ty = start_y; ty < chunk_map->origin.y + chunk_map->size.y;
-             ty++) {
-            if (chunk_map->contains(tx, ty)) {
-                x = tx;
-                y = ty;
-                return *this;
+    if (x == chunk_map->origin.x + chunk_map->size.x &&
+        y == chunk_map->origin.y + chunk_map->size.y) {
+        return *this;
+    }
+    std::tuple<int, int, int> xbounds = {
+        chunk_map->iterate_setting.xorder
+            ? chunk_map->origin.x
+            : chunk_map->origin.x + chunk_map->size.x - 1,
+        chunk_map->iterate_setting.xorder
+            ? chunk_map->origin.x + chunk_map->size.x
+            : chunk_map->origin.x - 1,
+        chunk_map->iterate_setting.xorder ? 1 : -1,
+    };
+    std::tuple<int, int, int> ybounds = {
+        chunk_map->iterate_setting.yorder
+            ? chunk_map->origin.y
+            : chunk_map->origin.y + chunk_map->size.y - 1,
+        chunk_map->iterate_setting.yorder
+            ? chunk_map->origin.y + chunk_map->size.y
+            : chunk_map->origin.y - 1,
+        chunk_map->iterate_setting.yorder ? 1 : -1,
+    };
+    if (chunk_map->iterate_setting.x_outer) {
+        int start_y = y + std::get<2>(ybounds);
+        for (int tx = x; tx != std::get<1>(xbounds);
+             tx += std::get<2>(xbounds)) {
+            for (int ty = start_y; ty != std::get<1>(ybounds);
+                 ty += std::get<2>(ybounds)) {
+                if (chunk_map->contains(tx, ty)) {
+                    x = tx;
+                    y = ty;
+                    return *this;
+                }
             }
+            start_y = std::get<0>(ybounds);
         }
-        start_y = chunk_map->origin.y;
+    } else {
+        int start_x = x + std::get<2>(xbounds);
+        for (int ty = y; ty != std::get<1>(ybounds);
+             ty += std::get<2>(ybounds)) {
+            for (int tx = start_x; tx != std::get<1>(xbounds);
+                 tx += std::get<2>(xbounds)) {
+                if (chunk_map->contains(tx, ty)) {
+                    x = tx;
+                    y = ty;
+                    return *this;
+                }
+            }
+            start_x = std::get<0>(xbounds);
+        }
     }
     x = chunk_map->origin.x + chunk_map->size.x;
     y = chunk_map->origin.y + chunk_map->size.y;
@@ -334,17 +369,56 @@ EPIX_API Simulation::ChunkMap::const_iterator::const_iterator(
 
 EPIX_API Simulation::ChunkMap::const_iterator&
 Simulation::ChunkMap::const_iterator::operator++() {
-    int start_y = y + 1;
-    for (int tx = x; tx < chunk_map->origin.x + chunk_map->size.x; tx++) {
-        for (int ty = start_y; ty < chunk_map->origin.y + chunk_map->size.y;
-             ty++) {
-            if (chunk_map->contains(tx, ty)) {
-                x = tx;
-                y = ty;
-                return *this;
+    if (x == chunk_map->origin.x + chunk_map->size.x &&
+        y == chunk_map->origin.y + chunk_map->size.y) {
+        return *this;
+    }
+    std::tuple<int, int, int> xbounds = {
+        chunk_map->iterate_setting.xorder
+            ? chunk_map->origin.x
+            : chunk_map->origin.x + chunk_map->size.x - 1,
+        chunk_map->iterate_setting.xorder
+            ? chunk_map->origin.x + chunk_map->size.x
+            : chunk_map->origin.x - 1,
+        chunk_map->iterate_setting.xorder ? 1 : -1,
+    };
+    std::tuple<int, int, int> ybounds = {
+        chunk_map->iterate_setting.yorder
+            ? chunk_map->origin.y
+            : chunk_map->origin.y + chunk_map->size.y - 1,
+        chunk_map->iterate_setting.yorder
+            ? chunk_map->origin.y + chunk_map->size.y
+            : chunk_map->origin.y - 1,
+        chunk_map->iterate_setting.yorder ? 1 : -1,
+    };
+    if (chunk_map->iterate_setting.x_outer) {
+        int start_y = y + std::get<2>(ybounds);
+        for (int tx = x; tx != std::get<1>(xbounds);
+             tx += std::get<2>(xbounds)) {
+            for (int ty = start_y; ty != std::get<1>(ybounds);
+                 ty += std::get<2>(ybounds)) {
+                if (chunk_map->contains(tx, ty)) {
+                    x = tx;
+                    y = ty;
+                    return *this;
+                }
             }
+            start_y = std::get<0>(ybounds);
         }
-        start_y = chunk_map->origin.y;
+    } else {
+        int start_x = x + std::get<2>(xbounds);
+        for (int ty = y; ty != std::get<1>(ybounds);
+             ty += std::get<2>(ybounds)) {
+            for (int tx = start_x; tx != std::get<1>(xbounds);
+                 tx += std::get<2>(xbounds)) {
+                if (chunk_map->contains(tx, ty)) {
+                    x = tx;
+                    y = ty;
+                    return *this;
+                }
+            }
+            start_x = std::get<0>(xbounds);
+        }
     }
     x = chunk_map->origin.x + chunk_map->size.x;
     y = chunk_map->origin.y + chunk_map->size.y;
@@ -368,11 +442,43 @@ Simulation::ChunkMap::const_iterator::operator*() {
     return {{x, y}, chunk_map->get_chunk(x, y)};
 }
 
+EPIX_API void Simulation::ChunkMap::set_iterate_setting(
+    bool xorder, bool yorder, bool x_outer
+) {
+    iterate_setting.xorder  = xorder;
+    iterate_setting.yorder  = yorder;
+    iterate_setting.x_outer = x_outer;
+}
+
 EPIX_API Simulation::ChunkMap::iterator Simulation::ChunkMap::begin() {
-    for (int y = origin.y; y < origin.y + size.y; y++) {
-        for (int x = origin.x; x < origin.x + size.x; x++) {
-            if (contains(x, y)) {
-                return iterator(this, x, y);
+    std::tuple<int, int, int> xbounds = {
+        iterate_setting.xorder ? origin.x : origin.x + size.x - 1,
+        iterate_setting.xorder ? origin.x + size.x : origin.x - 1,
+        iterate_setting.xorder ? 1 : -1,
+    };
+    std::tuple<int, int, int> ybounds = {
+        iterate_setting.yorder ? origin.y : origin.y + size.y - 1,
+        iterate_setting.yorder ? origin.y + size.y : origin.y - 1,
+        iterate_setting.yorder ? 1 : -1,
+    };
+    if (iterate_setting.x_outer) {
+        for (int tx = std::get<0>(xbounds); tx != std::get<1>(xbounds);
+             tx += std::get<2>(xbounds)) {
+            for (int ty = std::get<0>(ybounds); ty != std::get<1>(ybounds);
+                 ty += std::get<2>(ybounds)) {
+                if (contains(tx, ty)) {
+                    return iterator(this, tx, ty);
+                }
+            }
+        }
+    } else {
+        for (int ty = std::get<0>(ybounds); ty != std::get<1>(ybounds);
+             ty += std::get<2>(ybounds)) {
+            for (int tx = std::get<0>(xbounds); tx != std::get<1>(xbounds);
+                 tx += std::get<2>(xbounds)) {
+                if (contains(tx, ty)) {
+                    return iterator(this, tx, ty);
+                }
             }
         }
     }
@@ -380,10 +486,34 @@ EPIX_API Simulation::ChunkMap::iterator Simulation::ChunkMap::begin() {
 }
 EPIX_API Simulation::ChunkMap::const_iterator Simulation::ChunkMap::begin(
 ) const {
-    for (int y = origin.y; y < origin.y + size.y; y++) {
-        for (int x = origin.x; x < origin.x + size.x; x++) {
-            if (contains(x, y)) {
-                return const_iterator(this, x, y);
+    std::tuple<int, int, int> xbounds = {
+        iterate_setting.xorder ? origin.x : origin.x + size.x - 1,
+        iterate_setting.xorder ? origin.x + size.x : origin.x - 1,
+        iterate_setting.xorder ? 1 : -1,
+    };
+    std::tuple<int, int, int> ybounds = {
+        iterate_setting.yorder ? origin.y : origin.y + size.y - 1,
+        iterate_setting.yorder ? origin.y + size.y : origin.y - 1,
+        iterate_setting.yorder ? 1 : -1,
+    };
+    if (iterate_setting.x_outer) {
+        for (int tx = std::get<0>(xbounds); tx != std::get<1>(xbounds);
+             tx += std::get<2>(xbounds)) {
+            for (int ty = std::get<0>(ybounds); ty != std::get<1>(ybounds);
+                 ty += std::get<2>(ybounds)) {
+                if (contains(tx, ty)) {
+                    return const_iterator(this, tx, ty);
+                }
+            }
+        }
+    } else {
+        for (int ty = std::get<0>(ybounds); ty != std::get<1>(ybounds);
+             ty += std::get<2>(ybounds)) {
+            for (int tx = std::get<0>(xbounds); tx != std::get<1>(xbounds);
+                 tx += std::get<2>(xbounds)) {
+                if (contains(tx, ty)) {
+                    return const_iterator(this, tx, ty);
+                }
             }
         }
     }
@@ -409,7 +539,7 @@ EPIX_API void Simulation::ChunkMap::count_time() {
             chunk.time_since_last_swap = 0;
             chunk.swap_area();
         }
-        chunk.time_threshold = 8;
+        chunk.time_threshold = EPIX_WORLD_SAND_DEFAULT_CHUNK_RESET_TIME;
     }
 }
 
@@ -457,11 +587,6 @@ EPIX_API const Simulation::ChunkMap& Simulation::chunk_map() const {
     return m_chunk_map;
 }
 EPIX_API void Simulation::reset_updated() { m_chunk_map.reset_updated(); }
-EPIX_API void Simulation::mark_updated(int x, int y) {
-    auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
-    auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
-    m_chunk_map.get_chunk(chunk_x, chunk_y).mark_updated(cell_x, cell_y);
-}
 EPIX_API bool Simulation::is_updated(int x, int y) const {
     auto [chunk_x, chunk_y] = to_chunk_pos(x, y);
     auto [cell_x, cell_y]   = to_in_chunk_pos(x, y);
@@ -609,12 +734,15 @@ EPIX_API std::optional<glm::ivec2> Simulation::UpdatingState::current_cell(
     if (!current_chunk()) return std::nullopt;
     return in_chunk_pos;
 }
-void apply_viscosity(Simulation& sim, const Cell& cell, int x, int y) {
-    if (!sim.valid(x, y)) return;
-    auto [tcell, elem] = sim.get(x, y);
+void apply_viscosity(
+    Simulation& sim, Cell& cell, int x, int y, int tx, int ty
+) {
+    if (!sim.valid(tx, ty)) return;
+    if (!sim.contain_cell(tx, ty)) return;
+    auto [tcell, elem] = sim.get(tx, ty);
     if (elem.grav_type != Element::GravType::LIQUID) return;
-    tcell.impact =
-        elem.viscosity * cell.velocity - elem.viscosity * cell.velocity;
+    tcell.velocity +=
+        elem.viscosity * cell.velocity - elem.viscosity * tcell.velocity;
 }
 EPIX_API void Simulation::update(float delta) {
     init_update_state();
@@ -643,9 +771,13 @@ void epix::world::sand::components::update_cell(
     if (grav_len_s == 0) {
         chunk.time_threshold = std::numeric_limits<int>::max();
     } else {
-        chunk.time_threshold =
-            std::max((int)(8 * 10000 / grav_len_s), chunk.time_threshold);
+        chunk.time_threshold = std::max(
+            (int)(EPIX_WORLD_SAND_DEFAULT_CHUNK_RESET_TIME * 10000 / grav_len_s
+            ),
+            chunk.time_threshold
+        );
     }
+    cell.updated = true;
     if (elem.grav_type == Element::GravType::POWDER) {
         if (!cell.freefall) {
             float angle = std::atan2(grav.y, grav.x);
@@ -805,7 +937,6 @@ void epix::world::sand::components::update_cell(
                 cell.velocity       = {0.0f, 0.0f};
             }
         }
-        sim.mark_updated(final_x, final_y);
     } else if (elem.grav_type == Element::GravType::LIQUID) {
         if (!cell.freefall) {
             float angle = std::atan2(grav.y, grav.x);
@@ -887,6 +1018,10 @@ void epix::world::sand::components::update_cell(
             cell.velocity = sim.get_default_vel(x_, y_);
             cell.freefall = true;
         }
+        apply_viscosity(sim, cell, final_x, final_y, final_x - 1, final_y);
+        apply_viscosity(sim, cell, final_x, final_y, final_x + 1, final_y);
+        apply_viscosity(sim, cell, final_x, final_y, final_x, final_y - 1);
+        apply_viscosity(sim, cell, final_x, final_y, final_x, final_y + 1);
         cell.velocity += grav * delta;
         cell.velocity += cell.impact;
         cell.impact = {0.0f, 0.0f};
@@ -950,16 +1085,38 @@ void epix::world::sand::components::update_cell(
                         std::cos(grav_angle + std::numbers::pi / 4),
                         std::sin(grav_angle + std::numbers::pi / 4)
                     };
+                    glm::vec2 left = {
+                        std::cos(grav_angle - std::numbers::pi / 2) *
+                            sim.liquid_spread_setting.spread_len,
+                        std::sin(grav_angle - std::numbers::pi / 2) *
+                            sim.liquid_spread_setting.spread_len
+                    };
+                    glm::vec2 right = {
+                        std::cos(grav_angle + std::numbers::pi / 2) *
+                            sim.liquid_spread_setting.spread_len,
+                        std::sin(grav_angle + std::numbers::pi / 2) *
+                            sim.liquid_spread_setting.spread_len
+                    };
                     glm::vec2 dirs[2];
-                    bool lb_first = angle_diff > 0;
-                    if (lb_first) {
-                        dirs[0] = lb;
-                        dirs[1] = rb;
+                    glm::vec2 idirs[2];
+                    static thread_local std::random_device rd;
+                    static thread_local std::mt19937 gen(rd());
+                    static thread_local std::uniform_real_distribution<float>
+                        dis(-0.1f, 0.1f);
+                    bool l_first = angle_diff > dis(gen);
+                    if (l_first) {
+                        dirs[0]  = lb;
+                        dirs[1]  = rb;
+                        idirs[0] = left;
+                        idirs[1] = right;
                     } else {
-                        dirs[0] = rb;
-                        dirs[1] = lb;
+                        dirs[0]  = rb;
+                        dirs[1]  = lb;
+                        idirs[0] = right;
+                        idirs[1] = left;
                     }
-                    for (auto&& vel : dirs) {
+                    for (int i = 0; i < 2; i++) {
+                        auto vel    = dirs[i];
                         int delta_x = std::round(vel.x);
                         int delta_y = std::round(vel.y);
                         if (delta_x == 0 && delta_y == 0) {
@@ -971,7 +1128,10 @@ void epix::world::sand::components::update_cell(
                         auto& tcell = sim.get_cell(tx, ty);
                         if (!tcell) {
                             std::swap(*ncell, tcell);
-                            ncell   = &tcell;
+                            ncell = &tcell;
+                            ncell->velocity +=
+                                idirs[i] * sim.liquid_spread_setting.prefix /
+                                delta;
                             final_x = tx;
                             final_y = ty;
                             moved   = true;
@@ -979,33 +1139,6 @@ void epix::world::sand::components::update_cell(
                         }
                     }
                     if (!moved) {
-                        float vellen = std::sqrt(
-                                           cell.velocity.x * cell.velocity.x +
-                                           cell.velocity.y * cell.velocity.y
-                                       ) *
-                                       delta;
-                        // try go to left and right
-                        glm::vec2 left = {
-                            std::cos(grav_angle - std::numbers::pi / 2) *
-                                sim.liquid_spread_setting.spread_len * vellen,
-                            std::sin(grav_angle - std::numbers::pi / 2) *
-                                sim.liquid_spread_setting.spread_len * vellen
-                        };
-                        glm::vec2 right = {
-                            std::cos(grav_angle + std::numbers::pi / 2) *
-                                sim.liquid_spread_setting.spread_len * vellen,
-                            std::sin(grav_angle + std::numbers::pi / 2) *
-                                sim.liquid_spread_setting.spread_len * vellen
-                        };
-                        glm::vec2 idirs[2];
-                        bool left_first = angle_diff > 0;
-                        if (left_first) {
-                            idirs[0] = left;
-                            idirs[1] = right;
-                        } else {
-                            idirs[0] = right;
-                            idirs[1] = left;
-                        }
                         // dirs[1] *= 0.5f;
                         int tx_1 = final_x + std::round(idirs[0].x);
                         int ty_1 = final_y + std::round(idirs[0].y);
@@ -1015,6 +1148,26 @@ void epix::world::sand::components::update_cell(
                             sim.raycast_to(final_x, final_y, tx_1, ty_1);
                         auto res_2 =
                             sim.raycast_to(final_x, final_y, tx_2, ty_2);
+                        if (res_1.hit) {
+                            auto [tchunk_x, tchunk_y] = sim.to_chunk_pos(
+                                res_1.hit->first, res_1.hit->second
+                            );
+                            if (tchunk_x == chunk_x && tchunk_y == chunk_y &&
+                                sim.valid(
+                                    res_1.hit->first, res_1.hit->second
+                                ) &&
+                                sim.contain_cell(
+                                    res_1.hit->first, res_1.hit->second
+                                )) {
+                                update_cell(
+                                    sim, res_1.hit->first, res_1.hit->second,
+                                    delta
+                                );
+                                res_1 = sim.raycast_to(
+                                    final_x, final_y, tx_1, ty_1
+                                );
+                            }
+                        }
                         if (res_1.steps >= res_2.steps) {
                             if (res_1.steps) {
                                 auto& tcell =
@@ -1028,20 +1181,17 @@ void epix::world::sand::components::update_cell(
                                     sim.liquid_spread_setting.prefix / delta;
                                 moved = true;
                             }
-                        } else {
-                            if (res_2.steps) {
-                                auto& tcell =
-                                    sim.get_cell(res_2.new_x, res_2.new_y);
-                                std::swap(*ncell, tcell);
-                                final_x = res_2.new_x;
-                                final_y = res_2.new_y;
-                                ncell   = &tcell;
-                                ncell->velocity +=
-                                    glm::vec2(idirs[1]) *
-                                    sim.liquid_spread_setting.prefix / delta *
-                                    0.5f;
-                                moved = true;
-                            }
+                        } else if (res_2.steps) {
+                            auto& tcell =
+                                sim.get_cell(res_2.new_x, res_2.new_y);
+                            std::swap(*ncell, tcell);
+                            final_x = res_2.new_x;
+                            final_y = res_2.new_y;
+                            ncell   = &tcell;
+                            // ncell->velocity -=
+                            //     glm::vec2(idirs[1]) *
+                            //     sim.liquid_spread_setting.prefix / delta;
+                            moved = true;
                         }
                     }
                 }
@@ -1057,14 +1207,22 @@ void epix::world::sand::components::update_cell(
             sim.touch(x_ + 1, y_);
             sim.touch(x_, y_ - 1);
             sim.touch(x_, y_ + 1);
+            sim.touch(x_ - 1, y_ - 1);
+            sim.touch(x_ + 1, y_ - 1);
+            sim.touch(x_ - 1, y_ + 1);
+            sim.touch(x_ + 1, y_ + 1);
             sim.touch(final_x - 1, final_y);
             sim.touch(final_x + 1, final_y);
             sim.touch(final_x, final_y - 1);
             sim.touch(final_x, final_y + 1);
-            apply_viscosity(sim, *ncell, x_ - 1, y_);
-            apply_viscosity(sim, *ncell, x_ + 1, y_);
-            apply_viscosity(sim, *ncell, x_, y_ - 1);
-            apply_viscosity(sim, *ncell, x_, y_ + 1);
+            sim.touch(final_x - 1, final_y - 1);
+            sim.touch(final_x + 1, final_y - 1);
+            sim.touch(final_x - 1, final_y + 1);
+            sim.touch(final_x + 1, final_y + 1);
+            apply_viscosity(sim, cell, final_x, final_y, x_ - 1, y_);
+            apply_viscosity(sim, cell, final_x, final_y, x_ + 1, y_);
+            apply_viscosity(sim, cell, final_x, final_y, x_, y_ - 1);
+            apply_viscosity(sim, cell, final_x, final_y, x_, y_ + 1);
         } else {
             cell.not_move_count++;
             if (cell.not_move_count >= sim.not_moving_threshold(x_, y_) / 15) {
@@ -1073,7 +1231,6 @@ void epix::world::sand::components::update_cell(
                 cell.velocity       = {0.0f, 0.0f};
             }
         }
-        sim.mark_updated(final_x, final_y);
     }
 }
 EPIX_API void Simulation::update_multithread(float delta) {
@@ -1093,62 +1250,54 @@ EPIX_API void Simulation::update_multithread(float delta) {
         yorder  = dis(gen) > 0;
         x_outer = dis(gen) > 0;
     }
+    std::vector<glm::ivec2> chunks_to_update;
+    chunks_to_update.reserve(m_chunk_map.chunk_count());
+    m_chunk_map.set_iterate_setting(xorder, yorder, x_outer);
+    for (auto&& [pos, chunk] : m_chunk_map) {
+        chunks_to_update.push_back(pos);
+    }
     for (auto&& [xmod, ymod] : modres) {
-        std::vector<glm::ivec2> chunks_to_update;
-        for (auto&& [pos, chunk] : m_chunk_map) {
-            if ((pos.x + xmod) % 2 == 0 && (pos.y + ymod) % 2 == 0) {
-                chunks_to_update.push_back(pos);
-            }
-        }
-        std::sort(
-            chunks_to_update.begin(), chunks_to_update.end(),
-            [&](auto& a, auto& b) {
-                if (x_outer) {
-                    return (xorder ? a.x < b.x : a.x > b.x) ||
-                           (a.x == b.x && (yorder ? a.y < b.y : a.y > b.y));
-                } else {
-                    return (yorder ? a.y < b.y : a.y > b.y) ||
-                           (a.y == b.y && (xorder ? a.x < b.x : a.x > b.x));
-                }
-            }
-        );
         for (auto pos : chunks_to_update) {
-            m_thread_pool->submit_task([=]() {
-                auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
-                if (!chunk.should_update()) return;
-                std::tuple<int, int, int> xbounds, ybounds;
-                xbounds = {
-                    xorder ? chunk.updating_area[0] : chunk.updating_area[1],
-                    xorder ? chunk.updating_area[1] + 1
-                           : chunk.updating_area[0] - 1,
-                    xorder ? 1 : -1
-                };
-                ybounds = {
-                    yorder ? chunk.updating_area[2] : chunk.updating_area[3],
-                    yorder ? chunk.updating_area[3] + 1
-                           : chunk.updating_area[2] - 1,
-                    yorder ? 1 : -1
-                };
-                std::tuple<int, int, int> bounds[2] = {xbounds, ybounds};
-                if (!x_outer) {
-                    std::swap(bounds[0], bounds[1]);
-                }
-                for (int index1 = std::get<0>(bounds[0]);
-                     index1 != std::get<1>(bounds[0]);
-                     index1 += std::get<2>(bounds[0])) {
-                    for (int index2 = std::get<0>(bounds[1]);
-                         index2 != std::get<1>(bounds[1]);
-                         index2 += std::get<2>(bounds[1])) {
-                        auto x =
-                            pos.x * m_chunk_size + (x_outer ? index1 : index2);
-                        auto y =
-                            pos.y * m_chunk_size + (x_outer ? index2 : index1);
-                        epix::world::sand::components::update_cell(
-                            *this, x, y, delta
-                        );
+            if ((pos.x + xmod) % 2 == 0 && (pos.y + ymod) % 2 == 0) {
+                m_thread_pool->submit_task([=]() {
+                    auto& chunk = m_chunk_map.get_chunk(pos.x, pos.y);
+                    if (!chunk.should_update()) return;
+                    std::tuple<int, int, int> xbounds, ybounds;
+                    xbounds = {
+                        xorder ? chunk.updating_area[0]
+                               : chunk.updating_area[1],
+                        xorder ? chunk.updating_area[1] + 1
+                               : chunk.updating_area[0] - 1,
+                        xorder ? 1 : -1
+                    };
+                    ybounds = {
+                        yorder ? chunk.updating_area[2]
+                               : chunk.updating_area[3],
+                        yorder ? chunk.updating_area[3] + 1
+                               : chunk.updating_area[2] - 1,
+                        yorder ? 1 : -1
+                    };
+                    std::tuple<int, int, int> bounds[2] = {xbounds, ybounds};
+                    if (!x_outer) {
+                        std::swap(bounds[0], bounds[1]);
                     }
-                }
-            });
+                    for (int index1 = std::get<0>(bounds[0]);
+                         index1 != std::get<1>(bounds[0]);
+                         index1 += std::get<2>(bounds[0])) {
+                        for (int index2 = std::get<0>(bounds[1]);
+                             index2 != std::get<1>(bounds[1]);
+                             index2 += std::get<2>(bounds[1])) {
+                            auto x = pos.x * m_chunk_size +
+                                     (x_outer ? index1 : index2);
+                            auto y = pos.y * m_chunk_size +
+                                     (x_outer ? index2 : index1);
+                            epix::world::sand::components::update_cell(
+                                *this, x, y, delta
+                            );
+                        }
+                    }
+                });
+            }
         }
         m_thread_pool->wait();
     }
@@ -1364,6 +1513,8 @@ EPIX_API bool Simulation::collide(int x, int y, int tx, int ty) {
     }
     if (elem.grav_type == Element::GravType::LIQUID/*  &&
         telem.grav_type == Element::GravType::SOLID */) {
+        dx         = (float)(tx - x);
+        dy         = (float)(ty - y);
         bool dir_x = std::abs(dx) > std::abs(dy);
         dx         = dir_x ? (float)(tx - x) : 0;
         dy         = dir_x ? 0 : (float)(ty - y);

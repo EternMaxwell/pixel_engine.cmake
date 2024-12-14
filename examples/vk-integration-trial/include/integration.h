@@ -1034,7 +1034,7 @@ void create_simulation(Command command) {
         "water",
         Element{
             "water", "water", Element::GravType::LIQUID,
-            []() { return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }, 1.0f, .0f, .03f
+            []() { return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }, 1.0f, .0f, .0003f
         }
     );
     registry.register_elem(
@@ -1070,6 +1070,7 @@ void create_simulation(Command command) {
     static std::mt19937 gen(rd());
     static std::uniform_int_distribution<int> dis(0, 20);
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
+        spdlog::info("Creating chunk at {}, {}", pos.x, pos.y);
         for (int i = 0; i < chunk.size().x; i++) {
             for (int j = 0; j < chunk.size().y; j++) {
                 int res = dis(gen);
