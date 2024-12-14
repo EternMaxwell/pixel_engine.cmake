@@ -27,18 +27,41 @@ EPIX_API ElemRegistry& ElemRegistry::operator=(ElemRegistry&& other) {
 EPIX_API int ElemRegistry::register_elem(
     const std::string& name, const Element& elem
 ) {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::unique_lock<std::shared_mutex> lock(mutex);
+    if (elemId_map.find(name) != elemId_map.end()) {
+        elem_registry_logger->warn(
+            "Attempted to register element {} that already exists", name
+        );
+        return -1;
+    }
     uint32_t id      = elements.size();
     elemId_map[name] = id;
     elements.emplace_back(elem);
     return id;
 }
-EPIX_API int ElemRegistry::elem_id(const std::string& name) {
-    std::lock_guard<std::mutex> lock(mutex);
+EPIX_API int ElemRegistry::register_elem(const Element& elem) {
+    return register_elem(elem.name, elem);
+}
+EPIX_API int ElemRegistry::elem_id(const std::string& name) const {
+    std::shared_lock<std::shared_mutex> lock(mutex);
+    if (elemId_map.find(name) == elemId_map.end()) {
+        return -1;
+    }
     return elemId_map.at(name);
 }
-EPIX_API const Element& ElemRegistry::get_elem(const std::string& name) {
-    std::lock_guard<std::mutex> lock(mutex);
+EPIX_API std::string ElemRegistry::elem_name(int id) const {
+    std::shared_lock<std::shared_mutex> lock(mutex);
+    if (id < 0 || id >= elements.size()) {
+        return "";
+    }
+    return elements[id].name;
+}
+EPIX_API int ElemRegistry::count() const {
+    std::shared_lock<std::shared_mutex> lock(mutex);
+    return elements.size();
+}
+EPIX_API const Element& ElemRegistry::get_elem(const std::string& name) const {
+    std::shared_lock<std::shared_mutex> lock(mutex);
     return elements.at(elemId_map.at(name));
 }
 EPIX_API const Element& ElemRegistry::get_elem(int id) const {
@@ -50,7 +73,7 @@ EPIX_API const Element& ElemRegistry::operator[](int id) const {
 EPIX_API void ElemRegistry::add_equiv(
     const std::string& name, const std::string& equiv
 ) {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::unique_lock<std::shared_mutex> lock(mutex);
     if (elemId_map.find(name) == elemId_map.end()) {
         elem_registry_logger->warn(
             "Attempted to add equivalent element {} to non-existent "

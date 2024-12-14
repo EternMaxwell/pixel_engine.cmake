@@ -1027,14 +1027,15 @@ void create_simulation(Command command) {
                 float r = dis(gen);
                 return glm::vec4(r, r, 0.0f, 1.0f);
             },
-            1.0f, .0f, 0.3f
+            3.0f, .0f, 0.3f
         }
     );
     registry.register_elem(
         "water",
         Element{
             "water", "water", Element::GravType::LIQUID,
-            []() { return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }, 1.0f, .0f, .0003f
+            []() { return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }, 1.0f, .0f,
+            .0003f
         }
     );
     registry.register_elem(
@@ -1048,7 +1049,20 @@ void create_simulation(Command command) {
                 float r = dis(gen);
                 return glm::vec4(r, r, r, 1.0f);
             },
-            1.0f, 0.0f, .6f
+            5.0f, 0.0f, .6f
+        }
+    );
+    registry.register_elem(
+        Element{
+            "grind", "grind", Element::GravType::POWDER,
+            []() {
+                static std::random_device rd;
+                static std::mt19937 gen(rd());
+                static std::uniform_real_distribution<float> dis(0.3f, 0.4f);
+                float r = dis(gen);
+                return glm::vec4(r, r, r, 1.0f);
+            },
+            0.7f, 0.0f, 0.3f
         }
     );
     Simulation simulation(std::move(registry), 16);
@@ -1091,15 +1105,38 @@ void create_simulation(Command command) {
 
 static constexpr float scale = 2.0f;
 
-void create_powder_from_click(
+void create_element_from_click(
     Query<Get<Simulation>> query,
-    Query<Get<const Window, const ButtonInput<MouseButton>>> window_query,
-    ResMut<epix::imgui::ImGuiContext> imgui_context
+    Query<
+        Get<const Window,
+            const ButtonInput<MouseButton>,
+            const ButtonInput<KeyCode>>> window_query,
+    ResMut<epix::imgui::ImGuiContext> imgui_context,
+    Local<std::optional<int>> elem_id
 ) {
     if (!query) return;
     if (!window_query) return;
-    auto [simulation]          = query.single();
-    auto [window, mouse_input] = window_query.single();
+    auto [simulation]                     = query.single();
+    auto [window, mouse_input, key_input] = window_query.single();
+    if (!elem_id->has_value()) {
+        *elem_id = 0;
+    }
+    if (key_input.just_pressed(epix::input::KeyEqual)) {
+        elem_id->value() =
+            (elem_id->value() + 1) % simulation.registry().count();
+        spdlog::info(
+            "Current element: {}",
+            simulation.registry().elem_name(elem_id->value())
+        );
+    } else if (key_input.just_pressed(epix::input::KeyMinus)) {
+        elem_id->value() =
+            (elem_id->value() - 1 + simulation.registry().count()) %
+            simulation.registry().count();
+        spdlog::info(
+            "Current element: {}",
+            simulation.registry().elem_name(elem_id->value())
+        );
+    }
     if (imgui_context.has_value()) {
         ImGui::SetCurrentContext(imgui_context->context);
         if (ImGui::GetIO().WantCaptureMouse) return;
@@ -1122,7 +1159,7 @@ void create_powder_from_click(
             for (int ty = cell_y - 8; ty < cell_y + 8; ty++) {
                 if (simulation.valid(tx, ty)) {
                     if (mouse_input.pressed(epix::input::MouseButton1)) {
-                        simulation.create(tx, ty, CellDef("water"));
+                        simulation.create(tx, ty, CellDef(elem_id->value()));
                     } else if (mouse_input.pressed(epix::input::MouseButton2)) {
                         simulation.remove(tx, ty);
                     }
@@ -1166,7 +1203,7 @@ void update_simulation(
     }
     auto [simulation] = query.single();
     auto count        = timer->value().tick();
-    for (int i = 0; i < count; i++) {
+    for (int i = 0; i <= count; i++) {
         simulation.update_multithread((float)timer->value().interval);
         return;
     }
@@ -1481,8 +1518,8 @@ struct VK_TrialPlugin : Plugin {
         // app.add_plugin(Box2dTestPlugin{});
         app.add_system(Startup, create_simulation);
         app.add_system(
-            Update, toggle_simulation, create_powder_from_click,
-            print_hover_data
+            Update, toggle_simulation, create_element_from_click /* ,
+             print_hover_data */
         );
         app.add_system(Update, update_simulation)
             .chain()

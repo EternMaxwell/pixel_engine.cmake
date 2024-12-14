@@ -8,6 +8,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <mutex>
 #include <random>
+#include <shared_mutex>
 
 #include "epix/common.h"
 
@@ -63,7 +64,7 @@ struct Cell {
 };
 struct ElemRegistry {
    private:
-    std::mutex mutex;
+    mutable std::shared_mutex mutex;
     spp::sparse_hash_map<std::string, uint32_t> elemId_map;
     std::vector<Element> elements;
 
@@ -75,8 +76,11 @@ struct ElemRegistry {
     EPIX_API ElemRegistry& operator=(ElemRegistry&& other);
 
     EPIX_API int register_elem(const std::string& name, const Element& elem);
-    EPIX_API int elem_id(const std::string& name);
-    EPIX_API const Element& get_elem(const std::string& name);
+    EPIX_API int register_elem(const Element& elem);
+    EPIX_API int elem_id(const std::string& name) const;
+    EPIX_API std::string elem_name(int id) const;
+    EPIX_API int count() const;
+    EPIX_API const Element& get_elem(const std::string& name) const;
     EPIX_API const Element& get_elem(int id) const;
     EPIX_API const Element& operator[](int id) const;
     EPIX_API void add_equiv(const std::string& name, const std::string& equiv);
@@ -88,7 +92,7 @@ struct Simulation {
         const int height;
         int time_since_last_swap  = 0;
         int time_threshold        = 8;
-        int updating_area[4]      = {width, 0, height, 0};
+        int updating_area[4]      = {0, width - 1, 0, height - 1};
         int updating_area_next[4] = {width, 0, height, 0};
 
         EPIX_API Chunk(int width, int height);
