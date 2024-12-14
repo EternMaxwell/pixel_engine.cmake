@@ -1044,6 +1044,24 @@ void epix::world::sand::components::update_cell(
         bool moved          = false;
         auto raycast_result = sim.raycast_to(x_, y_, tx, ty);
         auto ncell = &sim.get_cell(raycast_result.new_x, raycast_result.new_y);
+        // if (raycast_result.hit) {
+        //     auto [tchunk_x, tchunk_y] = sim.to_chunk_pos(
+        //         raycast_result.hit->first, raycast_result.hit->second
+        //     );
+        //     if (tchunk_x == chunk_x && tchunk_y == chunk_y &&
+        //         sim.valid(
+        //             raycast_result.hit->first, raycast_result.hit->second
+        //         ) &&
+        //         sim.contain_cell(
+        //             raycast_result.hit->first, raycast_result.hit->second
+        //         )) {
+        //         update_cell(
+        //             sim, raycast_result.hit->first,
+        //             raycast_result.hit->second, delta
+        //         );
+        //         raycast_result = sim.raycast_to(x_, y_, tx, ty);
+        //     }
+        // }
         if (raycast_result.steps) {
             std::swap(cell, *ncell);
             final_x = raycast_result.new_x;
@@ -1224,7 +1242,7 @@ void epix::world::sand::components::update_cell(
             apply_viscosity(sim, cell, final_x, final_y, x_, y_ + 1);
         } else {
             cell.not_move_count++;
-            if (cell.not_move_count >= sim.not_moving_threshold(x_, y_) / 15) {
+            if (cell.not_move_count >= sim.not_moving_threshold(x_, y_) / 5) {
                 cell.not_move_count = 0;
                 cell.freefall       = false;
                 cell.velocity       = {0.0f, 0.0f};
