@@ -846,7 +846,7 @@ void epix::world::sand::components::update_cell(
                 } else {
                     empty_count++;
                 }
-                float liquid_drag   = 0.6f;
+                float liquid_drag   = 0.4f;
                 float vertical_rate = 0.0f;
                 if (sim.valid(x_ + l.x, y_ + l.y) &&
                     sim.contain_cell(x_ + l.x, y_ + l.y)) {
@@ -1645,8 +1645,9 @@ EPIX_API bool Simulation::collide(int x, int y, int tx, int ty) {
         m1 *= 0.5f;
     }
     if (telem.grav_type == Element::GravType::POWDER &&
-        elem.grav_type == Element::GravType::LIQUID) {
-        return false;
+        elem.grav_type == Element::GravType::LIQUID &&
+        telem.density < elem.density) {
+        return true;
     }
     if (elem.grav_type == Element::GravType::SOLID) {
         m2 = 0;
