@@ -443,7 +443,7 @@ struct Simulation {
      */
     EPIX_API glm::vec2 get_grav(int x, int y);
     EPIX_API glm::vec2 get_default_vel(int x, int y);
-    EPIX_API int not_moving_threshold(int x, int y);
+    EPIX_API int not_moving_threshold(glm::vec2 grav);
     /**
      * @brief Update the simulation by one frame
      *

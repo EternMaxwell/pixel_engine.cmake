@@ -703,10 +703,9 @@ EPIX_API glm::vec2 Simulation::get_default_vel(int x, int y) {
     auto grav = get_grav(x, y);
     return {grav.x * 0.4f, grav.y * 0.4f};
 }
-EPIX_API int Simulation::not_moving_threshold(int x, int y) {
+EPIX_API int Simulation::not_moving_threshold(glm::vec2 grav) {
     // the larger the gravity, the smaller the threshold
-    auto grav = get_grav(x, y);
-    auto len  = std::sqrt(grav.x * grav.x + grav.y * grav.y);
+    auto len = std::sqrt(grav.x * grav.x + grav.y * grav.y);
     if (len == 0) return std::numeric_limits<int>::max();
     return not_moving_threshold_setting.numerator /
            std::pow(len, not_moving_threshold_setting.power);
@@ -891,13 +890,11 @@ void epix::world::sand::components::update_cell(
             }
             if (liquid_count > empty_count) {
                 liquid_density /= liquid_count;
-                cell.velocity += (elem.density - liquid_density) /
-                                 elem.density * grav * delta;
+                grav *= (elem.density - liquid_density) / elem.density;
                 cell.velocity *= 0.9f;
-            } else {
-                cell.velocity += grav * delta;
-                cell.velocity *= 0.99f;
             }
+            cell.velocity += grav * delta;
+            cell.velocity *= 0.99f;
             cell.inpos += cell.velocity * delta;
         }
         int delta_x = std::round(cell.inpos.x);
@@ -1027,7 +1024,7 @@ void epix::world::sand::components::update_cell(
             sim.touch(final_x, final_y + 1);
         } else {
             cell.not_move_count++;
-            if (cell.not_move_count >= sim.not_moving_threshold(x_, y_)) {
+            if (cell.not_move_count >= sim.not_moving_threshold(grav)) {
                 cell.not_move_count = 0;
                 cell.freefall       = false;
                 cell.velocity       = {0.0f, 0.0f};
@@ -1361,7 +1358,7 @@ void epix::world::sand::components::update_cell(
             apply_viscosity(sim, cell, final_x, final_y, x_, y_ + 1);
         } else {
             cell.not_move_count++;
-            if (cell.not_move_count >= sim.not_moving_threshold(x_, y_) / 5) {
+            if (cell.not_move_count >= sim.not_moving_threshold(grav) / 5) {
                 cell.not_move_count = 0;
                 cell.freefall       = false;
                 cell.velocity       = {0.0f, 0.0f};
