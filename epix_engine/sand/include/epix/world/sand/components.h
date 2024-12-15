@@ -14,19 +14,25 @@
 
 namespace epix::world::sand::components {
 struct Element {
+   private:
     enum class GravType : uint8_t {
         POWDER,
         LIQUID,
         SOLID,
         GAS,
-    } grav_type    = GravType::SOLID;
+    } grav_type = GravType::SOLID;
+
+   public:
     float density  = 0.0f;
     float bouncing = 0.0f;
     float friction = 0.0f;
     std::string name;
     std::string description = "";
+
+   private:
     std::function<glm::vec4()> color_gen;
 
+   public:
     EPIX_API Element(const std::string& name, GravType type);
     EPIX_API static Element solid(const std::string& name);
     EPIX_API static Element liquid(const std::string& name);
@@ -306,14 +312,6 @@ struct Simulation {
      */
     EPIX_API void reset_updated();
     /**
-     * @brief Mark a cell as updated. This is used to avoid updating the same
-     * cell multiple times in a single frame.
-     *
-     * @param x x-coordinate of the cell
-     * @param y y-coordinate of the cell
-     */
-    EPIX_API void mark_updated(int x, int y);
-    /**
      * @brief Check if a cell has been updated in the current frame
      *
      * @param x x-coordinate of the cell
@@ -443,6 +441,7 @@ struct Simulation {
      */
     EPIX_API glm::vec2 get_grav(int x, int y);
     EPIX_API glm::vec2 get_default_vel(int x, int y);
+    EPIX_API float air_density(int x, int y);
     EPIX_API int not_moving_threshold(glm::vec2 grav);
     /**
      * @brief Update the simulation by one frame

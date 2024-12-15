@@ -98,15 +98,14 @@ EPIX_API Cell& Simulation::Chunk::create(
     if (cell.elem_id < 0) {
         return cell;
     }
-    cell.color = m_registry.get_elem(cell.elem_id).color_gen();
+    cell.color = m_registry.get_elem(cell.elem_id).gen_color();
     static thread_local std::random_device rd;
     static thread_local std::mt19937 gen(rd());
     static thread_local std::uniform_real_distribution<float> dis(-0.4f, 0.4f);
     cell.inpos = {dis(gen), dis(gen)};
     cell.velocity =
         def.default_vel + glm::vec2{dis(gen) * 0.1f, dis(gen) * 0.1f};
-    if (m_registry.get_elem(cell.elem_id).grav_type !=
-        Element::GravType::SOLID) {
+    if (!m_registry.get_elem(cell.elem_id).is_solid()) {
         cell.freefall = true;
     } else {
         cell.velocity = {0.0f, 0.0f};
@@ -740,7 +739,7 @@ void apply_viscosity(
     if (!sim.valid(tx, ty)) return;
     if (!sim.contain_cell(tx, ty)) return;
     auto [tcell, elem] = sim.get(tx, ty);
-    if (elem.grav_type != Element::GravType::LIQUID) return;
+    if (elem.is_liquid()) return;
     tcell.velocity += 0.003f * cell.velocity - 0.003f * tcell.velocity;
 }
 EPIX_API void Simulation::update(float delta) {
@@ -754,6 +753,7 @@ EPIX_API void Simulation::update(float delta) {
     }
     deinit_update_state();
 }
+EPIX_API float Simulation::air_density(int x, int y) { return 0.001225f; }
 void epix::world::sand::components::update_cell(
     Simulation& sim, const int x_, const int y_, float delta
 ) {
@@ -766,18 +766,8 @@ void epix::world::sand::components::update_cell(
     if (!sim.contain_cell(x_, y_)) return;
     auto [cell, elem] = sim.get(x_, y_);
     auto grav         = sim.get_grav(x_, y_);
-    float grav_len_s  = grav.x * grav.x + grav.y * grav.y;
-    if (grav_len_s == 0) {
-        chunk.time_threshold = std::numeric_limits<int>::max();
-    } else {
-        chunk.time_threshold = std::max(
-            (int)(EPIX_WORLD_SAND_DEFAULT_CHUNK_RESET_TIME * 10000 / grav_len_s
-            ),
-            chunk.time_threshold
-        );
-    }
-    cell.updated = true;
-    if (elem.grav_type == Element::GravType::POWDER) {
+    cell.updated      = true;
+    if (elem.is_powder()) {
         if (!cell.freefall) {
             float angle = std::atan2(grav.y, grav.x);
             // into a 8 direction
@@ -792,11 +782,10 @@ void epix::world::sand::components::update_cell(
             auto& bcell = sim.get_cell(below_x, below_y);
             if (bcell) {
                 auto& belem = sim.get_elem(below_x, below_y);
-                if (belem.grav_type == Element::GravType::SOLID) {
+                if (belem.is_solid()) {
                     return;
                 }
-                if (belem.grav_type == Element::GravType::POWDER &&
-                    !bcell.freefall) {
+                if (belem.is_powder() && !bcell.freefall) {
                     return;
                 }
             }
@@ -828,7 +817,7 @@ void epix::world::sand::components::update_cell(
                 if (sim.valid(x_ + below.x, y_ + below.y) &&
                     sim.contain_cell(x_ + below.x, y_ + below.y)) {
                     auto [tcell, telem] = sim.get(x_ + below.x, y_ + below.y);
-                    if (telem.grav_type == Element::GravType::LIQUID) {
+                    if (telem.is_liquid()) {
                         liquid_count++;
                         liquid_density += telem.density;
                     }
@@ -838,7 +827,7 @@ void epix::world::sand::components::update_cell(
                 if (sim.valid(x_ + above.x, y_ + above.y) &&
                     sim.contain_cell(x_ + above.x, y_ + above.y)) {
                     auto [tcell, telem] = sim.get(x_ + above.x, y_ + above.y);
-                    if (telem.grav_type == Element::GravType::LIQUID) {
+                    if (telem.is_liquid()) {
                         liquid_count++;
                         liquid_density += telem.density;
                     }
@@ -850,8 +839,7 @@ void epix::world::sand::components::update_cell(
                 if (sim.valid(x_ + l.x, y_ + l.y) &&
                     sim.contain_cell(x_ + l.x, y_ + l.y)) {
                     auto [tcell, telem] = sim.get(x_ + l.x, y_ + l.y);
-                    if (telem.grav_type == Element::GravType::LIQUID &&
-                        telem.density > elem.density) {
+                    if (telem.is_liquid() && telem.density > elem.density) {
                         liquid_count++;
                         liquid_density += telem.density;
                         glm::vec2 vel_hori =
@@ -870,8 +858,7 @@ void epix::world::sand::components::update_cell(
                 if (sim.valid(x_ + r.x, y_ + r.y) &&
                     sim.contain_cell(x_ + r.x, y_ + r.y)) {
                     auto [tcell, telem] = sim.get(x_ + r.x, y_ + r.y);
-                    if (telem.grav_type == Element::GravType::LIQUID &&
-                        telem.density > elem.density) {
+                    if (telem.is_liquid() && telem.density > elem.density) {
                         liquid_count++;
                         liquid_density += telem.density;
                         glm::vec2 vel_hori =
@@ -938,8 +925,7 @@ void epix::world::sand::components::update_cell(
             bool collided          = false;
             if (sim.valid(hit_x, hit_y)) {
                 auto [tcell, telem] = sim.get(hit_x, hit_y);
-                if (telem.grav_type == Element::GravType::SOLID ||
-                    telem.grav_type == Element::GravType::POWDER) {
+                if (telem.is_solid() || telem.is_powder()) {
                     collided = sim.collide(
                         raycast_result.new_x, raycast_result.new_y, hit_x, hit_y
                     );
@@ -1030,7 +1016,7 @@ void epix::world::sand::components::update_cell(
                 cell.velocity       = {0.0f, 0.0f};
             }
         }
-    } else if (elem.grav_type == Element::GravType::LIQUID) {
+    } else if (elem.is_liquid()) {
         if (!cell.freefall) {
             float angle = std::atan2(grav.y, grav.x);
             // into a 8 direction
@@ -1063,12 +1049,11 @@ void epix::world::sand::components::update_cell(
                 bool shouldnot_freefall = false;
                 if (bcell) {
                     auto& belem = sim.get_elem(below_x, below_y);
-                    if (belem.grav_type == Element::GravType::SOLID) {
+                    if (belem.is_solid()) {
                         shouldnot_freefall = true;
                     }
-                    if ((belem.grav_type == Element::GravType::POWDER &&
-                         !bcell.freefall) ||
-                        belem.grav_type == Element::GravType::LIQUID) {
+                    if ((belem.is_powder() && !bcell.freefall) ||
+                        belem.is_liquid()) {
                         shouldnot_freefall = true;
                     }
                 }
@@ -1079,12 +1064,11 @@ void epix::world::sand::components::update_cell(
                 bool shouldnot_freefall = false;
                 if (lbcell) {
                     auto& lbelem = sim.get_elem(lb_x, lb_y);
-                    if (lbelem.grav_type == Element::GravType::SOLID) {
+                    if (lbelem.is_solid()) {
                         shouldnot_freefall = true;
                     }
-                    if ((lbelem.grav_type == Element::GravType::POWDER &&
-                         !lbcell.freefall) ||
-                        lbelem.grav_type == Element::GravType::LIQUID) {
+                    if ((lbelem.is_powder() && !lbcell.freefall) ||
+                        lbelem.is_liquid()) {
                         shouldnot_freefall = true;
                     }
                 }
@@ -1095,12 +1079,11 @@ void epix::world::sand::components::update_cell(
                 bool shouldnot_freefall = false;
                 if (rbcell) {
                     auto& rbelem = sim.get_elem(rb_x, rb_y);
-                    if (rbelem.grav_type == Element::GravType::SOLID) {
+                    if (rbelem.is_solid()) {
                         shouldnot_freefall = true;
                     }
-                    if ((rbelem.grav_type == Element::GravType::POWDER &&
-                         !rbcell.freefall) ||
-                        rbelem.grav_type == Element::GravType::LIQUID) {
+                    if ((rbelem.is_powder() && !rbcell.freefall) ||
+                        rbelem.is_liquid()) {
                         shouldnot_freefall = true;
                     }
                 }
@@ -1115,6 +1098,96 @@ void epix::world::sand::components::update_cell(
         apply_viscosity(sim, cell, final_x, final_y, final_x + 1, final_y);
         apply_viscosity(sim, cell, final_x, final_y, final_x, final_y - 1);
         apply_viscosity(sim, cell, final_x, final_y, final_x, final_y + 1);
+
+        {
+            int liquid_count     = 0;
+            int empty_count      = 0;
+            float liquid_density = 0.0f;
+            if (grav != glm::vec2(0.0f, 0.0f)) {
+                float grav_angle = std::atan2(grav.y, grav.x);
+                glm::ivec2 below = {
+                    std::round(std::cos(grav_angle)),
+                    std::round(std::sin(grav_angle))
+                };
+                glm::ivec2 above = {
+                    std::round(std::cos(grav_angle + std::numbers::pi)),
+                    std::round(std::sin(grav_angle + std::numbers::pi))
+                };
+                glm::ivec2 l = {
+                    std::round(std::cos(grav_angle - std::numbers::pi / 2)),
+                    std::round(std::sin(grav_angle - std::numbers::pi / 2))
+                };
+                glm::ivec2 r = {
+                    std::round(std::cos(grav_angle + std::numbers::pi / 2)),
+                    std::round(std::sin(grav_angle + std::numbers::pi / 2))
+                };
+                if (sim.valid(x_ + below.x, y_ + below.y) &&
+                    sim.contain_cell(x_ + below.x, y_ + below.y)) {
+                    auto [tcell, telem] = sim.get(x_ + below.x, y_ + below.y);
+                    if (telem.is_liquid() && telem != elem) {
+                        liquid_count++;
+                        liquid_density += telem.density;
+                    }
+                } else {
+                    empty_count++;
+                }
+                if (sim.valid(x_ + above.x, y_ + above.y) &&
+                    sim.contain_cell(x_ + above.x, y_ + above.y)) {
+                    auto [tcell, telem] = sim.get(x_ + above.x, y_ + above.y);
+                    if (telem.is_liquid() && telem.density > elem.density) {
+                        liquid_count++;
+                        liquid_density += telem.density;
+                    }
+                } else {
+                    empty_count++;
+                }
+                float liquid_drag   = 0.4f;
+                float vertical_rate = 0.0f;
+                if (sim.valid(x_ + l.x, y_ + l.y) &&
+                    sim.contain_cell(x_ + l.x, y_ + l.y)) {
+                    auto [tcell, telem] = sim.get(x_ + l.x, y_ + l.y);
+                    if (telem.is_liquid() && telem.density > elem.density) {
+                        liquid_count++;
+                        liquid_density += telem.density;
+                        glm::vec2 vel_hori =
+                            glm::normalize(glm::vec2(l)) *
+                            glm::dot(tcell.velocity, glm::vec2(l));
+                        vel_hori = (1 - vertical_rate) * vel_hori +
+                                   vertical_rate * tcell.velocity;
+                        if (glm::length(vel_hori) > glm::length(cell.velocity))
+                            cell.velocity =
+                                liquid_drag * vel_hori +
+                                (1.0f - liquid_drag) * cell.velocity;
+                    }
+                } else {
+                    empty_count++;
+                }
+                if (sim.valid(x_ + r.x, y_ + r.y) &&
+                    sim.contain_cell(x_ + r.x, y_ + r.y)) {
+                    auto [tcell, telem] = sim.get(x_ + r.x, y_ + r.y);
+                    if (telem.is_liquid() && telem.density > elem.density) {
+                        liquid_count++;
+                        liquid_density += telem.density;
+                        glm::vec2 vel_hori =
+                            glm::normalize(glm::vec2(r)) *
+                            glm::dot(tcell.velocity, glm::vec2(r));
+                        vel_hori = (1 - vertical_rate) * vel_hori +
+                                   vertical_rate * tcell.velocity;
+                        if (glm::length(vel_hori) > glm::length(cell.velocity))
+                            cell.velocity =
+                                liquid_drag * vel_hori +
+                                (1.0f - liquid_drag) * cell.velocity;
+                    }
+                } else {
+                    empty_count++;
+                }
+            }
+            if (liquid_count > empty_count) {
+                liquid_density /= liquid_count;
+                grav *= (elem.density - liquid_density) / elem.density;
+                cell.velocity *= 0.9f;
+            }
+        }
         cell.velocity += grav * delta;
         cell.velocity += cell.impact;
         cell.impact = {0.0f, 0.0f};
@@ -1168,9 +1241,9 @@ void epix::world::sand::components::update_cell(
             bool collided          = false;
             if (sim.valid(hit_x, hit_y)) {
                 auto [tcell, telem] = sim.get(hit_x, hit_y);
-                if (telem.grav_type == Element::GravType::SOLID ||
-                    telem.grav_type == Element::GravType::POWDER ||
-                    telem.grav_type == Element::GravType::LIQUID) {
+                if (telem.is_solid() || telem.is_powder() ||
+                    (telem.is_liquid() && telem.density > elem.density) ||
+                    telem == elem) {
                     collided = sim.collide(
                         raycast_result.new_x, raycast_result.new_y, hit_x, hit_y
                     );
@@ -1247,6 +1320,20 @@ void epix::world::sand::components::update_cell(
                             final_y = ty;
                             moved   = true;
                             break;
+                        } else {
+                            auto& telem = sim.get_elem(tx, ty);
+                            if (telem.is_liquid() &&
+                                telem.density < elem.density) {
+                                std::swap(*ncell, tcell);
+                                ncell = &tcell;
+                                ncell->velocity +=
+                                    idirs[i] *
+                                    sim.liquid_spread_setting.prefix / delta;
+                                final_x = tx;
+                                final_y = ty;
+                                moved   = true;
+                                break;
+                            }
                         }
                     }
                     if (!moved) {
@@ -1279,6 +1366,23 @@ void epix::world::sand::components::update_cell(
                                     final_x, final_y, tx_1, ty_1
                                 );
                             }
+                            if (sim.valid(
+                                    res_1.hit->first, res_1.hit->second
+                                ) &&
+                                sim.contain_cell(
+                                    res_1.hit->first, res_1.hit->second
+                                )) {
+                                auto [tcell, telem] = sim.get(
+                                    res_1.hit->first, res_1.hit->second
+                                );
+                                if (telem.is_liquid() &&
+                                    telem.density < elem.density) {
+                                    res_1.new_x = res_1.hit->first;
+                                    res_1.new_y = res_1.hit->second;
+                                    res_1.steps += 1;
+                                    res_1.hit = std::nullopt;
+                                }
+                            }
                             if (dis(gen) > 0.08f &&
                                 sim.valid(
                                     res_1.hit->first, res_1.hit->second
@@ -1289,8 +1393,7 @@ void epix::world::sand::components::update_cell(
                                 auto [tcell, telem] = sim.get(
                                     res_1.hit->first, res_1.hit->second
                                 );
-                                if (telem.grav_type ==
-                                        Element::GravType::POWDER &&
+                                if (telem.is_powder() &&
                                     telem.density < elem.density) {
                                     res_1.new_x = res_1.hit->first;
                                     res_1.new_y = res_1.hit->second;
@@ -1364,6 +1467,111 @@ void epix::world::sand::components::update_cell(
                 cell.velocity       = {0.0f, 0.0f};
             }
         }
+    } else if (elem.is_gas()) {
+        grav *= (elem.density - sim.air_density(x_, y_)) / elem.density;
+        cell.velocity += grav * delta;
+        // grav /= 4.0f; // this is for larger chunk reset time
+        cell.velocity *= 0.9f;
+        cell.inpos += cell.velocity * delta;
+        auto ncell  = &cell;
+        int delta_x = std::round(cell.inpos.x);
+        int delta_y = std::round(cell.inpos.y);
+        if (delta_x == 0 && delta_y == 0) {
+            return;
+        }
+        cell.inpos.x -= delta_x;
+        cell.inpos.y -= delta_y;
+        if (sim.max_travel) {
+            delta_x =
+                std::clamp(delta_x, -sim.max_travel->x, sim.max_travel->y);
+            delta_y =
+                std::clamp(delta_y, -sim.max_travel->x, sim.max_travel->y);
+        }
+        int tx              = x_ + delta_x;
+        int ty              = y_ + delta_y;
+        bool moved          = false;
+        auto raycast_result = sim.raycast_to(x_, y_, tx, ty);
+        if (raycast_result.steps) {
+            auto& tcell =
+                sim.get_cell(raycast_result.new_x, raycast_result.new_y);
+            std::swap(tcell, *ncell);
+            ncell   = &tcell;
+            final_x = raycast_result.new_x;
+            final_y = raycast_result.new_y;
+            moved   = true;
+        }
+        static thread_local std::random_device rd;
+        static thread_local std::mt19937 gen(rd());
+        static thread_local std::uniform_real_distribution<float> dis(
+            -0.1f, 0.1f
+        );
+        if (((!raycast_result.steps && raycast_result.hit) || dis(gen) > 0.05f
+            ) &&
+            glm::length(grav) > 0.0f) {
+            // try left and right
+            float grav_angle = std::atan2(grav.y, grav.x);
+            float vel_angle  = std::atan2(cell.velocity.y, cell.velocity.x);
+            float angle_diff = calculate_angle_diff(cell.velocity, grav);
+            if (std::abs(angle_diff) < std::numbers::pi / 2) {
+                glm::vec2 lb = {
+                    std::cos(grav_angle - std::numbers::pi / 2),
+                    std::sin(grav_angle - std::numbers::pi / 2)
+                };
+                glm::vec2 rb = {
+                    std::cos(grav_angle + std::numbers::pi / 2),
+                    std::sin(grav_angle + std::numbers::pi / 2)
+                };
+                glm::vec2 dirs[2];
+                bool lb_first = dis(gen) > 0;
+                if (lb_first) {
+                    dirs[0] = lb;
+                    dirs[1] = rb;
+                } else {
+                    dirs[0] = rb;
+                    dirs[1] = lb;
+                }
+                for (auto&& vel : dirs) {
+                    int delta_x = std::round(vel.x);
+                    int delta_y = std::round(vel.y);
+                    if (delta_x == 0 && delta_y == 0) {
+                        continue;
+                    }
+                    int tx = final_x + delta_x;
+                    int ty = final_y + delta_y;
+                    if (!sim.valid(tx, ty)) continue;
+                    auto& tcell = sim.get_cell(tx, ty);
+                    if (!tcell) {
+                        std::swap(*ncell, tcell);
+                        ncell   = &tcell;
+                        final_x = tx;
+                        final_y = ty;
+                        moved   = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (moved) {
+            ncell->not_move_count = 0;
+            sim.touch(x_ - 1, y_);
+            sim.touch(x_ + 1, y_);
+            sim.touch(x_, y_ - 1);
+            sim.touch(x_, y_ + 1);
+            sim.touch(final_x - 1, final_y);
+            sim.touch(final_x + 1, final_y);
+            sim.touch(final_x, final_y - 1);
+            sim.touch(final_x, final_y + 1);
+        }
+    }
+    float grav_len_s = grav.x * grav.x + grav.y * grav.y;
+    if (grav_len_s == 0) {
+        chunk.time_threshold = std::numeric_limits<int>::max();
+    } else {
+        chunk.time_threshold = std::max(
+            (int)(EPIX_WORLD_SAND_DEFAULT_CHUNK_RESET_TIME * 10000 / grav_len_s
+            ),
+            chunk.time_threshold
+        );
     }
 }
 EPIX_API void Simulation::update_multithread(float delta) {
@@ -1635,21 +1843,19 @@ EPIX_API bool Simulation::collide(int x, int y, int tx, int ty) {
     if (v_dot_d <= 0) return false;
     float m1 = elem.density;
     float m2 = telem.density;
-    if (telem.grav_type == Element::GravType::SOLID) {
+    if (telem.is_solid()) {
         m1 = 0;
     }
-    if (telem.grav_type == Element::GravType::POWDER && !tcell.freefall) {
+    if (telem.is_powder() && !tcell.freefall) {
         m1 *= 0.5f;
     }
-    if (telem.grav_type == Element::GravType::POWDER &&
-        elem.grav_type == Element::GravType::LIQUID &&
-        telem.density < elem.density) {
+    if (telem.is_powder() && elem.is_liquid() && telem.density < elem.density) {
         return true;
     }
-    if (elem.grav_type == Element::GravType::SOLID) {
+    if (elem.is_solid()) {
         m2 = 0;
     }
-    if (elem.grav_type == Element::GravType::LIQUID/*  &&
+    if (elem.is_liquid()/*  &&
         telem.grav_type == Element::GravType::SOLID */) {
         dx         = (float)(tx - x);
         dy         = (float)(ty - y);
@@ -1678,8 +1884,7 @@ EPIX_API bool Simulation::collide(int x, int y, int tx, int ty) {
     cell.velocity.y -= jfy * m2;
     tcell.velocity.x += jfx * m1;
     tcell.velocity.y += jfy * m1;
-    if (elem.grav_type == Element::GravType::LIQUID &&
-        telem.grav_type == Element::GravType::LIQUID) {
+    if (elem.is_liquid() && telem.is_liquid()) {
         auto new_cell_vel  = cell.velocity * 0.55f + tcell.velocity * 0.45f;
         auto new_tcell_vel = cell.velocity * 0.45f + tcell.velocity * 0.55f;
         cell.velocity      = new_cell_vel;
@@ -1697,6 +1902,6 @@ EPIX_API void Simulation::touch(int x, int y) {
     auto& cell = chunk.get(cell_x, cell_y);
     if (!cell) return;
     auto& elem = get_elem(x, y);
-    if (elem.grav_type == Element::GravType::SOLID) return;
+    if (elem.is_solid()) return;
     cell.freefall = true;
 }

@@ -1058,6 +1058,24 @@ void create_simulation(Command command) {
             .set_density(0.7f)
             .set_friction(0.3f)
     );
+    registry.register_elem(
+        Element::gas("smoke")
+            .set_color([]() {
+                static std::random_device rd;
+                static std::mt19937 gen(rd());
+                static std::uniform_real_distribution<float> dis(0.6f, 0.7f);
+                float r = dis(gen);
+                return glm::vec4(r, r, r, 0.3f);
+            })
+            .set_density(0.001f)
+            .set_friction(0.3f)
+    );
+    registry.register_elem(Element::liquid("oil")
+                               .set_color([]() {
+                                   return glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
+                               })
+                               .set_density(0.8f)
+                               .set_friction(0.0003f));
     Simulation simulation(std::move(registry), 16);
     const int simulation_size = 16;
     for (int i = -simulation_size; i < simulation_size; i++) {
