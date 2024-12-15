@@ -14,23 +14,40 @@
 
 namespace epix::world::sand::components {
 struct Element {
-    std::string name;
-    std::string description;
-    /**
-     * @brief GravType is an enum class that defines how the element reacts to
-     * gravity. Powder won't spread out as much as liquid, and gas will rise to
-     * the top.
-     */
-    enum class GravType {
+    enum class GravType : uint8_t {
         POWDER,
         LIQUID,
         SOLID,
         GAS,
-    } grav_type = GravType::SOLID;
+    } grav_type    = GravType::SOLID;
+    float density  = 0.0f;
+    float bouncing = 0.0f;
+    float friction = 0.0f;
+    std::string name;
+    std::string description = "";
     std::function<glm::vec4()> color_gen;
-    float density;
-    float bouncing;
-    float friction;
+
+    EPIX_API Element(const std::string& name, GravType type);
+    EPIX_API static Element solid(const std::string& name);
+    EPIX_API static Element liquid(const std::string& name);
+    EPIX_API static Element powder(const std::string& name);
+    EPIX_API static Element gas(const std::string& name);
+    EPIX_API Element& set_grav_type(GravType type);
+    EPIX_API Element& set_density(float density);
+    EPIX_API Element& set_bouncing(float bouncing);
+    EPIX_API Element& set_friction(float friction);
+    EPIX_API Element& set_description(const std::string& description);
+    EPIX_API Element& set_color(std::function<glm::vec4()> color_gen);
+    EPIX_API Element& set_color(const glm::vec4& color);
+    EPIX_API bool is_complete() const;
+    EPIX_API glm::vec4 gen_color() const;
+
+    EPIX_API bool operator==(const Element& other) const;
+    EPIX_API bool operator!=(const Element& other) const;
+    EPIX_API bool is_solid() const;
+    EPIX_API bool is_liquid() const;
+    EPIX_API bool is_powder() const;
+    EPIX_API bool is_gas() const;
 };
 struct CellDef {
     enum class DefIdentifier { Name, Id } identifier;

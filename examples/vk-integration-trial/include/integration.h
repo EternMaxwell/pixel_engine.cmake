@@ -1017,53 +1017,46 @@ void create_simulation(Command command) {
 
     ElemRegistry registry;
     registry.register_elem(
-        "sand",
-        Element{
-            "sand", "sand", Element::GravType::POWDER,
-            []() {
+        Element::powder("sand")
+            .set_color([]() {
                 static std::random_device rd;
                 static std::mt19937 gen(rd());
                 static std::uniform_real_distribution<float> dis(0.8f, 0.9f);
                 float r = dis(gen);
                 return glm::vec4(r, r, 0.0f, 1.0f);
-            },
-            3.0f, .0f, 0.3f
-        }
+            })
+            .set_density(3.0f)
+            .set_friction(0.3f)
     );
+    registry.register_elem(Element::liquid("water")
+                               .set_color([]() {
+                                   return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+                               })
+                               .set_density(1.0f)
+                               .set_friction(0.0003f));
     registry.register_elem(
-        "water",
-        Element{
-            "water", "water", Element::GravType::LIQUID,
-            []() { return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }, 1.0f, .0f,
-            .0003f
-        }
-    );
-    registry.register_elem(
-        "wall",
-        Element{
-            "wall", "wall", Element::GravType::SOLID,
-            []() {
+        Element::solid("wall")
+            .set_color([]() {
                 static std::random_device rd;
                 static std::mt19937 gen(rd());
                 static std::uniform_real_distribution<float> dis(0.28f, 0.32f);
                 float r = dis(gen);
                 return glm::vec4(r, r, r, 1.0f);
-            },
-            5.0f, 0.0f, .6f
-        }
+            })
+            .set_density(5.0f)
+            .set_friction(0.6f)
     );
     registry.register_elem(
-        Element{
-            "grind", "grind", Element::GravType::POWDER,
-            []() {
+        Element::powder("grind")
+            .set_color([]() {
                 static std::random_device rd;
                 static std::mt19937 gen(rd());
                 static std::uniform_real_distribution<float> dis(0.3f, 0.4f);
                 float r = dis(gen);
                 return glm::vec4(r, r, r, 1.0f);
-            },
-            0.7f, 0.0f, 0.3f
-        }
+            })
+            .set_density(0.7f)
+            .set_friction(0.3f)
     );
     Simulation simulation(std::move(registry), 16);
     const int simulation_size = 16;

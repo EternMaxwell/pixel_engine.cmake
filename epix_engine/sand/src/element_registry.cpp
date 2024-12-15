@@ -34,6 +34,12 @@ EPIX_API int ElemRegistry::register_elem(
         );
         return -1;
     }
+    if (!elem.is_complete()) {
+        elem_registry_logger->warn(
+            "Attempted to register incomplete element {}", name
+        );
+        return -1;
+    }
     uint32_t id      = elements.size();
     elemId_map[name] = id;
     elements.emplace_back(elem);
