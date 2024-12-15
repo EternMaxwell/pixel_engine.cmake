@@ -952,7 +952,7 @@ void epix::world::sand::components::update_cell(
                     moved   = true;
                 }
             }
-            if (!moved && grav != glm::vec2(0.0f, 0.0f)) {
+            if (!moved && glm::length(grav) > 0.0f) {
                 if (sim.powder_always_slide ||
                     (sim.valid(hit_x, hit_y) &&
                      !sim.get_cell(hit_x, hit_y).freefall)) {
