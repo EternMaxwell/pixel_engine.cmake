@@ -58,9 +58,7 @@ EPIX_API void Window::set_cursor(double x, double y) {
     glfwSetCursorPos(m_handle, x, y);
     m_cursor_pos = dvec2{x, y};
 }
-EPIX_API bool Window::focused() const {
-    return glfwGetWindowAttrib(m_handle, GLFW_FOCUSED);
-}
+EPIX_API bool Window::focused() const { return m_focused; }
 EPIX_API bool Window::is_fullscreen() const {
     return glfwGetWindowMonitor(m_handle) != nullptr;
 }
@@ -125,7 +123,25 @@ EPIX_API std::optional<Window> components::create_window(
         window, desc.title, desc.vsync, {desc.width, desc.height}, {x, y}
     };
 }
-EPIX_API void components::update_cursor(Window& window) {
+void update_focused(Window& window) {
+    auto* user_ptr = static_cast<std::pair<Entity, WindowThreadPool*>*>(
+        glfwGetWindowUserPointer(window.m_handle)
+    );
+    auto&& [entity, pool] = *user_ptr;
+    if (!window.m_get_focus) {
+        auto handle        = window.m_handle;
+        window.m_get_focus = pool->submit_task([handle]() {
+            return glfwGetWindowAttrib(handle, GLFW_FOCUSED) == GLFW_TRUE;
+        });
+    }
+    if (window.m_get_focus.has_value() &&
+        window.m_get_focus->wait_for(std::chrono::seconds(0)) ==
+            std::future_status::ready) {
+        window.m_focused = window.m_get_focus->get();
+        window.m_get_focus.reset();
+    }
+}
+void update_cursor(Window& window) {
     double x, y;
     glfwGetCursorPos(window.m_handle, &x, &y);
     if (x != window.m_cursor_pos.x || y != window.m_cursor_pos.y) {
@@ -137,15 +153,21 @@ EPIX_API void components::update_cursor(Window& window) {
     }
     window.m_cursor_pos = {x, y};
 }
-EPIX_API void components::update_size(Window& window) {
+void update_size(Window& window) {
     if (window.is_fullscreen()) return;
     int width, height;
     glfwGetWindowSize(window.m_handle, &width, &height);
     window.m_size = {width, height};
 }
-EPIX_API void components::update_pos(Window& window) {
+void update_pos(Window& window) {
     if (window.is_fullscreen()) return;
     int x, y;
     glfwGetWindowPos(window.m_handle, &x, &y);
     window.m_pos = {x, y};
+}
+EPIX_API void components::update_state(Window& window) {
+    update_cursor(window);
+    update_size(window);
+    update_pos(window);
+    update_focused(window);
 }

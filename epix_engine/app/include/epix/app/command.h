@@ -60,7 +60,9 @@ struct EntityCommand {
      */
     template <typename... Args>
     void emplace(Args&&... args) {
-        app_tools::registry_emplace(m_registry, m_entity.id, args...);
+        app_tools::registry_emplace(
+            m_registry, m_entity.id, std::forward<Args>(args)...
+        );
     }
 
     template <typename... Args>

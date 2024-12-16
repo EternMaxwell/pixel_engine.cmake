@@ -643,42 +643,75 @@ void create_simulation(Command command) {
 
     ElemRegistry registry;
     registry.register_elem(
-        "sand",
-        Element{
-            "sand", "sand", Element::GravType::POWDER,
-            []() {
+        Element::powder("sand")
+            .set_color([]() {
                 static std::random_device rd;
                 static std::mt19937 gen(rd());
                 static std::uniform_real_distribution<float> dis(0.8f, 0.9f);
                 float r = dis(gen);
                 return glm::vec4(r, r, 0.0f, 1.0f);
-            },
-            1.0f, .0f, 0.3f
-        }
+            })
+            .set_density(3.0f)
+            .set_friction(0.3f)
     );
+    registry.register_elem(Element::liquid("water")
+                               .set_color([]() {
+                                   return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+                               })
+                               .set_density(1.0f)
+                               .set_friction(0.0003f));
     registry.register_elem(
-        "water",
-        Element{
-            "water", "water", Element::GravType::LIQUID,
-            []() { return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }, 1.0f, .01f, .01f
-        }
-    );
-    registry.register_elem(
-        "wall",
-        Element{
-            "wall", "wall", Element::GravType::SOLID,
-            []() {
+        Element::solid("wall")
+            .set_color([]() {
                 static std::random_device rd;
                 static std::mt19937 gen(rd());
                 static std::uniform_real_distribution<float> dis(0.28f, 0.32f);
                 float r = dis(gen);
                 return glm::vec4(r, r, r, 1.0f);
-            },
-            1.0f, 0.0f, .6f
-        }
+            })
+            .set_density(5.0f)
+            .set_friction(0.6f)
     );
-    Simulation simulation(std::move(registry), 64);
-    const int simulation_size = 1;
+    registry.register_elem(
+        Element::powder("grind")
+            .set_color([]() {
+                static std::random_device rd;
+                static std::mt19937 gen(rd());
+                static std::uniform_real_distribution<float> dis(0.3f, 0.4f);
+                float r = dis(gen);
+                return glm::vec4(r, r, r, 1.0f);
+            })
+            .set_density(0.7f)
+            .set_friction(0.3f)
+    );
+    registry.register_elem(
+        Element::gas("smoke")
+            .set_color([]() {
+                static std::random_device rd;
+                static std::mt19937 gen(rd());
+                static std::uniform_real_distribution<float> dis(0.6f, 0.7f);
+                float r = dis(gen);
+                return glm::vec4(r, r, r, 0.3f);
+            })
+            .set_density(0.001f)
+            .set_friction(0.3f)
+    );
+    registry.register_elem(
+        Element::gas("steam")
+            .set_color([]() {
+                return glm::vec4(1.0f, 1.0f, 1.0f, 0.3f);
+            })
+            .set_density(0.0007f)
+            .set_friction(0.3f)
+    );
+    registry.register_elem(Element::liquid("oil")
+                               .set_color([]() {
+                                   return glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
+                               })
+                               .set_density(0.8f)
+                               .set_friction(0.0003f));
+    Simulation simulation(std::move(registry), 16);
+    const int simulation_size = 16;
     for (int i = -simulation_size; i < simulation_size; i++) {
         for (int j = -simulation_size; j < simulation_size; j++) {
             simulation.load_chunk(i, j);
@@ -688,19 +721,21 @@ void create_simulation(Command command) {
          y < -simulation_size * simulation.chunk_size() + 12; y++) {
         for (int x = -simulation_size * simulation.chunk_size();
              x < simulation_size * simulation.chunk_size(); x++) {
-            if (simulation.valid(x, y))
-                simulation.create(x, y, CellDef("wall"));
+            if (simulation.valid(x, y + 200))
+                simulation.create(x, y + 200, CellDef("wall"));
         }
     }
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<int> dis(0, 20);
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
+        spdlog::info("Creating chunk at {}, {}", pos.x, pos.y);
         for (int i = 0; i < chunk.size().x; i++) {
             for (int j = 0; j < chunk.size().y; j++) {
-                static std::random_device rd;
-                static std::mt19937 gen(rd());
-                static std::uniform_int_distribution<int> dis(0, 20);
                 int res = dis(gen);
-                if (res == 9)
-                    chunk.create(i, j, CellDef("sand"), simulation.registry());
+                // if (res == 9)
+                //     chunk.create(i, j, CellDef("sand"),
+                //     simulation.registry());
                 // else if (res == 8)
                 //     chunk.create(i, j, CellDef("wall"),
                 //     simulation.registry());
@@ -713,15 +748,40 @@ void create_simulation(Command command) {
     command.spawn(std::move(simulation));
 }
 
-void create_powder_from_click(
+static constexpr float scale = 2.0f;
+
+void create_element_from_click(
     Query<Get<Simulation>> query,
-    Query<Get<const Window, const ButtonInput<MouseButton>>> window_query,
-    ResMut<epix::imgui::ImGuiContext> imgui_context
+    Query<
+        Get<const Window,
+            const ButtonInput<MouseButton>,
+            const ButtonInput<KeyCode>>> window_query,
+    ResMut<epix::imgui::ImGuiContext> imgui_context,
+    Local<std::optional<int>> elem_id
 ) {
     if (!query) return;
     if (!window_query) return;
-    auto [simulation]          = query.single();
-    auto [window, mouse_input] = window_query.single();
+    auto [simulation]                     = query.single();
+    auto [window, mouse_input, key_input] = window_query.single();
+    if (!elem_id->has_value()) {
+        *elem_id = 0;
+    }
+    if (key_input.just_pressed(epix::input::KeyEqual)) {
+        elem_id->value() =
+            (elem_id->value() + 1) % simulation.registry().count();
+        spdlog::info(
+            "Current element: {}",
+            simulation.registry().elem_name(elem_id->value())
+        );
+    } else if (key_input.just_pressed(epix::input::KeyMinus)) {
+        elem_id->value() =
+            (elem_id->value() - 1 + simulation.registry().count()) %
+            simulation.registry().count();
+        spdlog::info(
+            "Current element: {}",
+            simulation.registry().elem_name(elem_id->value())
+        );
+    }
     if (imgui_context.has_value()) {
         ImGui::SetCurrentContext(imgui_context->context);
         if (ImGui::GetIO().WantCaptureMouse) return;
@@ -733,7 +793,6 @@ void create_powder_from_click(
             cursor.x - window.get_size().width / 2,
             window.get_size().height / 2 - cursor.y, 0.0f, 1.0f
         );
-        float scale                 = 8.0f;
         glm::mat4 viewport_to_world = glm::inverse(glm::scale(
             glm::translate(glm::mat4(1.0f), {0.0f, 0.0f, 0.0f}),
             {scale, scale, 1.0f}
@@ -741,11 +800,11 @@ void create_powder_from_click(
         glm::vec4 world_pos         = viewport_to_world * cursor_pos;
         int cell_x                  = static_cast<int>(world_pos.x);
         int cell_y                  = static_cast<int>(world_pos.y);
-        for (int tx = cell_x - 1; tx < cell_x + 1; tx++) {
-            for (int ty = cell_y - 1; ty < cell_y + 1; ty++) {
+        for (int tx = cell_x - 8; tx < cell_x + 8; tx++) {
+            for (int ty = cell_y - 8; ty < cell_y + 8; ty++) {
                 if (simulation.valid(tx, ty)) {
                     if (mouse_input.pressed(epix::input::MouseButton1)) {
-                        simulation.create(tx, ty, CellDef("sand"));
+                        simulation.create(tx, ty, CellDef(elem_id->value()));
                     } else if (mouse_input.pressed(epix::input::MouseButton2)) {
                         simulation.remove(tx, ty);
                     }
@@ -785,13 +844,48 @@ void update_simulation(
 ) {
     if (!query) return;
     if (!timer->has_value()) {
-        *timer = RepeatTimer(1.0 / 30.0);
+        *timer = RepeatTimer(1.0 / 60.0);
     }
     auto [simulation] = query.single();
     auto count        = timer->value().tick();
-    for (int i = 0; i < count; i++) {
-        simulation.update(timer->value().interval);
+    for (int i = 0; i <= count; i++) {
+        simulation.update_multithread((float)timer->value().interval);
         return;
+    }
+}
+
+void step_simulation(
+    Query<Get<Simulation>> query, Query<Get<const ButtonInput<KeyCode>>> query2
+) {
+    if (!query) return;
+    if (!query2) return;
+    auto [simulation] = query.single();
+    auto [key_input]  = query2.single();
+    if (key_input.just_pressed(epix::input::KeySpace)) {
+        spdlog::info("Step simulation");
+        simulation.update((float)1.0 / 60.0);
+    } else if (key_input.just_pressed(epix::input::KeyC) ||
+               (key_input.pressed(epix::input::KeyC) &&
+                key_input.pressed(epix::input::KeyLeftAlt))) {
+        spdlog::info("Step simulation chunk");
+        simulation.init_update_state();
+        simulation.update_chunk((float)1.0 / 60.0);
+        if (simulation.next_chunk()) {
+            simulation.update_chunk((float)1.0 / 60.0);
+        } else {
+            simulation.deinit_update_state();
+        }
+    } else if (key_input.just_pressed(epix::input::KeyV) ||
+               (key_input.pressed(epix::input::KeyV) &&
+                key_input.pressed(epix::input::KeyLeftAlt))) {
+        spdlog::info("Reset simulation");
+        simulation.init_update_state();
+        simulation.update_cell((float)1.0 / 60.0);
+        if (simulation.next_cell()) {
+            simulation.update_cell((float)1.0 / 60.0);
+        } else if (!simulation.next_chunk()) {
+            simulation.deinit_update_state();
+        }
     }
 }
 
@@ -814,7 +908,6 @@ void render_simulation(
         static_cast<float>(swap_chain.extent.height) / 2.0f,
         -static_cast<float>(swap_chain.extent.height) / 2.0f, 1000.0f, -1000.0f
     );
-    float scale         = 8.0f;
     uniform_buffer.view = glm::scale(glm::mat4(1.0f), {scale, scale, 1.0f});
     renderer.begin(device, swap_chain, queue, uniform_buffer);
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
@@ -826,11 +919,47 @@ void render_simulation(
         for (int i = 0; i < chunk.size().x; i++) {
             for (int j = 0; j < chunk.size().y; j++) {
                 auto& elem = chunk.get(i, j);
-                if (elem) renderer.draw(elem.color, {i, j});
+                if (elem)
+                    renderer.draw(
+                        elem.freefall ? elem.color : elem.color * 0.5f, {i, j}
+                    );
             }
         }
     }
     renderer.end();
+}
+
+void print_hover_data(
+    Query<Get<const Simulation>> query,
+    Query<Get<const Window>, With<PrimaryWindow>> window_query
+) {
+    if (!query) return;
+    if (!window_query) return;
+    auto [simulation] = query.single();
+    auto [window]     = window_query.single();
+    auto cursor       = window.get_cursor();
+    if (!window.focused()) return;
+    glm::vec4 cursor_pos = glm::vec4(
+        cursor.x - window.get_size().width / 2,
+        window.get_size().height / 2 - cursor.y, 0.0f, 1.0f
+    );
+    glm::mat4 viewport_to_world = glm::inverse(glm::scale(
+        glm::translate(glm::mat4(1.0f), {0.0f, 0.0f, 0.0f}),
+        {scale, scale, 1.0f}
+    ));
+    glm::vec4 world_pos         = viewport_to_world * cursor_pos;
+    int cell_x                  = static_cast<int>(world_pos.x + 0.5f);
+    int cell_y                  = static_cast<int>(world_pos.y + 0.5f);
+    if (simulation.valid(cell_x, cell_y) &&
+        simulation.contain_cell(cell_x, cell_y)) {
+        auto [cell, elem] = simulation.get(cell_x, cell_y);
+        spdlog::info(
+            "Hovering over cell ({}, {}) with element {}, freefall: {}, "
+            "velocity: ({}, {}) ",
+            cell_x, cell_y, elem.name, cell.freefall, cell.velocity.x,
+            cell.velocity.y
+        );
+    }
 }
 
 void render_simulation_cell_vel(
@@ -847,7 +976,6 @@ void render_simulation_cell_vel(
     auto [line_drawer]               = line_drawer_query.single();
     auto [simulation]                = query.single();
     line_drawer.begin(device, queue, swap_chain);
-    float scale = 8.0f;
     float alpha = 0.3f;
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
         glm::mat4 model = glm::translate(
@@ -873,6 +1001,69 @@ void render_simulation_cell_vel(
     line_drawer.end();
 }
 
+void render_simulation_state(
+    Query<Get<const Simulation>> query,
+    Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
+    Query<Get<epix::render::debug::vulkan::components::LineDrawer>>
+        line_drawer_query
+) {
+    using namespace epix::render::debug::vulkan::components;
+    if (!query) return;
+    if (!context_query) return;
+    if (!line_drawer_query) return;
+    auto [device, swap_chain, queue] = context_query.single();
+    auto [line_drawer]               = line_drawer_query.single();
+    auto [simulation]                = query.single();
+    line_drawer.begin(device, queue, swap_chain);
+    float alpha = 0.5f;
+    if (simulation.updating_state().is_updating) {
+        auto&& post = simulation.updating_state().current_chunk();
+        if (post) {
+            auto&& pos      = post.value();
+            auto& chunk     = simulation.chunk_map().get_chunk(pos.x, pos.y);
+            glm::mat4 model = glm::translate(
+                glm::mat4(1.0f), {pos.x * simulation.chunk_size() * scale,
+                                  pos.y * simulation.chunk_size() * scale, 0.0f}
+            );
+            model           = glm::scale(model, {scale, scale, 1.0f});
+            glm::vec4 color = {0.0f, 0.0f, 1.0f, alpha / 2};
+            line_drawer.setModel(model);
+            line_drawer.drawLine(
+                {0.0f, 0.0f, 0.0f},
+                {0.0f, static_cast<float>(simulation.chunk_size()), 0.0f}, color
+            );
+            line_drawer.drawLine(
+                {0.0f, 0.0f, 0.0f},
+                {static_cast<float>(simulation.chunk_size()), 0.0f, 0.0f}, color
+            );
+            line_drawer.drawLine(
+                {static_cast<float>(simulation.chunk_size()), 0.0f, 0.0f},
+                {static_cast<float>(simulation.chunk_size()),
+                 static_cast<float>(simulation.chunk_size()), 0.0f},
+                color
+            );
+            line_drawer.drawLine(
+                {0.0f, static_cast<float>(simulation.chunk_size()), 0.0f},
+                {static_cast<float>(simulation.chunk_size()),
+                 static_cast<float>(simulation.chunk_size()), 0.0f},
+                color
+            );
+            if (chunk.should_update()) {
+                color    = {1.0f, 0.0f, 0.0f, alpha};
+                float x1 = chunk.updating_area[0];
+                float x2 = chunk.updating_area[1] + 1;
+                float y1 = chunk.updating_area[2];
+                float y2 = chunk.updating_area[3] + 1;
+                line_drawer.drawLine({x1, y1, 0.0f}, {x2, y1, 0.0f}, color);
+                line_drawer.drawLine({x2, y1, 0.0f}, {x2, y2, 0.0f}, color);
+                line_drawer.drawLine({x2, y2, 0.0f}, {x1, y2, 0.0f}, color);
+                line_drawer.drawLine({x1, y2, 0.0f}, {x1, y1, 0.0f}, color);
+            }
+        }
+    }
+    line_drawer.end();
+}
+
 void render_simulation_chunk_outline(
     Query<Get<const Simulation>> query,
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
@@ -887,37 +1078,46 @@ void render_simulation_chunk_outline(
     auto [line_drawer]               = line_drawer_query.single();
     auto [simulation]                = query.single();
     line_drawer.begin(device, queue, swap_chain);
-    float scale = 8.0f;
     float alpha = 0.3f;
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
         glm::mat4 model = glm::translate(
             glm::mat4(1.0f), {pos.x * simulation.chunk_size() * scale,
                               pos.y * simulation.chunk_size() * scale, 0.0f}
         );
-        model = glm::scale(model, {scale, scale, 1.0f});
+        model           = glm::scale(model, {scale, scale, 1.0f});
+        glm::vec4 color = {1.0f, 1.0f, 1.0f, alpha / 2};
         line_drawer.setModel(model);
         line_drawer.drawLine(
             {0.0f, 0.0f, 0.0f},
-            {0.0f, static_cast<float>(simulation.chunk_size()), 0.0f},
-            {1.0f, 1.0f, 1.0f, alpha}
+            {0.0f, static_cast<float>(simulation.chunk_size()), 0.0f}, color
         );
         line_drawer.drawLine(
             {0.0f, 0.0f, 0.0f},
-            {static_cast<float>(simulation.chunk_size()), 0.0f, 0.0f},
-            {1.0f, 1.0f, 1.0f, alpha}
+            {static_cast<float>(simulation.chunk_size()), 0.0f, 0.0f}, color
         );
         line_drawer.drawLine(
             {static_cast<float>(simulation.chunk_size()), 0.0f, 0.0f},
             {static_cast<float>(simulation.chunk_size()),
              static_cast<float>(simulation.chunk_size()), 0.0f},
-            {1.0f, 1.0f, 1.0f, alpha}
+            color
         );
         line_drawer.drawLine(
             {0.0f, static_cast<float>(simulation.chunk_size()), 0.0f},
             {static_cast<float>(simulation.chunk_size()),
              static_cast<float>(simulation.chunk_size()), 0.0f},
-            {1.0f, 1.0f, 1.0f, alpha}
+            color
         );
+        if (chunk.should_update()) {
+            color    = {1.0f, 0.0f, 0.0f, alpha};
+            float x1 = chunk.updating_area[0];
+            float x2 = chunk.updating_area[1] + 1;
+            float y1 = chunk.updating_area[2];
+            float y2 = chunk.updating_area[3] + 1;
+            line_drawer.drawLine({x1, y1, 0.0f}, {x2, y1, 0.0f}, color);
+            line_drawer.drawLine({x2, y1, 0.0f}, {x2, y2, 0.0f}, color);
+            line_drawer.drawLine({x2, y2, 0.0f}, {x1, y2, 0.0f}, color);
+            line_drawer.drawLine({x1, y2, 0.0f}, {x1, y1, 0.0f}, color);
+        }
     }
     line_drawer.end();
 }
@@ -959,17 +1159,23 @@ struct VK_TrialPlugin : Plugin {
         // app.add_system(Startup, create_text);
         // app.add_system(Startup, create_pixel_block);
         // app.add_system(Render, draw_lines);
-        app.insert_state(SimulateState::Running);
+        app.insert_state(SimulateState::Paused);
         // app.add_plugin(Box2dTestPlugin{});
         app.add_system(Startup, create_simulation);
-        app.add_system(Update, toggle_simulation);
-        app.add_system(Update, create_powder_from_click, update_simulation)
+        app.add_system(
+            Update, toggle_simulation, create_element_from_click /* ,
+             print_hover_data */
+        );
+        app.add_system(Update, update_simulation)
             .chain()
             .in_state(SimulateState::Running);
+        app.add_system(Update, step_simulation).in_state(SimulateState::Paused);
         app.add_system(PreUpdate, toggle_full_screen);
         app.add_system(
-               Render, render_simulation, render_simulation_chunk_outline,
-               render_simulation_cell_vel
+               Render, render_simulation, render_simulation_chunk_outline /* ,
+                render_simulation_cell_vel */
+               ,
+               render_simulation_state
         )
             .chain()
             .before(render_bodies, render_pixel_block);
@@ -984,7 +1190,7 @@ void run() {
     app.add_plugin(epix::input::InputPlugin{});
     app.add_plugin(epix::render_vk::RenderVKPlugin{});
     app.add_plugin(epix::render::debug::vulkan::DebugRenderPlugin{});
-    // app.add_plugin(pixel_engine::font::FontPlugin{});
+    app.add_plugin(epix::font::FontPlugin{});
     app.add_plugin(vk_trial::VK_TrialPlugin{});
     app.add_plugin(epix::imgui::ImGuiPluginVK{});
     app.add_plugin(epix::render::pixel::PixelRenderPlugin{});
