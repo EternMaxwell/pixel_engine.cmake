@@ -16,6 +16,7 @@ add_subdirectory(debug_draw)
 add_subdirectory(font)
 add_subdirectory(sprite)
 add_subdirectory(pixel_render)
+add_subdirectory(physics2d)
 add_subdirectory(sand)
 
 # BUILD STATIC
@@ -43,6 +44,7 @@ target_link_libraries (epix_engine PUBLIC epix::imgui)
 target_link_libraries (epix_engine PUBLIC epix::render::font)
 target_link_libraries (epix_engine PUBLIC epix::render::sprite)
 target_link_libraries (epix_engine PUBLIC epix::render::pixel)
+target_link_libraries (epix_engine PUBLIC epix::physics::2d)
 target_link_libraries (epix_engine PUBLIC epix::world::sand)
 add_library(epix ALIAS epix_engine)
 
@@ -67,6 +69,7 @@ target_link_libraries (epix_engine_shared PUBLIC BSThreadPool)
 target_link_libraries (epix_engine_shared PUBLIC glm::glm)
 target_link_libraries (epix_engine_shared PUBLIC freetype)
 target_link_libraries (epix_engine_shared PUBLIC VulkanMemoryAllocator)
+target_link_libraries (epix_engine_shared PUBLIC earcut.hpp)
 
 set_target_properties(epix_engine_shared PROPERTIES OUTPUT_NAME epix)
 
