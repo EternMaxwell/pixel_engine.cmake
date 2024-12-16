@@ -847,7 +847,7 @@ void update_simulation(
     }
     auto [simulation] = query.single();
     auto count        = timer->value().tick();
-    for (int i = 0; i <= count; i++) {
+    for (int i = 0; i < count; i++) {
         simulation.update_multithread((float)timer->value().interval);
         return;
     }
@@ -1063,6 +1063,8 @@ void render_simulation_state(
     line_drawer.end();
 }
 
+constexpr bool render_collision_outline = false;
+
 void render_simulation_chunk_outline(
     Query<Get<const Simulation>> query,
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
@@ -1106,17 +1108,21 @@ void render_simulation_chunk_outline(
              static_cast<float>(simulation.chunk_size()), 0.0f},
             color
         );
-        auto collision_outline =
-            epix::world::sand_physics::get_chunk_collision(simulation, chunk);
-        for (auto&& outlines : collision_outline) {
-            for (auto&& outline : outlines) {
-                for (size_t i = 0; i < outline.size(); i++) {
-                    auto start = outline[i];
-                    auto end   = outline[(i + 1) % outline.size()];
-                    line_drawer.drawLine(
-                        {start.x, start.y, 0.0f}, {end.x, end.y, 0.0f},
-                        {0.0f, 1.0f, 0.0f, alpha}
-                    );
+        if constexpr (render_collision_outline) {
+            auto collision_outline =
+                epix::world::sand_physics::get_chunk_collision(
+                    simulation, chunk
+                );
+            for (auto&& outlines : collision_outline) {
+                for (auto&& outline : outlines) {
+                    for (size_t i = 0; i < outline.size(); i++) {
+                        auto start = outline[i];
+                        auto end   = outline[(i + 1) % outline.size()];
+                        line_drawer.drawLine(
+                            {start.x, start.y, 0.0f}, {end.x, end.y, 0.0f},
+                            {0.0f, 1.0f, 0.0f, alpha}
+                        );
+                    }
                 }
             }
         }

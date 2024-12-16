@@ -3,7 +3,7 @@
 
 #include "epix/world/sand.h"
 
-#define EPIX_WORLD_SAND_DEFAULT_CHUNK_RESET_TIME 32i32
+#define EPIX_WORLD_SAND_DEFAULT_CHUNK_RESET_TIME 16i32
 
 using namespace epix::world::sand::components;
 
@@ -1567,7 +1567,7 @@ void epix::world::sand::components::update_cell(
                     int ty = final_y + delta_y;
                     if (!sim.valid(tx, ty)) continue;
                     auto [tcell, telem] = sim.get(tx, ty);
-                    if (!tcell || telem.is_gas()) {
+                    if (!tcell || (telem.is_gas() && telem != elem)) {
                         std::swap(*ncell, tcell);
                         ncell   = &tcell;
                         final_x = tx;
