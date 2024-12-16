@@ -1,5 +1,7 @@
 #pragma once
 
+#include <epix/common.h>
+
 #include <earcut.hpp>
 #include <glm/glm.hpp>
 #include <stack>
@@ -9,21 +11,21 @@ namespace mapbox {
 namespace util {
 template <>
 struct nth<0, glm::vec2> {
-    static float get(const glm::dvec2& t) { return t.x; }
+    EPIX_API static float get(const glm::dvec2& t) { return t.x; }
 };
 
 template <>
 struct nth<1, glm::vec2> {
-    static float get(const glm::dvec2& t) { return t.y; }
+    EPIX_API static float get(const glm::dvec2& t) { return t.y; }
 };
 
 template <>
 struct nth<0, glm::ivec2> {
-    static int get(const glm::dvec2& t) { return t.x; }
+    EPIX_API static int get(const glm::dvec2& t) { return t.x; }
 };
 template <>
 struct nth<1, glm::ivec2> {
-    static int get(const glm::dvec2& t) { return t.y; }
+    EPIX_API static int get(const glm::dvec2& t) { return t.y; }
 };
 }  // namespace util
 }  // namespace mapbox
@@ -40,7 +42,7 @@ struct binary_grid {
     const int width, height;
     const int column;
 
-    binary_grid(int width, int height);
+    EPIX_API binary_grid(int width, int height);
     template <HasOutline T>
     binary_grid(const T& pixelbin)
         : width(pixelbin.size().x),
@@ -53,13 +55,13 @@ struct binary_grid {
             }
         }
     }
-    void set(int x, int y, bool value);
-    bool contains(int x, int y) const;
-    glm::ivec2 size() const;
-    binary_grid& operator&=(const binary_grid& rhs);
-    binary_grid& operator|=(const binary_grid& rhs);
-    binary_grid& operator^=(const binary_grid& rhs);
-    binary_grid sub(int x, int y, int w, int h) const;
+    EPIX_API void set(int x, int y, bool value);
+    EPIX_API bool contains(int x, int y) const;
+    EPIX_API glm::ivec2 size() const;
+    EPIX_API binary_grid& operator&=(const binary_grid& rhs);
+    EPIX_API binary_grid& operator|=(const binary_grid& rhs);
+    EPIX_API binary_grid& operator^=(const binary_grid& rhs);
+    EPIX_API binary_grid sub(int x, int y, int w, int h) const;
 };
 
 template <typename T>
@@ -72,10 +74,10 @@ concept CreateSub = requires(T t) {
     { t.sub(0i32, 0i32, 1i32, 1i32) } -> std::same_as<T>;
 };
 
-binary_grid operator&(const binary_grid& lhs, const binary_grid& rhs);
-binary_grid operator|(const binary_grid& lhs, const binary_grid& rhs);
-binary_grid operator^(const binary_grid& lhs, const binary_grid& rhs);
-binary_grid operator~(const binary_grid& lhs);
+EPIX_API binary_grid operator&(const binary_grid& lhs, const binary_grid& rhs);
+EPIX_API binary_grid operator|(const binary_grid& lhs, const binary_grid& rhs);
+EPIX_API binary_grid operator^(const binary_grid& lhs, const binary_grid& rhs);
+EPIX_API binary_grid operator~(const binary_grid& lhs);
 
 /**
  * @brief Get the outland of a binary grid
@@ -391,11 +393,11 @@ std::vector<std::vector<glm::ivec2>> get_polygon(
 }
 
 template <typename T>
-    requires HasOutline<T> && CreateSub<T>
+    requires HasOutline<T>
 std::vector<std::vector<std::vector<glm::ivec2>>> get_polygon_multi(
     const T& pixelbin, bool include_diagonal = false
 ) {
-    auto split_bin = split_if_multiple(pixelbin, include_diagonal);
+    auto split_bin = split_if_multiple(binary_grid(pixelbin), include_diagonal);
     std::vector<std::vector<std::vector<glm::ivec2>>> result;
     for (auto& bin : split_bin) {
         result.emplace_back(std::move(get_polygon(bin, include_diagonal)));
@@ -432,11 +434,11 @@ std::vector<std::vector<glm::ivec2>> get_polygon_simplified(
 }
 
 template <typename T>
-    requires HasOutline<T> && CreateSub<T>
+    requires HasOutline<T>
 std::vector<std::vector<std::vector<glm::ivec2>>> get_polygon_simplified_multi(
     const T& pixelbin, float epsilon = 0.5f, bool include_diagonal = false
 ) {
-    auto split_bin = split_if_multiple(pixelbin, include_diagonal);
+    auto split_bin = split_if_multiple(binary_grid(pixelbin), include_diagonal);
     std::vector<std::vector<std::vector<glm::ivec2>>> result;
     for (auto& bin : split_bin) {
         result.emplace_back(

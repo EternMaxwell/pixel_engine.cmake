@@ -16,14 +16,15 @@ add_subdirectory(debug_draw)
 add_subdirectory(font)
 add_subdirectory(sprite)
 add_subdirectory(pixel_render)
-add_subdirectory(physics2d)
 add_subdirectory(sand)
+add_subdirectory(physics2d)
+add_subdirectory(sand_physics)
 
 # BUILD STATIC
 add_library(epix_engine STATIC ${MODULE_SOURCES})
+# THIRD PARTY LIBRARIES
 target_include_directories(epix_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(epix_engine PUBLIC ../libs/stb)
-target_link_libraries (epix_engine PUBLIC epix_common)
 target_link_libraries (epix_engine PUBLIC glfw)
 target_link_libraries (epix_engine PUBLIC OpenGL::GL)
 target_link_libraries (epix_engine PUBLIC glad)
@@ -35,17 +36,23 @@ target_link_libraries (epix_engine PUBLIC BSThreadPool)
 target_link_libraries (epix_engine PUBLIC glm::glm)
 target_link_libraries (epix_engine PUBLIC freetype)
 target_link_libraries (epix_engine PUBLIC VulkanMemoryAllocator)
+# EPIX CORE LIBRARIES
+target_link_libraries (epix_engine PUBLIC epix_common)
 target_link_libraries (epix_engine PUBLIC epix::app)
 target_link_libraries (epix_engine PUBLIC epix::window)
 target_link_libraries (epix_engine PUBLIC epix::input)
+# EPIX RENDER LIBRARIES
 target_link_libraries (epix_engine PUBLIC epix::render::vulkan)
 target_link_libraries (epix_engine PUBLIC epix::render::debug)
 target_link_libraries (epix_engine PUBLIC epix::imgui)
 target_link_libraries (epix_engine PUBLIC epix::render::font)
 target_link_libraries (epix_engine PUBLIC epix::render::sprite)
 target_link_libraries (epix_engine PUBLIC epix::render::pixel)
-target_link_libraries (epix_engine PUBLIC epix::physics::2d)
+# EPIX WORLD LIBRARIES
 target_link_libraries (epix_engine PUBLIC epix::world::sand)
+target_link_libraries (epix_engine PUBLIC epix::physics::2d)
+target_link_libraries (epix_engine PUBLIC epix::world::sand_physics)
+# EPIX ALIAS LIBRARY
 add_library(epix ALIAS epix_engine)
 
 # BUILD SHARED

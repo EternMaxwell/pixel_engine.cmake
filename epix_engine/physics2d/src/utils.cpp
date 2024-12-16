@@ -3,7 +3,8 @@
 using namespace epix::physics2d;
 using namespace epix::physics2d::utils;
 
-binary_grid utils::operator&(const binary_grid& lhs, const binary_grid& rhs) {
+EPIX_API binary_grid
+utils::operator&(const binary_grid& lhs, const binary_grid& rhs) {
     binary_grid result(lhs.width, lhs.height);
     for (int i = 0; i < lhs.pixels.size(); i++) {
         result.pixels[i] = lhs.pixels[i] & rhs.pixels[i];
@@ -11,7 +12,8 @@ binary_grid utils::operator&(const binary_grid& lhs, const binary_grid& rhs) {
     return result;
 }
 
-binary_grid utils::operator|(const binary_grid& lhs, const binary_grid& rhs) {
+EPIX_API binary_grid
+utils::operator|(const binary_grid& lhs, const binary_grid& rhs) {
     binary_grid result(lhs.width, lhs.height);
     for (int i = 0; i < lhs.pixels.size(); i++) {
         result.pixels[i] = lhs.pixels[i] | rhs.pixels[i];
@@ -19,7 +21,8 @@ binary_grid utils::operator|(const binary_grid& lhs, const binary_grid& rhs) {
     return result;
 }
 
-binary_grid utils::operator^(const binary_grid& lhs, const binary_grid& rhs) {
+EPIX_API binary_grid
+utils::operator^(const binary_grid& lhs, const binary_grid& rhs) {
     binary_grid result(lhs.width, lhs.height);
     for (int i = 0; i < lhs.pixels.size(); i++) {
         result.pixels[i] = lhs.pixels[i] ^ rhs.pixels[i];
@@ -27,7 +30,7 @@ binary_grid utils::operator^(const binary_grid& lhs, const binary_grid& rhs) {
     return result;
 }
 
-binary_grid utils::operator~(const binary_grid& lhs) {
+EPIX_API binary_grid utils::operator~(const binary_grid& lhs) {
     binary_grid result(lhs.width, lhs.height);
     for (int i = 0; i < lhs.pixels.size(); i++) {
         result.pixels[i] = ~lhs.pixels[i];
@@ -35,7 +38,7 @@ binary_grid utils::operator~(const binary_grid& lhs) {
     return result;
 }
 
-binary_grid utils::binary_grid::sub(int x, int y, int w, int h) const {
+EPIX_API binary_grid utils::binary_grid::sub(int x, int y, int w, int h) const {
     binary_grid result(w, h);
     for (int i = 0; i < w; i++) {
         for (int j = 0; j < h; j++) {
@@ -45,9 +48,7 @@ binary_grid utils::binary_grid::sub(int x, int y, int w, int h) const {
     return result;
 }
 
-constexpr int size = (9 >> 5) + (9 & 31 ? 1 : 0);
-
-binary_grid::binary_grid(int width, int height)
+EPIX_API binary_grid::binary_grid(int width, int height)
     : width(width),
       height(height),
       column((width >> 5) + (width & 31 ? 1 : 0)) {
