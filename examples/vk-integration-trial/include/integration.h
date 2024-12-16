@@ -1070,6 +1070,14 @@ void create_simulation(Command command) {
             .set_density(0.001f)
             .set_friction(0.3f)
     );
+    registry.register_elem(
+        Element::gas("steam")
+            .set_color([]() {
+                return glm::vec4(1.0f, 1.0f, 1.0f, 0.3f);
+            })
+            .set_density(0.0007f)
+            .set_friction(0.3f)
+    );
     registry.register_elem(Element::liquid("oil")
                                .set_color([]() {
                                    return glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);

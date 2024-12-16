@@ -1471,7 +1471,8 @@ void epix::world::sand::components::update_cell(
         grav *= (elem.density - sim.air_density(x_, y_)) / elem.density;
         cell.velocity += grav * delta;
         // grav /= 4.0f; // this is for larger chunk reset time
-        cell.velocity *= 0.9f;
+        cell.velocity -=
+            0.1f * glm::length(cell.velocity) * cell.velocity / 20.0f;
         cell.inpos += cell.velocity * delta;
         auto ncell  = &cell;
         int delta_x = std::round(cell.inpos.x);
@@ -1500,6 +1501,32 @@ void epix::world::sand::components::update_cell(
             final_y = raycast_result.new_y;
             moved   = true;
         }
+        float prefix_vdotgf =
+            ncell->velocity.x * grav.x + ncell->velocity.y * grav.y;
+        int prefix = prefix_vdotgf > 0 ? 1 : (prefix_vdotgf < 0 ? -1 : 0);
+        if (elem.density > sim.air_density(x_, y_)) {
+            prefix *= -1;
+        }
+        if (raycast_result.hit) {
+            if (sim.valid(
+                    raycast_result.hit->first, raycast_result.hit->second
+                ) &&
+                sim.contain_cell(
+                    raycast_result.hit->first, raycast_result.hit->second
+                )) {
+                auto [tcell, telem] = sim.get(
+                    raycast_result.hit->first, raycast_result.hit->second
+                );
+                if (telem.is_gas() &&
+                    telem.density * prefix > elem.density * prefix) {
+                    std::swap(*ncell, tcell);
+                    ncell   = &tcell;
+                    final_x = raycast_result.hit->first;
+                    final_y = raycast_result.hit->second;
+                    moved   = true;
+                }
+            }
+        }
         static thread_local std::random_device rd;
         static thread_local std::mt19937 gen(rd());
         static thread_local std::uniform_real_distribution<float> dis(
@@ -1507,7 +1534,7 @@ void epix::world::sand::components::update_cell(
         );
         if (((!raycast_result.steps && raycast_result.hit) || dis(gen) > 0.05f
             ) &&
-            glm::length(grav) > 0.0f) {
+            glm::length(grav) > 0.0f && !moved) {
             // try left and right
             float grav_angle = std::atan2(grav.y, grav.x);
             float vel_angle  = std::atan2(cell.velocity.y, cell.velocity.x);
@@ -1539,8 +1566,8 @@ void epix::world::sand::components::update_cell(
                     int tx = final_x + delta_x;
                     int ty = final_y + delta_y;
                     if (!sim.valid(tx, ty)) continue;
-                    auto& tcell = sim.get_cell(tx, ty);
-                    if (!tcell) {
+                    auto [tcell, telem] = sim.get(tx, ty);
+                    if (!tcell || telem.is_gas()) {
                         std::swap(*ncell, tcell);
                         ncell   = &tcell;
                         final_x = tx;
