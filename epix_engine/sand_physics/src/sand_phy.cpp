@@ -3,10 +3,6 @@
 struct ChunkConverter {
     const epix::world::sand::components::Simulation& sim;
     const epix::world::sand::components::Simulation::Chunk& chunk;
-    const int offset_x = 0;
-    const int offset_y = 0;
-    const int width    = chunk.size().x;
-    const int height   = chunk.size().y;
 
     bool contains(int x, int y) const {
         auto& cell = chunk.get(x, y);
@@ -17,9 +13,6 @@ struct ChunkConverter {
         return true;
     }
     glm::ivec2 size() const { return chunk.size(); }
-    ChunkConverter sub(int x, int y, int w, int h) const {
-        return ChunkConverter{sim, chunk, x, y, w, h};
-    }
 };
 
 namespace epix::world::sand_physics {

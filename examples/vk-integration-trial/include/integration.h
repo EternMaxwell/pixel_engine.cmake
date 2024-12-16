@@ -6,6 +6,7 @@
 #include <box2d/box2d.h>
 #include <epix/imgui.h>
 #include <epix/physics2d.h>
+#include <epix/world/sand_physics.h>
 #include <stb_image.h>
 
 #include <earcut.hpp>
@@ -696,14 +697,12 @@ void create_simulation(Command command) {
             .set_density(0.001f)
             .set_friction(0.3f)
     );
-    registry.register_elem(
-        Element::gas("steam")
-            .set_color([]() {
-                return glm::vec4(1.0f, 1.0f, 1.0f, 0.3f);
-            })
-            .set_density(0.0007f)
-            .set_friction(0.3f)
-    );
+    registry.register_elem(Element::gas("steam")
+                               .set_color([]() {
+                                   return glm::vec4(1.0f, 1.0f, 1.0f, 0.3f);
+                               })
+                               .set_density(0.0007f)
+                               .set_friction(0.3f));
     registry.register_elem(Element::liquid("oil")
                                .set_color([]() {
                                    return glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
@@ -1107,6 +1106,20 @@ void render_simulation_chunk_outline(
              static_cast<float>(simulation.chunk_size()), 0.0f},
             color
         );
+        auto collision_outline =
+            epix::world::sand_physics::get_chunk_collision(simulation, chunk);
+        for (auto&& outlines : collision_outline) {
+            for (auto&& outline : outlines) {
+                for (size_t i = 0; i < outline.size(); i++) {
+                    auto start = outline[i];
+                    auto end   = outline[(i + 1) % outline.size()];
+                    line_drawer.drawLine(
+                        {start.x, start.y, 0.0f}, {end.x, end.y, 0.0f},
+                        {0.0f, 1.0f, 0.0f, alpha}
+                    );
+                }
+            }
+        }
         if (chunk.should_update()) {
             color    = {1.0f, 0.0f, 0.0f, alpha};
             float x1 = chunk.updating_area[0];
