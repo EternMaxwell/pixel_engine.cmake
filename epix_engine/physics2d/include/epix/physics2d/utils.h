@@ -390,6 +390,19 @@ std::vector<std::vector<glm::ivec2>> get_polygon(
     return std::move(earcut_polygon);
 }
 
+template <typename T>
+    requires HasOutline<T> && CreateSub<T>
+std::vector<std::vector<std::vector<glm::ivec2>>> get_polygon_multi(
+    const T& pixelbin, bool include_diagonal = false
+) {
+    auto split_bin = split_if_multiple(pixelbin, include_diagonal);
+    std::vector<std::vector<std::vector<glm::ivec2>>> result;
+    for (auto& bin : split_bin) {
+        result.emplace_back(std::move(get_polygon(bin, include_diagonal)));
+    }
+    return result;
+}
+
 /**
  * @brief Get the polygon of a binary grid
  *
@@ -417,4 +430,19 @@ std::vector<std::vector<glm::ivec2>> get_polygon_simplified(
     }
     return std::move(earcut_polygon);
 }
-}  // namespace pixel_engine::physics2d::utils
+
+template <typename T>
+    requires HasOutline<T> && CreateSub<T>
+std::vector<std::vector<std::vector<glm::ivec2>>> get_polygon_simplified_multi(
+    const T& pixelbin, float epsilon = 0.5f, bool include_diagonal = false
+) {
+    auto split_bin = split_if_multiple(pixelbin, include_diagonal);
+    std::vector<std::vector<std::vector<glm::ivec2>>> result;
+    for (auto& bin : split_bin) {
+        result.emplace_back(
+            std::move(get_polygon_simplified(bin, epsilon, include_diagonal))
+        );
+    }
+    return result;
+}
+}  // namespace epix::physics2d::utils
