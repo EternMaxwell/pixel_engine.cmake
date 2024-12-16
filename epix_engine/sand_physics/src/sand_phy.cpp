@@ -23,7 +23,7 @@ struct ChunkConverter {
 };
 
 namespace epix::world::sand_physics {
-std::vector<std::vector<std::vector<glm::ivec2>>> get_chunk_collision(
+EPIX_API std::vector<std::vector<std::vector<glm::ivec2>>> get_chunk_collision(
     const epix::world::sand::components::Simulation& sim,
     const epix::world::sand::components::Simulation::Chunk& chunk
 ) {
