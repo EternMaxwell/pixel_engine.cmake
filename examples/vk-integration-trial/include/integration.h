@@ -744,7 +744,9 @@ void create_simulation(Command command) {
             }
         }
     }
-    command.spawn(std::move(simulation));
+    command.spawn(
+        std::move(simulation), epix::world::sand_physics::SimulationCollisions{}
+    );
 }
 
 static constexpr float scale = 2.0f;
@@ -839,16 +841,19 @@ struct RepeatTimer {
 };
 
 void update_simulation(
-    Query<Get<Simulation>> query, Local<std::optional<RepeatTimer>> timer
+    Query<Get<Simulation, epix::world::sand_physics::SimulationCollisions>>
+        query,
+    Local<std::optional<RepeatTimer>> timer
 ) {
     if (!query) return;
     if (!timer->has_value()) {
         *timer = RepeatTimer(1.0 / 60.0);
     }
-    auto [simulation] = query.single();
-    auto count        = timer->value().tick();
-    for (int i = 0; i < count; i++) {
+    auto [simulation, sim_collisions] = query.single();
+    auto count                        = timer->value().tick();
+    for (int i = 0; i <= count; i++) {
         simulation.update_multithread((float)timer->value().interval);
+        sim_collisions.sync(simulation);
         return;
     }
 }
@@ -1063,10 +1068,12 @@ void render_simulation_state(
     line_drawer.end();
 }
 
-constexpr bool render_collision_outline = false;
+constexpr bool render_collision_outline = true;
 
 void render_simulation_chunk_outline(
-    Query<Get<const Simulation>> query,
+    Query<
+        Get<const Simulation,
+            const epix::world::sand_physics::SimulationCollisions>> query,
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
     Query<Get<epix::render::debug::vulkan::components::LineDrawer>>
         line_drawer_query
@@ -1075,9 +1082,9 @@ void render_simulation_chunk_outline(
     if (!query) return;
     if (!context_query) return;
     if (!line_drawer_query) return;
-    auto [device, swap_chain, queue] = context_query.single();
-    auto [line_drawer]               = line_drawer_query.single();
-    auto [simulation]                = query.single();
+    auto [device, swap_chain, queue]  = context_query.single();
+    auto [line_drawer]                = line_drawer_query.single();
+    auto [simulation, sim_collisions] = query.single();
     line_drawer.begin(device, queue, swap_chain);
     float alpha = 0.3f;
     for (auto&& [pos, chunk] : simulation.chunk_map()) {
@@ -1109,19 +1116,19 @@ void render_simulation_chunk_outline(
             color
         );
         if constexpr (render_collision_outline) {
-            auto collision_outline =
-                epix::world::sand_physics::get_chunk_collision(
-                    simulation, chunk
-                );
-            for (auto&& outlines : collision_outline) {
-                for (auto&& outline : outlines) {
-                    for (size_t i = 0; i < outline.size(); i++) {
-                        auto start = outline[i];
-                        auto end   = outline[(i + 1) % outline.size()];
-                        line_drawer.drawLine(
-                            {start.x, start.y, 0.0f}, {end.x, end.y, 0.0f},
-                            {0.0f, 1.0f, 0.0f, alpha}
-                        );
+            if (sim_collisions.collisions.contains(pos.x, pos.y)) {
+                auto& collision_outline =
+                    sim_collisions.collisions.get(pos.x, pos.y)->collisions;
+                for (auto&& outlines : collision_outline) {
+                    for (auto&& outline : outlines) {
+                        for (size_t i = 0; i < outline.size(); i++) {
+                            auto start = outline[i];
+                            auto end   = outline[(i + 1) % outline.size()];
+                            line_drawer.drawLine(
+                                {start.x, start.y, 0.0f}, {end.x, end.y, 0.0f},
+                                {0.0f, 1.0f, 0.0f, alpha}
+                            );
+                        }
                     }
                 }
             }

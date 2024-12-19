@@ -10,5 +10,6 @@ set_target_properties(epix_wdsand PROPERTIES CXX_STANDARD 20)
 
 target_link_libraries(epix_wdsand epix::app)
 target_link_libraries(epix_wdsand glm::glm)
+target_link_libraries(epix_wdsand epix::utils::grid2d)
 
 add_library(epix::world::sand ALIAS epix_wdsand)

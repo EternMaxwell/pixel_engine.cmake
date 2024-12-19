@@ -11,6 +11,7 @@
 #include <shared_mutex>
 
 #include "epix/common.h"
+#include "epix/utils/grid2d.h"
 
 namespace epix::world::sand::components {
 struct Element {
@@ -110,7 +111,8 @@ struct ElemRegistry {
 };
 struct Simulation {
     struct Chunk {
-        std::vector<Cell> cells;
+        using Grid = epix::utils::grid2d::Grid2D<Cell>;
+        Grid cells;
         const int width;
         const int height;
         int time_since_last_swap  = 0;
@@ -132,8 +134,6 @@ struct Simulation {
         );
         EPIX_API void swap_area();
         EPIX_API void remove(int x, int y);
-        EPIX_API operator bool() const;
-        EPIX_API bool operator!() const;
         EPIX_API bool is_updated(int x, int y) const;
         EPIX_API void touch(int x, int y);
         EPIX_API bool should_update() const;
@@ -159,10 +159,9 @@ struct Simulation {
 
     struct ChunkMap {
         const int chunk_size;
-        std::vector<std::vector<std::shared_ptr<Chunk>>> chunks;
-        glm::ivec2 origin    = {0, 0};
-        glm::ivec2 size      = {0, 0};
-        size_t m_chunk_count = 0;
+        using Grid =
+            epix::utils::grid2d::ExtendableGrid2D<std::optional<Chunk>>;
+        Grid chunks;
 
         struct IterateSetting {
             bool xorder  = true;

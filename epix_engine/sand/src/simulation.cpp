@@ -3,7 +3,7 @@
 
 #include "epix/world/sand.h"
 
-#define EPIX_WORLD_SAND_DEFAULT_CHUNK_RESET_TIME 16i32
+#define EPIX_WORLD_SAND_DEFAULT_CHUNK_RESET_TIME 24i32
 
 using namespace epix::world::sand::components;
 
@@ -60,7 +60,7 @@ EPIX_API Cell::operator bool() const { return valid(); }
 EPIX_API bool Cell::operator!() const { return !valid(); }
 
 EPIX_API Simulation::Chunk::Chunk(int width, int height)
-    : cells(width * height, Cell{}), width(width), height(height) {}
+    : cells(width, height, Cell{}), width(width), height(height) {}
 EPIX_API Simulation::Chunk::Chunk(const Chunk& other)
     : cells(other.cells), width(other.width), height(other.height) {}
 EPIX_API Simulation::Chunk::Chunk(Chunk&& other)
@@ -76,16 +76,14 @@ EPIX_API Simulation::Chunk& Simulation::Chunk::operator=(Chunk&& other) {
     return *this;
 }
 EPIX_API void Simulation::Chunk::reset_updated() {
-    for (auto& each : cells) {
+    for (auto& each : cells.data) {
         each.updated = false;
     }
 }
 EPIX_API void Simulation::Chunk::count_time() { time_since_last_swap++; }
-EPIX_API Cell& Simulation::Chunk::get(int x, int y) {
-    return cells[y * width + x];
-}
+EPIX_API Cell& Simulation::Chunk::get(int x, int y) { return cells(x, y); }
 EPIX_API const Cell& Simulation::Chunk::get(int x, int y) const {
-    return cells[y * width + x];
+    return cells(x, y);
 }
 EPIX_API Cell& Simulation::Chunk::create(
     int x, int y, const CellDef& def, ElemRegistry& m_registry
@@ -124,14 +122,8 @@ EPIX_API void Simulation::Chunk::remove(int x, int y) {
     assert(x >= 0 && x < width && y >= 0 && y < height);
     get(x, y).elem_id = -1;
 }
-EPIX_API Simulation::Chunk::operator bool() const {
-    return width && height && !cells.empty();
-}
-EPIX_API bool Simulation::Chunk::operator!() const {
-    return !width || !height || cells.empty();
-}
 EPIX_API bool Simulation::Chunk::is_updated(int x, int y) const {
-    return cells[y * width + x].updated;
+    return cells(x, y).updated;
 }
 EPIX_API void Simulation::Chunk::touch(int x, int y) {
     assert(x >= 0 && x < width && y >= 0 && y < height);
@@ -153,19 +145,7 @@ EPIX_API glm::ivec2 Simulation::Chunk::size() const {
 }
 EPIX_API bool Simulation::Chunk::contains(int x, int y) const {
     return x >= 0 && x < width && y >= 0 && y < height &&
-           cells[y * width + x].elem_id >= 0;
-}
-
-void offset_chunks(Simulation::ChunkMap& chunks, int x_offset, int y_offset) {
-    assert(x_offset >= 0 && y_offset >= 0);
-    auto& size = chunks.size;
-    for (int x = size.x - 1; x >= 0; x--) {
-        for (int y = size.y - 1; y >= 0; y--) {
-            std::swap(
-                chunks.chunks[x][y], chunks.chunks[x + x_offset][y + y_offset]
-            );
-        }
-    }
+           cells(x, y).elem_id >= 0;
 }
 
 EPIX_API Simulation::ChunkMap::ChunkMap(int chunk_size)
@@ -174,113 +154,26 @@ EPIX_API Simulation::ChunkMap::ChunkMap(int chunk_size)
 EPIX_API void Simulation::ChunkMap::load_chunk(
     int x, int y, const Chunk& chunk
 ) {
-    if (!contains(x, y)) m_chunk_count++;
-    if (size == glm::ivec2(0)) {
-        size.x = 1;
-        size.y = 1;
-        origin = glm::ivec2(x, y);
-    }
-    if (x < origin.x) {
-        size.x += origin.x - x;
-        origin.x = x;
-        offset_chunks(*this, origin.x - x, 0);
-    }
-    if (y < origin.y) {
-        size.y += origin.y - y;
-        origin.y = y;
-        offset_chunks(*this, 0, origin.y - y);
-    }
-    if (x >= origin.x + size.x) {
-        size.x = x - origin.x + 1;
-        chunks.resize(size.x);
-    }
-    if (y >= origin.y + size.y) {
-        size.y = y - origin.y + 1;
-        for (int x = 0; x < size.x; x++) {
-            chunks[x].resize(size.y);
-        }
-    }
-    chunks[x - origin.x][y - origin.y] =
-        std::move(std::make_shared<Chunk>(chunk));
+    chunks.emplace(x, y, chunk);
 }
 EPIX_API void Simulation::ChunkMap::load_chunk(int x, int y, Chunk&& chunk) {
-    if (!contains(x, y)) m_chunk_count++;
-    if (size == glm::ivec2(0)) {
-        size.x = 1;
-        size.y = 1;
-        origin = glm::ivec2(x, y);
-    }
-    if (x < origin.x) {
-        size.x += origin.x - x;
-        origin.x = x;
-        offset_chunks(*this, origin.x - x, 0);
-    }
-    if (y < origin.y) {
-        size.y += origin.y - y;
-        origin.y = y;
-        offset_chunks(*this, 0, origin.y - y);
-    }
-    if (x >= origin.x + size.x) {
-        size.x = x - origin.x + 1;
-        chunks.resize(size.x);
-    }
-    if (y >= origin.y + size.y) {
-        size.y = y - origin.y + 1;
-        for (int x = 0; x < size.x; x++) {
-            chunks[x].resize(size.y);
-        }
-    }
-    chunks[x - origin.x][y - origin.y] =
-        std::move(std::make_shared<Chunk>(std::forward<Chunk>(chunk)));
+    chunks.emplace(x, y, std::move(chunk));
 }
 EPIX_API void Simulation::ChunkMap::load_chunk(int x, int y) {
-    if (!contains(x, y)) m_chunk_count++;
-    if (size == glm::ivec2(0)) {
-        size.x = 1;
-        size.y = 1;
-        origin = glm::ivec2(x, y);
-        chunks.resize(1);
-        chunks[0].resize(1);
-    }
-    if (x < origin.x) {
-        size.x += origin.x - x;
-        origin.x = x;
-        offset_chunks(*this, origin.x - x, 0);
-    }
-    if (y < origin.y) {
-        size.y += origin.y - y;
-        origin.y = y;
-        offset_chunks(*this, 0, origin.y - y);
-    }
-    if (x >= origin.x + size.x) {
-        size.x = x - origin.x + 1;
-        chunks.resize(size.x);
-        for (int x = 0; x < size.x; x++) {
-            chunks[x].resize(size.y);
-        }
-    }
-    if (y >= origin.y + size.y) {
-        size.y = y - origin.y + 1;
-        for (int x = 0; x < size.x; x++) {
-            chunks[x].resize(size.y);
-        }
-    }
-    chunks[x - origin.x][y - origin.y] =
-        std::move(std::make_shared<Chunk>(chunk_size, chunk_size));
+    chunks.emplace(x, y, Chunk(chunk_size, chunk_size));
 }
 EPIX_API bool Simulation::ChunkMap::contains(int x, int y) const {
-    return x >= origin.x && x < origin.x + size.x && y >= origin.y &&
-           y < origin.y + size.y && chunks[x - origin.x][y - origin.y];
+    return chunks.contains(x, y);
 }
 EPIX_API Simulation::Chunk& Simulation::ChunkMap::get_chunk(int x, int y) {
-    return *chunks[x - origin.x][y - origin.y];
+    return *chunks(x, y);
 }
 EPIX_API const Simulation::Chunk& Simulation::ChunkMap::get_chunk(int x, int y)
     const {
-    return *chunks[x - origin.x][y - origin.y];
+    return *chunks(x, y);
 }
 EPIX_API size_t Simulation::ChunkMap::chunk_count() const {
-    return m_chunk_count;
+    return chunks.count();
 }
 
 EPIX_API Simulation::ChunkMap::iterator::iterator(
@@ -288,30 +181,41 @@ EPIX_API Simulation::ChunkMap::iterator::iterator(
 )
     : chunk_map(chunks), x(x), y(y) {}
 
+std::tuple<int, int, int> chunk_map_xbounds(
+    const Simulation::ChunkMap& chunk_map, bool increasing
+) {
+    auto origin = chunk_map.chunks.origin();
+    auto size   = chunk_map.chunks.size();
+    return {
+        increasing ? origin.x : origin.x + size.x - 1,
+        increasing ? origin.x + size.x : origin.x - 1,
+        increasing ? 1 : -1,
+    };
+}
+
+std::tuple<int, int, int> chunk_map_ybounds(
+    const Simulation::ChunkMap& chunk_map, bool increasing
+) {
+    auto origin = chunk_map.chunks.origin();
+    auto size   = chunk_map.chunks.size();
+    return {
+        increasing ? origin.y : origin.y + size.y - 1,
+        increasing ? origin.y + size.y : origin.y - 1,
+        increasing ? 1 : -1,
+    };
+}
+
 EPIX_API Simulation::ChunkMap::iterator&
 Simulation::ChunkMap::iterator::operator++() {
-    if (x == chunk_map->origin.x + chunk_map->size.x &&
-        y == chunk_map->origin.y + chunk_map->size.y) {
+    auto origin = chunk_map->chunks.origin();
+    auto size   = chunk_map->chunks.size();
+    if (x == origin.x + size.x && y == origin.y + size.y) {
         return *this;
     }
-    std::tuple<int, int, int> xbounds = {
-        chunk_map->iterate_setting.xorder
-            ? chunk_map->origin.x
-            : chunk_map->origin.x + chunk_map->size.x - 1,
-        chunk_map->iterate_setting.xorder
-            ? chunk_map->origin.x + chunk_map->size.x
-            : chunk_map->origin.x - 1,
-        chunk_map->iterate_setting.xorder ? 1 : -1,
-    };
-    std::tuple<int, int, int> ybounds = {
-        chunk_map->iterate_setting.yorder
-            ? chunk_map->origin.y
-            : chunk_map->origin.y + chunk_map->size.y - 1,
-        chunk_map->iterate_setting.yorder
-            ? chunk_map->origin.y + chunk_map->size.y
-            : chunk_map->origin.y - 1,
-        chunk_map->iterate_setting.yorder ? 1 : -1,
-    };
+    std::tuple<int, int, int> xbounds =
+        chunk_map_xbounds(*chunk_map, chunk_map->iterate_setting.xorder);
+    std::tuple<int, int, int> ybounds =
+        chunk_map_ybounds(*chunk_map, chunk_map->iterate_setting.yorder);
     if (chunk_map->iterate_setting.x_outer) {
         int start_y = y + std::get<2>(ybounds);
         for (int tx = x; tx != std::get<1>(xbounds);
@@ -341,8 +245,8 @@ Simulation::ChunkMap::iterator::operator++() {
             start_x = std::get<0>(xbounds);
         }
     }
-    x = chunk_map->origin.x + chunk_map->size.x;
-    y = chunk_map->origin.y + chunk_map->size.y;
+    x = origin.x + size.x;
+    y = origin.y + size.y;
     return *this;
 }
 
@@ -368,28 +272,15 @@ EPIX_API Simulation::ChunkMap::const_iterator::const_iterator(
 
 EPIX_API Simulation::ChunkMap::const_iterator&
 Simulation::ChunkMap::const_iterator::operator++() {
-    if (x == chunk_map->origin.x + chunk_map->size.x &&
-        y == chunk_map->origin.y + chunk_map->size.y) {
+    auto origin = chunk_map->chunks.origin();
+    auto size   = chunk_map->chunks.size();
+    if (x == origin.x + size.x && y == origin.y + size.y) {
         return *this;
     }
-    std::tuple<int, int, int> xbounds = {
-        chunk_map->iterate_setting.xorder
-            ? chunk_map->origin.x
-            : chunk_map->origin.x + chunk_map->size.x - 1,
-        chunk_map->iterate_setting.xorder
-            ? chunk_map->origin.x + chunk_map->size.x
-            : chunk_map->origin.x - 1,
-        chunk_map->iterate_setting.xorder ? 1 : -1,
-    };
-    std::tuple<int, int, int> ybounds = {
-        chunk_map->iterate_setting.yorder
-            ? chunk_map->origin.y
-            : chunk_map->origin.y + chunk_map->size.y - 1,
-        chunk_map->iterate_setting.yorder
-            ? chunk_map->origin.y + chunk_map->size.y
-            : chunk_map->origin.y - 1,
-        chunk_map->iterate_setting.yorder ? 1 : -1,
-    };
+    std::tuple<int, int, int> xbounds =
+        chunk_map_xbounds(*chunk_map, chunk_map->iterate_setting.xorder);
+    std::tuple<int, int, int> ybounds =
+        chunk_map_ybounds(*chunk_map, chunk_map->iterate_setting.yorder);
     if (chunk_map->iterate_setting.x_outer) {
         int start_y = y + std::get<2>(ybounds);
         for (int tx = x; tx != std::get<1>(xbounds);
@@ -419,8 +310,8 @@ Simulation::ChunkMap::const_iterator::operator++() {
             start_x = std::get<0>(xbounds);
         }
     }
-    x = chunk_map->origin.x + chunk_map->size.x;
-    y = chunk_map->origin.y + chunk_map->size.y;
+    x = origin.x + size.x;
+    y = origin.y + size.y;
     return *this;
 }
 
@@ -450,16 +341,10 @@ EPIX_API void Simulation::ChunkMap::set_iterate_setting(
 }
 
 EPIX_API Simulation::ChunkMap::iterator Simulation::ChunkMap::begin() {
-    std::tuple<int, int, int> xbounds = {
-        iterate_setting.xorder ? origin.x : origin.x + size.x - 1,
-        iterate_setting.xorder ? origin.x + size.x : origin.x - 1,
-        iterate_setting.xorder ? 1 : -1,
-    };
-    std::tuple<int, int, int> ybounds = {
-        iterate_setting.yorder ? origin.y : origin.y + size.y - 1,
-        iterate_setting.yorder ? origin.y + size.y : origin.y - 1,
-        iterate_setting.yorder ? 1 : -1,
-    };
+    std::tuple<int, int, int> xbounds =
+        chunk_map_xbounds(*this, iterate_setting.xorder);
+    std::tuple<int, int, int> ybounds =
+        chunk_map_ybounds(*this, iterate_setting.yorder);
     if (iterate_setting.x_outer) {
         for (int tx = std::get<0>(xbounds); tx != std::get<1>(xbounds);
              tx += std::get<2>(xbounds)) {
@@ -485,16 +370,10 @@ EPIX_API Simulation::ChunkMap::iterator Simulation::ChunkMap::begin() {
 }
 EPIX_API Simulation::ChunkMap::const_iterator Simulation::ChunkMap::begin(
 ) const {
-    std::tuple<int, int, int> xbounds = {
-        iterate_setting.xorder ? origin.x : origin.x + size.x - 1,
-        iterate_setting.xorder ? origin.x + size.x : origin.x - 1,
-        iterate_setting.xorder ? 1 : -1,
-    };
-    std::tuple<int, int, int> ybounds = {
-        iterate_setting.yorder ? origin.y : origin.y + size.y - 1,
-        iterate_setting.yorder ? origin.y + size.y : origin.y - 1,
-        iterate_setting.yorder ? 1 : -1,
-    };
+    std::tuple<int, int, int> xbounds =
+        chunk_map_xbounds(*this, iterate_setting.xorder);
+    std::tuple<int, int, int> ybounds =
+        chunk_map_ybounds(*this, iterate_setting.yorder);
     if (iterate_setting.x_outer) {
         for (int tx = std::get<0>(xbounds); tx != std::get<1>(xbounds);
              tx += std::get<2>(xbounds)) {
@@ -519,10 +398,14 @@ EPIX_API Simulation::ChunkMap::const_iterator Simulation::ChunkMap::begin(
     return end();
 }
 EPIX_API Simulation::ChunkMap::iterator Simulation::ChunkMap::end() {
+    auto origin = chunks.origin();
+    auto size   = chunks.size();
     return iterator(this, origin.x + size.x, origin.y + size.y);
 }
 EPIX_API Simulation::ChunkMap::const_iterator Simulation::ChunkMap::end(
 ) const {
+    auto origin = chunks.origin();
+    auto size   = chunks.size();
     return const_iterator(this, origin.x + size.x, origin.y + size.y);
 }
 
