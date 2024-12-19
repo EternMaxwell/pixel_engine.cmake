@@ -661,6 +661,8 @@ void epix::world::sand::components::update_cell(
             };
             int below_x = x_ + dir.x;
             int below_y = y_ + dir.y;
+            int above_x = x_ - dir.x;
+            int above_y = y_ - dir.y;
             if (!sim.valid(below_x, below_y)) return;
             auto& bcell = sim.get_cell(below_x, below_y);
             if (bcell) {
@@ -670,6 +672,20 @@ void epix::world::sand::components::update_cell(
                 }
                 if (belem.is_powder() && !bcell.freefall) {
                     return;
+                }
+            }
+            if (sim.valid(above_x, above_y)) {
+                auto& acell = sim.get_cell(above_x, above_y);
+                if (acell) {
+                    auto& aelem = sim.get_elem(above_x, above_y);
+                    if (aelem.is_powder() && !acell.freefall) {
+                        acell.freefall = true;
+                        sim.touch(above_x, above_y);
+                        sim.touch(above_x - 1, above_y);
+                        sim.touch(above_x + 1, above_y);
+                        sim.touch(above_x, above_y - 1);
+                        sim.touch(above_x, above_y + 1);
+                    }
                 }
             }
             cell.velocity = sim.get_default_vel(x_, y_);

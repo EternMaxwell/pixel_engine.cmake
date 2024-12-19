@@ -2,10 +2,34 @@
 
 #include <array>
 #include <concepts>
+#include <earcut.hpp>
 #include <glm/glm.hpp>
 #include <stack>
 #include <stdexcept>
 #include <vector>
+
+namespace mapbox {
+namespace util {
+template <>
+struct nth<0, glm::vec2> {
+    static float get(const glm::dvec2& t) { return t.x; }
+};
+
+template <>
+struct nth<1, glm::vec2> {
+    static float get(const glm::dvec2& t) { return t.y; }
+};
+
+template <>
+struct nth<0, glm::ivec2> {
+    static int get(const glm::dvec2& t) { return t.x; }
+};
+template <>
+struct nth<1, glm::ivec2> {
+    static int get(const glm::dvec2& t) { return t.y; }
+};
+}  // namespace util
+}  // namespace mapbox
 
 namespace epix::utils::grid2d {
 template <typename T>
@@ -22,15 +46,15 @@ template <typename T>
         { !t } -> std::same_as<bool>;
     }
 struct Grid2D {
-    const uint32_t width;
-    const uint32_t height;
+    const int width;
+    const int height;
     std::vector<T> data;
 
-    Grid2D(uint32_t width, uint32_t height) : width(width), height(height) {
+    Grid2D(int width, int height) : width(width), height(height) {
         data.resize(width * height);
     }
     template <typename... Args>
-    Grid2D(uint32_t width, uint32_t height, Args&&... args)
+    Grid2D(int width, int height, Args&&... args)
         : width(width), height(height) {
         data.resize(width * height, T(std::forward<Args>(args)...));
     }
@@ -52,58 +76,56 @@ struct Grid2D {
         data = std::move(other.data);
         return *this;
     }
-    void set(uint32_t x, uint32_t y, const T& value) {
+    void set(int x, int y, const T& value) {
         if (x < 0 || x >= width || y < 0 || y >= height) return;
         data[x + y * width] = value;
     }
-    void set(uint32_t x, uint32_t y, T&& value) {
+    void set(int x, int y, T&& value) {
         if (x < 0 || x >= width || y < 0 || y >= height) return;
         data[x + y * width] = std::move(value);
     }
     template <typename... Args>
-    void emplace(uint32_t x, uint32_t y, Args&&... args) {
+    void emplace(int x, int y, Args&&... args) {
         if (x < 0 || x >= width || y < 0 || y >= height) return;
         data[x + y * width] = T(std::forward<Args>(args)...);
     }
     template <typename... Args>
-    void try_emplace(uint32_t x, uint32_t y, Args&&... args) {
+    void try_emplace(int x, int y, Args&&... args) {
         if (x < 0 || x >= width || y < 0 || y >= height) return;
         if (!data[x + y * width]) {
             data[x + y * width] = T(std::forward<Args>(args)...);
         }
     }
-    T& operator()(uint32_t x, uint32_t y) { return data[x + y * width]; }
-    const T& operator()(uint32_t x, uint32_t y) const {
-        return data[x + y * width];
-    }
-    bool valid(uint32_t x, uint32_t y) const {
+    T& operator()(int x, int y) { return data[x + y * width]; }
+    const T& operator()(int x, int y) const { return data[x + y * width]; }
+    bool valid(int x, int y) const {
         return x >= 0 && x < width && y >= 0 && y < height;
     }
-    bool contains(uint32_t x, uint32_t y) const {
+    bool contains(int x, int y) const {
         return valid(x, y) && (bool)(*this)(x, y);
     }
     glm::ivec2 size() const { return {width, height}; }
 };
 template <>
 struct Grid2D<bool> {
-    const uint32_t width;
-    const uint32_t height;
-    const uint32_t column;
+    const int width;
+    const int height;
+    const int column;
     std::vector<uint32_t> data;
-    Grid2D(uint32_t width, uint32_t height)
+    Grid2D(int width, int height)
         : width(width),
           height(height),
           column(width / 32 + (width % 32 ? 1 : 0)) {
         data.reserve(column * height);
         data.resize(column * height);
     }
-    Grid2D(uint32_t width, uint32_t height, bool value)
+    Grid2D(int width, int height, bool value)
         : width(width),
           height(height),
           column(width / 32 + (width % 32 ? 1 : 0)) {
         data.reserve(column * height);
         data.resize(column * height);
-        for (uint32_t i = 0; i < column * height; i++) {
+        for (int i = 0; i < column * height; i++) {
             data[i] = value ? 0xFFFFFFFF : 0;
         }
     }
@@ -114,8 +136,8 @@ struct Grid2D<bool> {
           column(width / 32 + (width % 32 ? 1 : 0)) {
         data.reserve(column * height);
         data.resize(column * height);
-        for (uint32_t y = 0; y < height; y++) {
-            for (uint32_t x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
                 set(x, y, (bool)other(x, y));
             }
         }
@@ -127,36 +149,36 @@ struct Grid2D<bool> {
           column(width / 32 + (width % 32 ? 1 : 0)) {
         data.reserve(column * height);
         data.resize(column * height);
-        for (uint32_t y = 0; y < height; y++) {
-            for (uint32_t x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
                 set(x, y, other.contains(x, y));
             }
         }
     }
-    void set(uint32_t x, uint32_t y, bool value) {
+    void set(int x, int y, bool value) {
         if (x < 0 || x >= width || y < 0 || y >= height) return;
-        uint32_t index = x / 32 + y * column;
-        uint32_t bit   = x % 32;
+        int index = x / 32 + y * column;
+        int bit   = x % 32;
         if (value)
             data[index] |= 1 << bit;
         else
             data[index] &= ~(1 << bit);
     }
-    void emplace(uint32_t x, uint32_t y, bool value) { set(x, y, value); }
-    void try_emplace(uint32_t x, uint32_t y, bool value) { set(x, y, value); }
-    bool operator()(uint32_t x, uint32_t y) const {
+    void emplace(int x, int y, bool value) { set(x, y, value); }
+    void try_emplace(int x, int y, bool value) { set(x, y, value); }
+    bool operator()(int x, int y) const {
         if (x < 0 || x >= width || y < 0 || y >= height) return false;
-        uint32_t index = x / 32 + y * column;
-        uint32_t bit   = x % 32;
+        int index = x / 32 + y * column;
+        int bit   = x % 32;
         return data[index] & (1 << bit);
     }
-    bool valid(uint32_t x, uint32_t y) const {
+    bool valid(int x, int y) const {
         return x >= 0 && x < width && y >= 0 && y < height;
     }
-    bool contains(uint32_t x, uint32_t y) const {
+    bool contains(int x, int y) const {
         if (x < 0 || x >= width || y < 0 || y >= height) return false;
-        uint32_t index = x / 32 + y * column;
-        uint32_t bit   = x % 32;
+        int index = x / 32 + y * column;
+        int bit   = x % 32;
         return data[index] & (1 << bit);
     }
     glm::ivec2 size() const { return {width, height}; }
@@ -173,84 +195,82 @@ struct Grid2DOnStack {
     Grid2DOnStack(Args&&... args) {
         data.fill(T(std::forward<Args>(args)...));
     }
-    void set(uint32_t x, uint32_t y, const T& value) {
+    void set(int x, int y, const T& value) {
         if (x < 0 || x >= width || y < 0 || y >= height) return;
         data[x + y * width] = value;
     }
-    void set(uint32_t x, uint32_t y, T&& value) {
+    void set(int x, int y, T&& value) {
         if (x < 0 || x >= width || y < 0 || y >= height) return;
         data[x + y * width] = std::move(value);
     }
     template <typename... Args>
-    void emplace(uint32_t x, uint32_t y, Args&&... args) {
+    void emplace(int x, int y, Args&&... args) {
         if (x < 0 || x >= width || y < 0 || y >= height) return;
         data[x + y * width] = T(std::forward<Args>(args)...);
     }
     template <typename... Args>
-    void try_emplace(uint32_t x, uint32_t y, Args&&... args) {
+    void try_emplace(int x, int y, Args&&... args) {
         if (x < 0 || x >= width || y < 0 || y >= height) return;
         if (!data[x + y * width]) {
             data[x + y * width] = T(std::forward<Args>(args)...);
         }
     }
-    bool valid(uint32_t x, uint32_t y) const {
+    bool valid(int x, int y) const {
         return x >= 0 && x < width && y >= 0 && y < height;
     }
-    bool contains(uint32_t x, uint32_t y) const {
+    bool contains(int x, int y) const {
         return x >= 0 && x < width && y >= 0 && y < height &&
                (bool)(*this)(x, y);
     }
-    T& operator()(uint32_t x, uint32_t y) { return data[x + y * width]; }
-    const T& operator()(uint32_t x, uint32_t y) const {
-        return data[x + y * width];
-    }
+    T& operator()(int x, int y) { return data[x + y * width]; }
+    const T& operator()(int x, int y) const { return data[x + y * width]; }
     glm::ivec2 size() const { return {width, height}; }
 };
 template <size_t width, size_t height>
 struct Grid2DOnStack<bool, width, height> {
-    static constexpr uint32_t column = width / 32 + (width % 32 ? 1 : 0);
+    static constexpr int column = width / 32 + (width % 32 ? 1 : 0);
     std::array<uint32_t, column * height> data;
     Grid2DOnStack() = default;
     Grid2DOnStack(bool value) { data.fill(value ? 0xFFFFFFFF : 0); }
-    void set(uint32_t x, uint32_t y, bool value) {
+    void set(int x, int y, bool value) {
         if (x < 0 || x >= width || y < 0 || y >= height) return;
-        uint32_t index = x / 32 + y * column;
-        uint32_t bit   = x % 32;
+        int index = x / 32 + y * column;
+        int bit   = x % 32;
         if (value)
             data[index] |= 1 << bit;
         else
             data[index] &= ~(1 << bit);
     }
-    void emplace(uint32_t x, uint32_t y, bool value) { set(x, y, value); }
-    void try_emplace(uint32_t x, uint32_t y, bool value) { set(x, y, value); }
-    bool operator()(uint32_t x, uint32_t y) const {
+    void emplace(int x, int y, bool value) { set(x, y, value); }
+    void try_emplace(int x, int y, bool value) { set(x, y, value); }
+    bool operator()(int x, int y) const {
         if (x < 0 || x >= width || y < 0 || y >= height) return false;
-        uint32_t index = x / 32 + y * column;
-        uint32_t bit   = x % 32;
+        int index = x / 32 + y * column;
+        int bit   = x % 32;
         return data[index] & (1 << bit);
     }
-    bool contains(uint32_t x, uint32_t y) const {
+    bool contains(int x, int y) const {
         if (x < 0 || x >= width || y < 0 || y >= height) return false;
-        uint32_t index = x / 32 + y * column;
-        uint32_t bit   = x % 32;
+        int index = x / 32 + y * column;
+        int bit   = x % 32;
         return data[index] & (1 << bit);
     }
     glm::ivec2 size() const { return {width, height}; }
 };
 
 struct GridOpArea {
-    uint32_t x1, y1, x2, y2, width, height;
-    GridOpArea& setOrigin1(uint32_t x, uint32_t y) {
+    int x1, y1, x2, y2, width, height;
+    GridOpArea& setOrigin1(int x, int y) {
         x1 = x;
         y1 = y;
         return *this;
     }
-    GridOpArea& setOrigin2(uint32_t x, uint32_t y) {
+    GridOpArea& setOrigin2(int x, int y) {
         x2 = x;
         y2 = y;
         return *this;
     }
-    GridOpArea& setExtent(uint32_t w, uint32_t h) {
+    GridOpArea& setExtent(int w, int h) {
         width  = w;
         height = h;
         return *this;
@@ -263,8 +283,8 @@ Grid2DOnStack<T, width, height> op_and(
     const Grid2DOnStack<U, width, height>& b
 ) {
     Grid2DOnStack<T, width, height> result;
-    for (uint32_t y = 0; y < height; y++) {
-        for (uint32_t x = 0; x < width; x++) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
             if (b.contains(x, y)) {
                 result.set(x, y, a(x, y));
             }
@@ -285,8 +305,8 @@ Grid2DOnStack<bool, width, height> op_or(
     const Grid2DOnStack<U, width, height>& b
 ) {
     Grid2DOnStack<bool, width, height> result;
-    for (uint32_t y = 0; y < height; y++) {
-        for (uint32_t x = 0; x < width; x++) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
             result.set(x, y, a.contains(x, y) || b.contains(x, y));
         }
     }
@@ -305,8 +325,8 @@ Grid2DOnStack<bool, width, height> op_xor(
     const Grid2DOnStack<U, width, height>& b
 ) {
     Grid2DOnStack<bool, width, height> result;
-    for (uint32_t y = 0; y < height; y++) {
-        for (uint32_t x = 0; x < width; x++) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
             result.set(x, y, a.contains(x, y) ^ b.contains(x, y));
         }
     }
@@ -324,8 +344,8 @@ Grid2DOnStack<bool, width, height> op_not(
     const Grid2DOnStack<T, width, height>& a
 ) {
     Grid2DOnStack<bool, width, height> result;
-    for (uint32_t y = 0; y < height; y++) {
-        for (uint32_t x = 0; x < width; x++) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
             result.set(x, y, !a.contains(x, y));
         }
     }
@@ -344,11 +364,12 @@ Grid2D<T> op_and(
     const Grid2D<T>& a,
     const Grid2D<U>& b,
     const GridOpArea& area =
-        {0, 0, 0, 0, std::min(a.width, b.width), std::min(a.height, b.height)}
+        {0, 0, 0, 0, std::min(a.size().x, b.size().x),
+         std::min(a.size().y, b.size().y)}
 ) {
     Grid2D<T> result(area.width, area.height);
-    for (uint32_t y = 0; y < area.height; y++) {
-        for (uint32_t x = 0; x < area.width; x++) {
+    for (int y = 0; y < area.height; y++) {
+        for (int x = 0; x < area.width; x++) {
             if (b.contains(x + area.x1, y + area.y1)) {
                 result(x, y) = a(x + area.x1, y + area.y1);
             }
@@ -358,14 +379,11 @@ Grid2D<T> op_and(
 }
 template <typename U>
 Grid2D<bool> op_and(
-    const Grid2D<bool>& a,
-    const Grid2D<U>& b,
-    const GridOpArea& area =
-        {0, 0, 0, 0, std::min(a.width, b.width), std::min(a.height, b.height)}
+    const Grid2D<bool>& a, const Grid2D<U>& b, const GridOpArea& area
 ) {
     Grid2D<bool> result(area.width, area.height);
-    for (uint32_t y = 0; y < area.height; y++) {
-        for (uint32_t x = 0; x < area.width; x++) {
+    for (int y = 0; y < area.height; y++) {
+        for (int x = 0; x < area.width; x++) {
             result.set(
                 x, y,
                 a.contains(x + area.x1, y + area.y1) &&
@@ -377,18 +395,19 @@ Grid2D<bool> op_and(
 }
 template <typename T, typename U>
 Grid2D<T> operator&(const Grid2D<T>& a, const Grid2D<U>& b) {
-    return op_and(a, b);
+    return op_and(
+        a, b,
+        {0, 0, 0, 0, std::min(a.size().x, b.size().x),
+         std::min(a.size().y, b.size().y)}
+    );
 }
 template <typename T, typename U>
 Grid2D<bool> op_or(
-    const Grid2D<T>& a,
-    const Grid2D<U>& b,
-    const GridOpArea& area =
-        {0, 0, 0, 0, std::min(a.width, b.width), std::min(a.height, b.height)}
+    const Grid2D<T>& a, const Grid2D<U>& b, const GridOpArea& area
 ) {
     Grid2D<bool> result(area.width, area.height);
-    for (uint32_t y = 0; y < area.height; y++) {
-        for (uint32_t x = 0; x < area.width; x++) {
+    for (int y = 0; y < area.height; y++) {
+        for (int x = 0; x < area.width; x++) {
             result.set(
                 x, y,
                 a.contains(x + area.x1, y + area.y1) ||
@@ -400,18 +419,19 @@ Grid2D<bool> op_or(
 }
 template <typename T, typename U>
 Grid2D<bool> operator|(const Grid2D<T>& a, const Grid2D<U>& b) {
-    return op_or(a, b);
+    return op_or(
+        a, b,
+        {0, 0, 0, 0, std::min(a.size().x, b.size().x),
+         std::min(a.size().y, b.size().y)}
+    );
 }
 template <typename T, typename U>
 Grid2D<bool> op_xor(
-    const Grid2D<T>& a,
-    const Grid2D<U>& b,
-    const GridOpArea& area =
-        {0, 0, 0, 0, std::min(a.width, b.width), std::min(a.height, b.height)}
+    const Grid2D<T>& a, const Grid2D<U>& b, const GridOpArea& area
 ) {
     Grid2D<bool> result(area.width, area.height);
-    for (uint32_t y = 0; y < area.height; y++) {
-        for (uint32_t x = 0; x < area.width; x++) {
+    for (int y = 0; y < area.height; y++) {
+        for (int x = 0; x < area.width; x++) {
             result.set(
                 x, y,
                 a.contains(x + area.x1, y + area.y1) ^
@@ -423,15 +443,17 @@ Grid2D<bool> op_xor(
 }
 template <typename T, typename U>
 Grid2D<bool> operator^(const Grid2D<T>& a, const Grid2D<U>& b) {
-    return op_xor(a, b);
+    return op_xor(
+        a, b,
+        {0, 0, 0, 0, std::min(a.size().x, b.size().x),
+         std::min(a.size().y, b.size().y)}
+    );
 }
-template <typename T, typename U>
-Grid2D<bool> op_not(
-    const Grid2D<T>& a, const GridOpArea& area = {0, 0, 0, 0, a.width, a.height}
-) {
+template <typename T>
+Grid2D<bool> op_not(const Grid2D<T>& a, const GridOpArea& area) {
     Grid2D<bool> result(area.width, area.height);
-    for (uint32_t y = 0; y < area.height; y++) {
-        for (uint32_t x = 0; x < area.width; x++) {
+    for (int y = 0; y < area.height; y++) {
+        for (int x = 0; x < area.width; x++) {
             result.set(x, y, !a.contains(x + area.x1, y + area.y1));
         }
     }
@@ -439,7 +461,7 @@ Grid2D<bool> op_not(
 }
 template <typename T>
 Grid2D<bool> operator~(const Grid2D<T>& a) {
-    return op_not(a);
+    return op_not(a, GridOpArea{0, 0, 0, 0, a.size().x, a.size().y});
 }
 
 /**
@@ -625,11 +647,12 @@ std::vector<glm::ivec2> find_outline(
     const T& pixelbin, bool include_diagonal = false
 ) {
     std::vector<glm::ivec2> outline;
-    static constexpr std::array<glm::ivec2> move = {
-        {-1, 0}, {0, 1}, {1, 0}, {0, -1}
+    static constexpr std::array<glm::ivec2, 4> move = {
+        glm::ivec2(-1, 0), glm::ivec2(0, 1), glm::ivec2(1, 0), glm::ivec2(0, -1)
     };
-    static constexpr std::array<glm::ivec2> offsets = {
-        {-1, -1}, {-1, 0}, {0, 0}, {0, -1}
+    static constexpr std::array<glm::ivec2, 4> offsets = {
+        glm::ivec2{-1, -1}, glm::ivec2{-1, 0}, glm::ivec2{0, 0},
+        glm::ivec2{0, -1}
     };  // if dir is i then in ccw order, i+1 is the right pixel coord, i is
         // the left pixel coord, i = 0 means left.
     glm::ivec2 start(-1, -1);

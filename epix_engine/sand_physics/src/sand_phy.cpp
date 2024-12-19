@@ -21,7 +21,7 @@ EPIX_API std::vector<std::vector<std::vector<glm::ivec2>>> get_chunk_collision(
     const epix::world::sand::components::Simulation::Chunk& chunk
 ) {
     ChunkConverter grid{sim, chunk};
-    return epix::physics2d::utils::get_polygon_multi(grid);
+    return epix::utils::grid2d::get_polygon_multi(grid);
 }
 EPIX_API SimulationCollisions::SimulationCollisions()
     : thread_pool(

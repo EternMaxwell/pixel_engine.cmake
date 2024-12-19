@@ -10,5 +10,6 @@ set_target_properties(epix_grid2d PROPERTIES CXX_STANDARD 20)
 
 target_link_libraries(epix_grid2d PUBLIC epix::app)
 target_link_libraries(epix_grid2d PUBLIC glm::glm)
+target_link_libraries(epix_grid2d PUBLIC earcut.hpp)
 
 add_library(epix::utils::grid2d ALIAS epix_grid2d)

@@ -23,7 +23,7 @@ using namespace epix::sprite::components;
 using namespace epix::sprite::resources;
 
 namespace vk_trial {
-using namespace epix::physics2d::utils;
+using namespace epix::utils::grid2d;
 
 template <typename T>
 T& value_at(std::vector<std::vector<T>>& vec, size_t index) {
@@ -108,7 +108,8 @@ void create_pixel_block_with_collision(
             };
         }
     }
-    auto blocks_bin = split_if_multiple(binary_grid(m_block));
+    using binary_grid = Grid2D<bool>;
+    auto blocks_bin   = split(binary_grid(m_block));
     std::vector<std::pair<PixelBlockWrapper, glm::ivec2>> blocks;
     for (auto& block : blocks_bin) {
         glm::ivec2 offset;
@@ -992,12 +993,15 @@ void render_simulation_cell_vel(
             for (int j = 0; j < chunk.size().y; j++) {
                 auto& elem = chunk.get(i, j);
                 if (elem) {
-                    line_drawer.drawLine(
-                        {.5f + i + elem.inpos.x, .5f + j + elem.inpos.y, 0.0f},
-                        {.5f + i + elem.inpos.x + elem.velocity.x,
-                         .5f + j + elem.inpos.y + elem.velocity.y, 0.0f},
-                        {0.0f, 0.0f, 1.0f, alpha}
-                    );
+                    auto& type = simulation.registry().get_elem(elem.elem_id);
+                    if (type.name == "grind")
+                        line_drawer.drawLine(
+                            {.5f + i + elem.inpos.x, .5f + j + elem.inpos.y,
+                             0.0f},
+                            {.5f + i + elem.inpos.x + elem.velocity.x,
+                             .5f + j + elem.inpos.y + elem.velocity.y, 0.0f},
+                            {0.0f, 0.0f, 1.0f, alpha}
+                        );
                 }
             }
         }
@@ -1198,10 +1202,8 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(Update, step_simulation).in_state(SimulateState::Paused);
         app.add_system(PreUpdate, toggle_full_screen);
         app.add_system(
-               Render, render_simulation, render_simulation_chunk_outline /* ,
-                render_simulation_cell_vel */
-               ,
-               render_simulation_state
+               Render, render_simulation, render_simulation_chunk_outline,
+               render_simulation_cell_vel, render_simulation_state
         )
             .chain()
             .before(render_bodies, render_pixel_block);
