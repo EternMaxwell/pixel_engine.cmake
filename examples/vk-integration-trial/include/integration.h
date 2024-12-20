@@ -460,57 +460,6 @@ void create_pixel_block(Command command) {
     );
 }
 
-void draw_lines(
-    Query<Get<epix::render::debug::vulkan::components::LineDrawer>> query,
-    Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query
-) {
-    if (!query) return;
-    if (!context_query) return;
-    auto [device, swap_chain, queue] = context_query.single();
-    auto [line_drawer]               = query.single();
-    pixelbin bin(5, 5);
-    bin.set(1, 1, true);
-    bin.set(2, 1, true);
-    bin.set(3, 1, true);
-    bin.set(3, 2, true);
-    // bin.set(3, 3, true);
-    bin.set(2, 3, true);
-    bin.set(1, 3, true);
-    bin.set(1, 2, true);
-    // for (int i = bin.size().x - 1; i >= 0; i--) {
-    //     for (int j = 0; j < bin.size().y; j++) {
-    //         std::cout << (bin.contains(i, j) ? "#" : "-");
-    //     }
-    //     std::cout << std::endl;
-    // }
-    auto outline    = find_outline(bin);
-    auto simplified = douglas_peucker(outline, 0.1f);
-    glm::mat4 model = glm::mat4(1.0f);
-    model           = glm::translate(model, {0.0f, 0.0f, 0.0f});
-    model           = glm::scale(model, {10.0f, 10.0f, 1.0f});
-    line_drawer.begin(device, queue, swap_chain);
-    line_drawer.setModel(model);
-    // raw, green
-    for (size_t i = 0; i < outline.size(); i++) {
-        auto start = outline[i];
-        auto end   = outline[(i + 1) % outline.size()];
-        line_drawer.drawLine(
-            {start.x, start.y, 0.0f}, {end.x, end.y, 0.0f},
-            {0.0f, 1.0f, 0.0f, 1.0f}
-        );
-    }
-    // simplified, red
-    for (size_t i = 0; i < simplified.size(); i++) {
-        auto start = simplified[i];
-        auto end   = simplified[(i + 1) % simplified.size()];
-        line_drawer.drawLine(
-            {start.x, start.y, 0.0f}, {end.x, end.y, 0.0f},
-            {1.0f, 0.0f, 0.0f, 1.0f}
-        );
-    }
-    line_drawer.end();
-}
-
 void imgui_demo_window(ResMut<epix::imgui::ImGuiContext> imgui_context) {
     if (imgui_context.has_value()) {
         ImGui::SetCurrentContext(imgui_context->context);
@@ -645,35 +594,29 @@ void create_simulation(Command command) {
 
     ElemRegistry registry;
     registry.register_elem(
+        Element::solid("wall")
+            .set_color([]() {
+                static std::random_device rd;
+                static std::mt19937 gen(rd());
+                static std::uniform_real_distribution<float> dis(0.24f, 0.32f);
+                float r = dis(gen);
+                return glm::vec4(r, r, r, 1.0f);
+            })
+            .set_density(5.0f)
+            .set_friction(0.6f)
+    );
+    registry.register_elem(
         Element::powder("sand")
             .set_color([]() {
                 static std::random_device rd;
                 static std::mt19937 gen(rd());
-                static std::uniform_real_distribution<float> dis(0.8f, 0.9f);
+                static std::uniform_real_distribution<float> dis(0.6f, 0.8f);
                 float r = dis(gen);
                 return glm::vec4(r, r, 0.0f, 1.0f);
             })
             .set_density(3.0f)
             .set_friction(0.3f)
             .set_awake_rate(1.0f)
-    );
-    registry.register_elem(Element::liquid("water")
-                               .set_color([]() {
-                                   return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
-                               })
-                               .set_density(1.0f)
-                               .set_friction(0.0003f));
-    registry.register_elem(
-        Element::solid("wall")
-            .set_color([]() {
-                static std::random_device rd;
-                static std::mt19937 gen(rd());
-                static std::uniform_real_distribution<float> dis(0.28f, 0.32f);
-                float r = dis(gen);
-                return glm::vec4(r, r, r, 1.0f);
-            })
-            .set_density(5.0f)
-            .set_friction(0.6f)
     );
     registry.register_elem(
         Element::powder("grind")
@@ -688,6 +631,18 @@ void create_simulation(Command command) {
             .set_friction(0.3f)
             .set_awake_rate(0.6f)
     );
+    registry.register_elem(Element::liquid("water")
+                               .set_color([]() {
+                                   return glm::vec4(0.0f, 0.0f, 1.0f, 0.4f);
+                               })
+                               .set_density(1.0f)
+                               .set_friction(0.0003f));
+    registry.register_elem(Element::liquid("oil")
+                               .set_color([]() {
+                                   return glm::vec4(0.2f, 0.2f, 0.2f, 0.6f);
+                               })
+                               .set_density(0.8f)
+                               .set_friction(0.0003f));
     registry.register_elem(
         Element::gas("smoke")
             .set_color([]() {
@@ -706,12 +661,6 @@ void create_simulation(Command command) {
                                })
                                .set_density(0.0007f)
                                .set_friction(0.3f));
-    registry.register_elem(Element::liquid("oil")
-                               .set_color([]() {
-                                   return glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
-                               })
-                               .set_density(0.8f)
-                               .set_friction(0.0003f));
     Simulation simulation(std::move(registry), 16);
     const int simulation_size = 16;
     for (int i = -simulation_size; i < simulation_size; i++) {
@@ -719,36 +668,9 @@ void create_simulation(Command command) {
             simulation.load_chunk(i, j);
         }
     }
-    for (int y = -simulation_size * simulation.chunk_size();
-         y < -simulation_size * simulation.chunk_size() + 12; y++) {
-        for (int x = -simulation_size * simulation.chunk_size();
-             x < simulation_size * simulation.chunk_size(); x++) {
-            if (simulation.valid(x, y + 200))
-                simulation.create(x, y + 200, CellDef("wall"));
-        }
-    }
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<int> dis(0, 20);
-    for (auto&& [pos, chunk] : simulation.chunk_map()) {
-        spdlog::info("Creating chunk at {}, {}", pos.x, pos.y);
-        for (int i = 0; i < chunk.size().x; i++) {
-            for (int j = 0; j < chunk.size().y; j++) {
-                int res = dis(gen);
-                // if (res == 9)
-                //     chunk.create(i, j, CellDef("sand"),
-                //     simulation.registry());
-                // else if (res == 8)
-                //     chunk.create(i, j, CellDef("wall"),
-                //     simulation.registry());
-                // else if (res == 7)
-                //     chunk.create(i, j, CellDef("water"),
-                //     simulation.registry());
-            }
-        }
-    }
     command.spawn(
-        std::move(simulation), epix::world::sand_physics::SimulationCollisions{}
+        std::move(simulation),
+        epix::world::sand_physics::SimulationCollisions<void>{}
     );
 }
 
@@ -844,7 +766,8 @@ struct RepeatTimer {
 };
 
 void update_simulation(
-    Query<Get<Simulation, epix::world::sand_physics::SimulationCollisions>>
+    Query<
+        Get<Simulation, epix::world::sand_physics::SimulationCollisions<void>>>
         query,
     Local<std::optional<RepeatTimer>> timer
 ) {
@@ -926,10 +849,7 @@ void render_simulation(
         for (int i = 0; i < chunk.size().x; i++) {
             for (int j = 0; j < chunk.size().y; j++) {
                 auto& elem = chunk.get(i, j);
-                if (elem)
-                    renderer.draw(
-                        elem.freefall ? elem.color : elem.color * 0.5f, {i, j}
-                    );
+                if (elem) renderer.draw(elem.color, {i, j});
             }
         }
     }
@@ -1079,7 +999,7 @@ constexpr bool render_collision_outline = true;
 void render_simulation_chunk_outline(
     Query<
         Get<const Simulation,
-            const epix::world::sand_physics::SimulationCollisions>> query,
+            const epix::world::sand_physics::SimulationCollisions<void>>> query,
     Query<Get<Device, Swapchain, Queue>, With<RenderContext>> context_query,
     Query<Get<epix::render::debug::vulkan::components::LineDrawer>>
         line_drawer_query
@@ -1099,7 +1019,7 @@ void render_simulation_chunk_outline(
                               pos.y * simulation.chunk_size() * scale, 0.0f}
         );
         model           = glm::scale(model, {scale, scale, 1.0f});
-        glm::vec4 color = {1.0f, 1.0f, 1.0f, alpha / 2};
+        glm::vec4 color = {1.0f, 1.0f, 1.0f, alpha / 4};
         line_drawer.setModel(model);
         line_drawer.drawLine(
             {0.0f, 0.0f, 0.0f},
@@ -1140,7 +1060,8 @@ void render_simulation_chunk_outline(
             }
         }
         if (chunk.should_update()) {
-            color    = {1.0f, 0.0f, 0.0f, alpha};
+            // orange
+            color    = {1.0f, 0.5f, 0.0f, alpha};
             float x1 = chunk.updating_area[0];
             float x2 = chunk.updating_area[1] + 1;
             float y1 = chunk.updating_area[2];
@@ -1205,7 +1126,7 @@ struct VK_TrialPlugin : Plugin {
         app.add_system(PreUpdate, toggle_full_screen);
         app.add_system(
                Render, render_simulation, render_simulation_chunk_outline,
-               render_simulation_cell_vel, render_simulation_state
+               /* render_simulation_cell_vel,  */ render_simulation_state
         )
             .chain()
             .before(render_bodies, render_pixel_block);

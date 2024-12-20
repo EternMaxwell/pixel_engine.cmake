@@ -23,13 +23,14 @@ EPIX_API std::vector<std::vector<std::vector<glm::ivec2>>> get_chunk_collision(
     ChunkConverter grid{sim, chunk};
     return epix::utils::grid2d::get_polygon_multi(grid);
 }
-EPIX_API SimulationCollisions::SimulationCollisions()
+EPIX_API SimulationCollisions<void>::SimulationCollisions()
     : thread_pool(
           std::make_unique<BS::thread_pool>(std::thread::hardware_concurrency())
       ) {}
-EPIX_API void SimulationCollisions::sync(
+EPIX_API void SimulationCollisions<void>::sync(
     const epix::world::sand::components::Simulation& sim
 ) {
+    modified.clear();
     for (auto [pos, chunk] : sim.chunk_map()) {
         collisions.try_emplace(
             pos.x, pos.y, SimulationCollisions::ChunkCollisions{}
@@ -37,8 +38,9 @@ EPIX_API void SimulationCollisions::sync(
     }
     for (auto [pos, chunk] : sim.chunk_map()) {
         if (!collisions.contains(pos.x, pos.y)) continue;
+        if (!chunk.should_update()) continue;
+        modified.insert(pos);
         thread_pool->submit_task([this, &sim, &chunk, pos]() {
-            if (!chunk.should_update()) return;
             auto collisions = get_chunk_collision(sim, chunk);
             this->collisions.get(pos.x, pos.y)->collisions = collisions;
         });

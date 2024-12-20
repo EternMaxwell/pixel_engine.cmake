@@ -1392,7 +1392,15 @@ void epix::world::sand::components::update_cell(
         }
     } else if (elem.is_gas()) {
         grav *= (elem.density - sim.air_density(x_, y_)) / elem.density;
-        cell.velocity += grav * delta;
+        {
+            glm::vec2 hori_vel(grav.y, -grav.x);
+            static thread_local std::random_device rd;
+            static thread_local std::mt19937 gen(rd());
+            static thread_local std::uniform_real_distribution<float> dis(
+                -1.0f, 1.0f
+            );
+            cell.velocity += (grav + hori_vel * dis(gen)) * delta;
+        }
         // grav /= 4.0f; // this is for larger chunk reset time
         cell.velocity -=
             0.1f * glm::length(cell.velocity) * cell.velocity / 20.0f;
