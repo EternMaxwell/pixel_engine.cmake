@@ -622,7 +622,7 @@ void apply_viscosity(
     if (!sim.valid(tx, ty)) return;
     if (!sim.contain_cell(tx, ty)) return;
     auto [tcell, elem] = sim.get(tx, ty);
-    if (elem.is_liquid()) return;
+    if (!elem.is_liquid()) return;
     tcell.velocity += 0.003f * cell.velocity - 0.003f * tcell.velocity;
 }
 EPIX_API void Simulation::update(float delta) {
@@ -651,46 +651,6 @@ void epix::world::sand::components::update_cell(
     auto grav         = sim.get_grav(x_, y_);
     cell.updated      = true;
     if (elem.is_powder()) {
-        if (!cell.freefall) {
-            float angle = std::atan2(grav.y, grav.x);
-            // into a 8 direction
-            angle = std::round(angle / (std::numbers::pi / 4)) *
-                    (std::numbers::pi / 4);
-            glm::ivec2 dir = {
-                std::round(std::cos(angle)), std::round(std::sin(angle))
-            };
-            int below_x = x_ + dir.x;
-            int below_y = y_ + dir.y;
-            int above_x = x_ - dir.x;
-            int above_y = y_ - dir.y;
-            if (!sim.valid(below_x, below_y)) return;
-            auto& bcell = sim.get_cell(below_x, below_y);
-            if (bcell) {
-                auto& belem = sim.get_elem(below_x, below_y);
-                if (belem.is_solid()) {
-                    return;
-                }
-                if (belem.is_powder() && !bcell.freefall) {
-                    return;
-                }
-            }
-            if (sim.valid(above_x, above_y)) {
-                auto& acell = sim.get_cell(above_x, above_y);
-                if (acell) {
-                    auto& aelem = sim.get_elem(above_x, above_y);
-                    if (aelem.is_powder() && !acell.freefall) {
-                        acell.freefall = true;
-                        sim.touch(above_x, above_y);
-                        sim.touch(above_x - 1, above_y);
-                        sim.touch(above_x + 1, above_y);
-                        sim.touch(above_x, above_y - 1);
-                        sim.touch(above_x, above_y + 1);
-                    }
-                }
-            }
-            cell.velocity = sim.get_default_vel(x_, y_);
-            cell.freefall = true;
-        }
         {
             int liquid_count     = 0;
             int empty_count      = 0;
@@ -779,10 +739,51 @@ void epix::world::sand::components::update_cell(
                 grav *= (elem.density - liquid_density) / elem.density;
                 cell.velocity *= 0.9f;
             }
-            cell.velocity += grav * delta;
-            cell.velocity *= 0.99f;
-            cell.inpos += cell.velocity * delta;
         }
+        if (!cell.freefall) {
+            float angle = std::atan2(grav.y, grav.x);
+            // into a 8 direction
+            angle = std::round(angle / (std::numbers::pi / 4)) *
+                    (std::numbers::pi / 4);
+            glm::ivec2 dir = {
+                std::round(std::cos(angle)), std::round(std::sin(angle))
+            };
+            int below_x = x_ + dir.x;
+            int below_y = y_ + dir.y;
+            int above_x = x_ - dir.x;
+            int above_y = y_ - dir.y;
+            if (!sim.valid(below_x, below_y)) return;
+            auto& bcell = sim.get_cell(below_x, below_y);
+            if (bcell) {
+                auto& belem = sim.get_elem(below_x, below_y);
+                if (belem.is_solid()) {
+                    return;
+                }
+                if (belem.is_powder() && !bcell.freefall) {
+                    return;
+                }
+            }
+            if (sim.valid(above_x, above_y)) {
+                auto& acell = sim.get_cell(above_x, above_y);
+                if (acell) {
+                    auto& aelem = sim.get_elem(above_x, above_y);
+                    if (aelem.is_powder() && !acell.freefall) {
+                        acell.freefall = true;
+                        acell.velocity = sim.get_default_vel(above_x, above_y);
+                        sim.touch(above_x, above_y);
+                        sim.touch(above_x - 1, above_y);
+                        sim.touch(above_x + 1, above_y);
+                        sim.touch(above_x, above_y - 1);
+                        sim.touch(above_x, above_y + 1);
+                    }
+                }
+            }
+            cell.velocity = sim.get_default_vel(x_, y_);
+            cell.freefall = true;
+        }
+        cell.velocity += grav * delta;
+        cell.velocity *= 0.99f;
+        cell.inpos += cell.velocity * delta;
         int delta_x = std::round(cell.inpos.x);
         int delta_y = std::round(cell.inpos.y);
         if (delta_x == 0 && delta_y == 0) {
@@ -838,17 +839,25 @@ void epix::world::sand::components::update_cell(
                 }
             }
             if (!moved && glm::length(grav) > 0.0f) {
-                if (sim.powder_always_slide ||
+                if (sim.powder_slide_setting.always_slide ||
                     (sim.valid(hit_x, hit_y) &&
                      !sim.get_cell(hit_x, hit_y).freefall)) {
                     float grav_angle = std::atan2(grav.y, grav.x);
-                    glm::ivec2 lb    = {
-                        std::round(std::cos(grav_angle - std::numbers::pi / 4)),
-                        std::round(std::sin(grav_angle - std::numbers::pi / 4))
+                    glm::vec2 lb     = {
+                        std::cos(grav_angle - std::numbers::pi / 4),
+                        std::sin(grav_angle - std::numbers::pi / 4)
                     };
-                    glm::ivec2 rb = {
-                        std::round(std::cos(grav_angle + std::numbers::pi / 4)),
-                        std::round(std::sin(grav_angle + std::numbers::pi / 4))
+                    glm::vec2 rb = {
+                        std::cos(grav_angle + std::numbers::pi / 4),
+                        std::sin(grav_angle + std::numbers::pi / 4)
+                    };
+                    glm::vec2 l = {
+                        std::cos(grav_angle - std::numbers::pi / 2),
+                        std::sin(grav_angle - std::numbers::pi / 2)
+                    };
+                    glm::vec2 r = {
+                        std::cos(grav_angle + std::numbers::pi / 2),
+                        std::sin(grav_angle + std::numbers::pi / 2)
                     };
                     // try go to left bottom and right bottom
                     float vel_angle =
@@ -857,6 +866,7 @@ void epix::world::sand::components::update_cell(
                         calculate_angle_diff(cell.velocity, grav);
                     if (std::abs(angle_diff) < std::numbers::pi / 2) {
                         glm::vec2 dirs[2];
+                        glm::vec2 idirs[2];
                         static thread_local std::random_device rd;
                         static thread_local std::mt19937 gen(rd());
                         static thread_local std::uniform_real_distribution<
@@ -864,15 +874,20 @@ void epix::world::sand::components::update_cell(
                             dis(-0.3f, 0.3f);
                         bool lb_first = dis(gen) > 0;
                         if (lb_first) {
-                            dirs[0] = lb;
-                            dirs[1] = rb;
+                            dirs[0]  = lb;
+                            dirs[1]  = rb;
+                            idirs[0] = l;
+                            idirs[1] = r;
                         } else {
-                            dirs[0] = rb;
-                            dirs[1] = lb;
+                            dirs[0]  = rb;
+                            dirs[1]  = lb;
+                            idirs[0] = r;
+                            idirs[1] = l;
                         }
-                        for (auto&& vel : dirs) {
-                            int delta_x = vel.x;
-                            int delta_y = vel.y;
+                        for (int i = 0; i < 2; i++) {
+                            auto& vel   = dirs[i];
+                            int delta_x = std::round(vel.x);
+                            int delta_y = std::round(vel.y);
                             if (delta_x == 0 && delta_y == 0) {
                                 continue;
                             }
@@ -880,9 +895,14 @@ void epix::world::sand::components::update_cell(
                             int ty = final_y + delta_y;
                             if (!sim.valid(tx, ty)) continue;
                             auto& tcell = sim.get_cell(tx, ty);
-                            if (!tcell) {
+                            if (!tcell || sim.registry()
+                                              .get_elem(tcell.elem_id)
+                                              .is_liquid()) {
                                 std::swap(*ncell, tcell);
-                                ncell   = &tcell;
+                                ncell = &tcell;
+                                ncell->velocity +=
+                                    glm::vec2(idirs[i]) *
+                                    sim.powder_slide_setting.prefix / delta;
                                 final_x = tx;
                                 final_y = ty;
                                 moved   = true;
@@ -903,6 +923,10 @@ void epix::world::sand::components::update_cell(
             sim.touch(x_ + 1, y_);
             sim.touch(x_, y_ - 1);
             sim.touch(x_, y_ + 1);
+            sim.touch(x_ - 1, y_ - 1);
+            sim.touch(x_ + 1, y_ - 1);
+            sim.touch(x_ - 1, y_ + 1);
+            sim.touch(x_ + 1, y_ + 1);
             sim.touch(final_x - 1, final_y);
             sim.touch(final_x + 1, final_y);
             sim.touch(final_x, final_y - 1);
@@ -1141,8 +1165,8 @@ void epix::world::sand::components::update_cell(
             if (sim.valid(hit_x, hit_y)) {
                 auto [tcell, telem] = sim.get(hit_x, hit_y);
                 if (telem.is_solid() || telem.is_powder() ||
-                    (telem.is_liquid() && telem.density > elem.density) ||
-                    telem == elem) {
+                    (telem.is_liquid() &&
+                     (telem.density > elem.density || telem == elem))) {
                     collided = sim.collide(
                         raycast_result.new_x, raycast_result.new_y, hit_x, hit_y
                     );
@@ -1282,7 +1306,7 @@ void epix::world::sand::components::update_cell(
                                     res_1.hit = std::nullopt;
                                 }
                             }
-                            if (dis(gen) > 0.08f &&
+                            if (res_1.hit && dis(gen) > 0.08f &&
                                 sim.valid(
                                     res_1.hit->first, res_1.hit->second
                                 ) &&
@@ -1816,6 +1840,9 @@ EPIX_API bool Simulation::collide(int x, int y, int tx, int ty) {
         cell.velocity      = new_cell_vel;
         tcell.velocity     = new_tcell_vel;
     }
+    if (!tcell.freefall) {
+        tcell.velocity = {0.0f, 0.0f};
+    }
     return true;
 }
 
@@ -1829,5 +1856,8 @@ EPIX_API void Simulation::touch(int x, int y) {
     if (!cell) return;
     auto& elem = get_elem(x, y);
     if (elem.is_solid()) return;
-    cell.freefall = true;
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 gen(rd());
+    static thread_local std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+    cell.freefall |= dis(gen) <= (elem.awake_rate * elem.awake_rate);
 }

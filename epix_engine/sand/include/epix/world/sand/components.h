@@ -24,9 +24,10 @@ struct Element {
     } grav_type = GravType::SOLID;
 
    public:
-    float density  = 0.0f;
-    float bouncing = 0.0f;
-    float friction = 0.0f;
+    float density    = 0.0f;
+    float bouncing   = 0.0f;
+    float friction   = 0.0f;
+    float awake_rate = 1.0f;
     std::string name;
     std::string description = "";
 
@@ -43,6 +44,7 @@ struct Element {
     EPIX_API Element& set_density(float density);
     EPIX_API Element& set_bouncing(float bouncing);
     EPIX_API Element& set_friction(float friction);
+    EPIX_API Element& set_awake_rate(float rate);
     EPIX_API Element& set_description(const std::string& description);
     EPIX_API Element& set_color(std::function<glm::vec4()> color_gen);
     EPIX_API Element& set_color(const glm::vec4& color);
@@ -258,9 +260,11 @@ struct Simulation {
         EPIX_API std::optional<glm::ivec2> current_chunk() const;
         EPIX_API std::optional<glm::ivec2> current_cell() const;
     } m_updating_state;
-
+    struct PowderSlideSetting {
+        bool always_slide = true;
+        float prefix      = 0.05f;
+    } powder_slide_setting;
     // settings
-    bool powder_always_slide = true;
 
     EPIX_API Cell& create_def(int x, int y, const CellDef& def);
 

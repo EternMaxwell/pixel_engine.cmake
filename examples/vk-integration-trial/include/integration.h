@@ -655,6 +655,7 @@ void create_simulation(Command command) {
             })
             .set_density(3.0f)
             .set_friction(0.3f)
+            .set_awake_rate(1.0f)
     );
     registry.register_elem(Element::liquid("water")
                                .set_color([]() {
@@ -685,6 +686,7 @@ void create_simulation(Command command) {
             })
             .set_density(0.7f)
             .set_friction(0.3f)
+            .set_awake_rate(0.6f)
     );
     registry.register_elem(
         Element::gas("smoke")

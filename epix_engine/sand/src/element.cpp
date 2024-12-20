@@ -32,6 +32,10 @@ EPIX_API Element& Element::set_friction(float friction) {
     this->friction = friction;
     return *this;
 }
+EPIX_API Element& Element::set_awake_rate(float rate) {
+    this->awake_rate = std::clamp(rate, 0.0f, 1.0f);
+    return *this;
+}
 EPIX_API Element& Element::set_description(const std::string& description) {
     this->description = description;
     return *this;
